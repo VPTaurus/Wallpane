@@ -1,10 +1,15 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
+const files = require('./lib/files');
+const { createWatchers } = require('./lib/watch');
+const formats = require('./renderer/lib/formats');
 
 const DEV = process.argv.includes('--dev');
+// The end-to-end tests run the app against a throwaway data folder.
+if (process.env.MEDIA_WALL_USER_DATA) app.setPath('userData', process.env.MEDIA_WALL_USER_DATA);
 
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
@@ -21,50 +26,19 @@ function idOf(e) {
   return 1;
 }
 
-/* ---------- media files ---------- */
-const VIDEO = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv', '.mkv']);
-const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.svg']);
-const FILTER_EXT = [...VIDEO, ...IMAGE].map((e) => e.slice(1));
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-
-function kindOfPath(p) {
-  const e = path.extname(p).toLowerCase();
-  return VIDEO.has(e) ? 'video' : IMAGE.has(e) ? 'image' : null;
+/* ---------- only our own pages may call in ---------- */
+// The caller must be one of our wall windows, from its top frame, showing a page from the app folder.
+function trusted(e) {
+  const w = winOf(e);
+  if (!w || ![...wins.values()].includes(w)) return false;
+  const f = e.senderFrame;
+  return !!f && !f.parent && /^file:/i.test(f.url);
 }
-
-// Turns files and folders into a flat list of media files. Folders are searched recursively.
-async function expand(paths) {
-  const out = [];
-  const seen = new Set();
-  let skipped = 0;
-  const dirs = [];
-  async function walk(p, depth, top) {
-    if (out.length >= 3000) return;
-    let st;
-    try { st = await fsp.stat(p); } catch { return; }
-    if (st.isDirectory()) {
-      if (top) dirs.push(p);
-      if (depth > 8) return;
-      let names;
-      try { names = await fsp.readdir(p); } catch { return; }
-      names.sort(collator.compare);
-      for (const n of names) {
-        if (n.startsWith('.')) continue;
-        await walk(path.join(p, n), depth + 1, false);
-      }
-    } else if (st.isFile()) {
-      const kind = kindOfPath(p);
-      if (!kind) { if (top) skipped++; return; }
-      const key = p.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push({ path: p, name: path.basename(p), kind });
-    }
-  }
-  for (const p of Array.isArray(paths) ? paths : []) {
-    if (typeof p === 'string' && p) await walk(p, 0, true);
-  }
-  return { entries: out, skipped, dirs };
+function handle(channel, fn) {
+  ipcMain.handle(channel, (e, ...args) => {
+    if (!trusted(e)) throw new Error('Blocked a call from an unknown page');
+    return fn(e, ...args);
+  });
 }
 
 /* ---------- stored data: small JSON files in the app's data folder ---------- */
@@ -76,39 +50,29 @@ function storeFile(name, id) {
   const own = (name === 'session' || name === 'prefs') && id > 1;
   return path.join(dataDir(), name + (own ? '-' + id : '') + '.json');
 }
-async function writeStore(name, data, id) {
-  const f = storeFile(name, id);
-  const tmp = f + '.tmp';
-  await fsp.mkdir(path.dirname(f), { recursive: true });
-  await fsp.writeFile(tmp, JSON.stringify(data));
-  await fsp.rename(tmp, f);
-}
 
-ipcMain.handle('store:get', async (_e, name) => {
-  try { return JSON.parse(await fsp.readFile(storeFile(name, idOf(_e)), 'utf8')); } catch { return null; }
+handle('store:get', async (e, name) => {
+  try { return JSON.parse(await fsp.readFile(storeFile(name, idOf(e)), 'utf8')); } catch { return null; }
 });
-ipcMain.handle('store:set', async (_e, name, data) => {
-  try { await writeStore(name, data, idOf(_e)); return true; } catch { return false; }
+handle('store:set', async (e, name, data) => {
+  try { await files.writeJsonAtomic(storeFile(name, idOf(e)), data); return true; } catch { return false; }
 });
+// Used while the window closes, when there is no time to wait for an answer.
 ipcMain.on('store:setSync', (e, name, data) => {
-  try {
-    const f = storeFile(name, idOf(e));
-    fs.mkdirSync(path.dirname(f), { recursive: true });
-    fs.writeFileSync(f, JSON.stringify(data));
-    e.returnValue = true;
-  } catch { e.returnValue = false; }
+  if (!trusted(e)) { e.returnValue = false; return; }
+  try { files.writeJsonAtomicSync(storeFile(name, idOf(e)), data); e.returnValue = true; } catch { e.returnValue = false; }
 });
-ipcMain.handle('store:info', () => ({ dir: dataDir(), presets: storeFile('presets') }));
-ipcMain.handle('store:reveal', () => {
+handle('store:info', () => ({ dir: dataDir(), presets: storeFile('presets') }));
+handle('store:reveal', () => {
   const f = storeFile('presets');
   if (fs.existsSync(f)) shell.showItemInFolder(f); else shell.openPath(dataDir());
   return true;
 });
 
 /* ---------- files and dialogs ---------- */
-ipcMain.handle('fs:expand', (_e, paths) => expand(paths));
-ipcMain.handle('fs:exists', (_e, paths) => (Array.isArray(paths) ? paths : []).map((p) => typeof p === 'string' && fs.existsSync(p)));
-ipcMain.handle('fs:resolveNames', (_e, dir, names) => {
+handle('fs:expand', (_e, paths) => files.expand(paths));   // no options from the page
+handle('fs:exists', (_e, paths) => (Array.isArray(paths) ? paths : []).map((p) => typeof p === 'string' && fs.existsSync(p)));
+handle('fs:resolveNames', (_e, dir, names) => {
   const found = {};
   if (typeof dir !== 'string') return found;
   for (const n of Array.isArray(names) ? names : []) {
@@ -118,66 +82,47 @@ ipcMain.handle('fs:resolveNames', (_e, dir, names) => {
   }
   return found;
 });
-// Length of one full play of an animated GIF, in seconds (0 if it is not animated or cannot be read).
-function gifSeconds(buf) {
-  try {
-    if (buf.length < 14 || buf.toString('latin1', 0, 3) !== 'GIF') return 0;
-    let p = 13;
-    if (buf[10] & 0x80) p += 3 * (1 << ((buf[10] & 7) + 1));
-    let total = 0, frames = 0, delay = 10;
-    while (p < buf.length) {
-      const b = buf[p++];
-      if (b === 0x3b) break;
-      if (b === 0x21) {
-        const label = buf[p++];
-        if (label === 0xf9 && buf[p] >= 4) { delay = buf.readUInt16LE(p + 2); if (delay < 2) delay = 10; }
-        while (p < buf.length && buf[p] !== 0) p += buf[p] + 1;
-        p++;
-      } else if (b === 0x2c) {
-        const packed = buf[p + 8];
-        p += 9;
-        if (packed & 0x80) p += 3 * (1 << ((packed & 7) + 1));
-        p++; // LZW minimum code size
-        while (p < buf.length && buf[p] !== 0) p += buf[p] + 1;
-        p++;
-        total += delay; frames++; delay = 10;
-      } else break;
-    }
-    return frames > 1 ? total / 100 : 0;
-  } catch { return 0; }
-}
-ipcMain.handle('fs:gifDuration', async (_e, p) => {
+handle('fs:gifDuration', async (_e, p) => {
   try {
     if (typeof p !== 'string' || path.extname(p).toLowerCase() !== '.gif') return 0;
     const st = await fsp.stat(p);
     if (st.size > 60 * 1024 * 1024) return 0;
-    return gifSeconds(await fsp.readFile(p));
+    return files.gifSeconds(await fsp.readFile(p));
   } catch { return 0; }
 });
-ipcMain.handle('shell:reveal', (_e, p) => {
+handle('shell:reveal', (_e, p) => {
   if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p);
   return true;
 });
 
-ipcMain.handle('dialog:files', async (_e, multiple) => {
-  const r = await dialog.showOpenDialog(winOf(_e), {
+// Playlist folders: each window says which ones it plays, and hears when one of them changes.
+const watchers = createWatchers({
+  notify(owner, root) {
+    const w = wins.get(owner);
+    if (w && !w.isDestroyed()) w.webContents.send('fs:changed', root);
+  }
+});
+handle('fs:watch', (e, roots) => watchers.set(idOf(e), roots));
+
+handle('dialog:files', async (e, multiple) => {
+  const r = await dialog.showOpenDialog(winOf(e), {
     title: 'Add media',
     properties: multiple ? ['openFile', 'multiSelections'] : ['openFile'],
     filters: [
-      { name: 'Videos, images and GIFs', extensions: FILTER_EXT },
+      { name: 'Videos, images and GIFs', extensions: formats.VIDEO.concat(formats.IMAGE) },
       { name: 'All files', extensions: ['*'] }
     ]
   });
   if (r.canceled) return { entries: [], skipped: 0 };
-  return expand(r.filePaths);
+  return files.expand(r.filePaths);
 });
-ipcMain.handle('dialog:folder', async (_e) => {
-  const r = await dialog.showOpenDialog(winOf(_e), { title: 'Add a folder of media', properties: ['openDirectory'] });
-  if (r.canceled) return { entries: [], skipped: 0 };
-  return Object.assign(await expand(r.filePaths), { root: r.filePaths[0] });
+handle('dialog:folder', async (e) => {
+  const r = await dialog.showOpenDialog(winOf(e), { title: 'Add a folder of media', properties: ['openDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return { entries: [], skipped: 0 };
+  return Object.assign(await files.expand(r.filePaths), { root: r.filePaths[0] });
 });
-ipcMain.handle('dialog:export', async (_e, text) => {
-  const r = await dialog.showSaveDialog(winOf(_e), {
+handle('dialog:export', async (e, text) => {
+  const r = await dialog.showSaveDialog(winOf(e), {
     title: 'Export presets and layouts',
     defaultPath: 'media-wall-presets.json',
     filters: [{ name: 'Media Wall presets', extensions: ['json'] }]
@@ -186,8 +131,8 @@ ipcMain.handle('dialog:export', async (_e, text) => {
   await fsp.writeFile(r.filePath, String(text), 'utf8');
   return r.filePath;
 });
-ipcMain.handle('dialog:import', async (_e) => {
-  const r = await dialog.showOpenDialog(winOf(_e), {
+handle('dialog:import', async (e) => {
+  const r = await dialog.showOpenDialog(winOf(e), {
     title: 'Import presets and layouts',
     properties: ['openFile'],
     filters: [{ name: 'Media Wall presets', extensions: ['json'] }]
@@ -198,15 +143,15 @@ ipcMain.handle('dialog:import', async (_e) => {
 });
 
 /* ---------- window ---------- */
-ipcMain.handle('win:displays', () => {
+handle('win:displays', () => {
   const primary = screen.getPrimaryDisplay().id;
   return screen.getAllDisplays().map((d, i) => ({
     id: d.id,
     label: 'Display ' + (i + 1) + ' · ' + d.size.width + '×' + d.size.height + (d.id === primary ? ' (main)' : '')
   }));
 });
-ipcMain.handle('win:fullscreen', (_e, on, displayId) => {
-  const win = winOf(_e);
+handle('win:fullscreen', (e, on, displayId) => {
+  const win = winOf(e);
   if (!win) return false;
   if (on) {
     const d = displayId == null ? null : screen.getAllDisplays().find((x) => x.id === displayId);
@@ -221,9 +166,41 @@ ipcMain.handle('win:fullscreen', (_e, on, displayId) => {
   }
   return win.isFullScreen();
 });
-ipcMain.handle('win:isFullscreen', (_e) => { const w = winOf(_e); return w ? w.isFullScreen() : false; });
-ipcMain.handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
-ipcMain.handle('win:new', (e) => {
+handle('win:isFullscreen', (e) => { const w = winOf(e); return w ? w.isFullScreen() : false; });
+handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
+
+// Keep the display from sleeping while a window that asked for it is full screen (wall mode).
+const awake = new Map();   // window id -> { want, blocker }
+function updateAwake(id) {
+  const a = awake.get(id) || { want: false, blocker: null };
+  const w = wins.get(id);
+  const on = a.want && !!w && !w.isDestroyed() && w.isFullScreen();
+  if (on && a.blocker === null) a.blocker = powerSaveBlocker.start('prevent-display-sleep');
+  else if (!on && a.blocker !== null) { powerSaveBlocker.stop(a.blocker); a.blocker = null; }
+  awake.set(id, a);
+}
+handle('win:keepAwake', (e, on) => {
+  const id = idOf(e);
+  awake.set(id, Object.assign(awake.get(id) || { blocker: null }, { want: !!on }));
+  updateAwake(id);
+  return true;
+});
+
+// Starting with Windows. The portable build runs from a temporary copy, so register the .exe the user started.
+function loginOpts() { return { path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath, args: [] }; }
+function loginSupported() { return app.isPackaged && process.platform === 'win32'; }
+handle('app:loginItem', () => ({
+  supported: loginSupported(),
+  on: loginSupported() ? app.getLoginItemSettings(loginOpts()).openAtLogin : false
+}));
+handle('app:setLoginItem', (_e, on) => {
+  if (!loginSupported()) return { ok: false, on: false };
+  app.setLoginItemSettings(Object.assign({ openAtLogin: !!on }, loginOpts()));
+  const now = app.getLoginItemSettings(loginOpts()).openAtLogin;
+  return { ok: now === !!on, on: now };
+});
+
+handle('win:new', (e) => {
   if (wins.size >= MAX_WINS) return { error: 'You can have up to ' + MAX_WINS + ' wall windows.' };
   let id = 1;
   while (wins.has(id)) id++;
@@ -261,7 +238,7 @@ function loadState() {
   } catch { return { wins: {}, open: [1] }; }
 }
 function saveState() {
-  try { fs.writeFileSync(stateFile(), JSON.stringify(state)); } catch { /* not critical */ }
+  try { files.writeJsonAtomicSync(stateFile(), state); } catch { /* not critical */ }
 }
 function boundsVisible(b) {
   return screen.getAllDisplays().some((d) => {
@@ -308,9 +285,15 @@ function createWindow(id, given) {
     if (!quitting && wins.size > 1) state.open = state.open.filter((n) => n !== id);
     saveState();
   });
-  win.on('closed', () => { wins.delete(id); });
-  win.on('enter-full-screen', () => { if (!win.isDestroyed()) win.webContents.send('win:fullscreen-changed', true); });
-  win.on('leave-full-screen', () => { if (!win.isDestroyed()) win.webContents.send('win:fullscreen-changed', false); });
+  win.on('closed', () => {
+    wins.delete(id);
+    watchers.dropOwner(id);
+    const a = awake.get(id);
+    if (a && a.blocker !== null) powerSaveBlocker.stop(a.blocker);
+    awake.delete(id);
+  });
+  win.on('enter-full-screen', () => { updateAwake(id); if (!win.isDestroyed()) win.webContents.send('win:fullscreen-changed', true); });
+  win.on('leave-full-screen', () => { updateAwake(id); if (!win.isDestroyed()) win.webContents.send('win:fullscreen-changed', false); });
 
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -343,6 +326,6 @@ if (!app.requestSingleInstanceLock()) {
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
   });
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => { quitting = true; watchers.closeAll(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

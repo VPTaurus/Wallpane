@@ -107,7 +107,19 @@
             <button class="btn warn" id="plStop" type="button" hidden>Stop playlist</button>
           </div>
           <p class="note" id="plStatus"></p>
-          <p class="note">Pick a folder and it fills the empty cells of the wall, one file per tile, as many as the folder has files. Add rows or columns and the new cells fill with it too. You can also drop a folder on the wall to fill it, or on one tile to give just that tile the folder (Own folder in the side panel does the same). When a clip ends, or an image has been shown long enough, the tile takes the next file. Max clip seconds cuts long videos short (0 plays them fully), and a random start picks a different point each time. The folder is checked every 15 seconds and new files join the queue. The skip button on a tile skips it, and the pin keeps it.</p>
+          <p class="note">Pick a folder and it fills the empty cells of the wall, one file per tile, as many as the folder has files. Add rows or columns and the new cells fill with it too. You can also drop a folder on the wall to fill it, or on one tile to give just that tile the folder (Own folder in the side panel does the same). When a clip ends, or an image has been shown long enough, the tile takes the next file. Max clip seconds cuts long videos short (0 plays them fully), and a random start picks a different point each time. New files in the folder join the queue as they appear. The skip button on a tile skips it, and the pin keeps it.</p>
+        </div>
+      </div>
+
+      <div class="popwrap">
+        <button class="btn" id="settingsBtn" aria-expanded="false" aria-controls="popS">Settings</button>
+        <div class="pop" id="popS" hidden>
+          <span class="lab">Wall mode and startup</span>
+          <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
+          <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
+          <label class="check"><input type="checkbox" id="setLogin"> Start Media Wall when I sign in to Windows</label>
+          <p class="note" id="loginNote"></p>
+          <p class="note">For a wall that runs on its own: pick the Wall display, turn on the first and last option, and the wall comes back full screen after a restart. Esc or F11 leaves wall mode.</p>
         </div>
       </div>
 
@@ -133,6 +145,21 @@
 
 <button class="btn exit" id="exitBtn">Exit wall mode</button>
 <div class="toast" id="toast" role="status"></div>
-<script src="app.js"></script>
+<!-- Plain logic first (also tested in Node), then the page, then startup. -->
+<script src="lib/formats.js"></script>
+<script src="lib/util.js"></script>
+<script src="lib/geometry.js"></script>
+<script src="lib/freegeo.js"></script>
+<script src="lib/fit.js"></script>
+<script src="lib/playlist.js"></script>
+<script src="lib/records.js"></script>
+<script src="ui/core.js"></script>
+<script src="ui/tiles.js"></script>
+<script src="ui/inspector.js"></script>
+<script src="ui/media.js"></script>
+<script src="ui/playlists.js"></script>
+<script src="ui/presets.js"></script>
+<script src="ui/controls.js"></script>
+<script src="ui/boot.js"></script>
 </body>
 </html>

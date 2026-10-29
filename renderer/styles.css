@@ -45,6 +45,7 @@ body {
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
 
 .app { display: flex; flex-direction: column; gap: 12px; height: 100%; }
 
@@ -96,6 +97,11 @@ input[type="range"] { width: 110px; accent-color: var(--accent); height: 34px; m
 }
 .wall.ratio { width: min(100cqw, calc(100cqh * var(--ratio, 1.78))); height: auto; aspect-ratio: var(--ratio, 1.78); }
 .wall.hot { outline: 2px dashed var(--accent); outline-offset: -3px; }
+/* Free layout: tiles are placed by the pixel instead of on the grid. */
+.wall.free { display: block; position: relative; padding: 0; }
+.wall.free .tile { position: absolute; cursor: grab; touch-action: none; }
+.wall.free .tile.dragging { cursor: grabbing; opacity: 1; z-index: 5; }
+.wall.free .ghost { position: absolute; }
 @media (max-width: 899px) {
   body { overflow: auto; }
   .app { height: auto; min-height: 100%; }
@@ -118,7 +124,8 @@ input[type="range"] { width: 110px; accent-color: var(--accent); height: 34px; m
   outline: 2px solid transparent; outline-offset: -2px;
   cursor: grab; user-select: none; -webkit-user-select: none;
 }
-.tile.sel { outline-color: var(--accent); }
+.tile.sel, .tile.pinned { outline-color: var(--accent); }
+.tile:focus-visible { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .tile.dragging { opacity: 0.4; }
 .tile .media { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .tile .fail { position: absolute; inset: 0; display: none; place-items: center; text-align: center; padding: 12px; color: #c9d0db; background: #14181f; font: 12px/1.4 var(--mono); }
@@ -187,6 +194,7 @@ input[type="range"] { width: 110px; accent-color: var(--accent); height: 34px; m
   padding: 14px; display: flex; flex-direction: column; gap: 16px;
 }
 @media (max-width: 899px) { .inspector { width: 100%; } }
+body.no-panel .inspector { display: none; }
 .ins-name { font: 700 15px/1.25 var(--ui); overflow-wrap: anywhere; }
 .ins-kind { font: 400 11px var(--mono); color: var(--muted); margin-top: 3px; }
 .ins-path { font: 400 11px/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; user-select: text; }
@@ -205,7 +213,7 @@ input[type="range"] { width: 110px; accent-color: var(--accent); height: 34px; m
 .tips li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 6px; height: 6px; border-radius: 1px; background: var(--accent); }
 .note { font: 400 11px/1.5 var(--mono); color: var(--muted); margin: 0; user-select: text; overflow-wrap: anywhere; }
 
-/* ---------- popovers (presets, layouts) ---------- */
+/* ---------- popovers (add folder, presets, layouts, playlist, settings) ---------- */
 .popwrap { position: relative; }
 .pop {
   position: fixed; left: 0; top: 0; z-index: 40;
@@ -230,6 +238,11 @@ input[type="range"] { width: 110px; accent-color: var(--accent); height: 34px; m
 .lthumb { display: grid; gap: 2px; height: 44px; }
 .lthumb i { background: var(--accent); opacity: 0.85; border-radius: 2px; }
 .lname { font: 500 11px/1.2 var(--mono); overflow-wrap: anywhere; }
+.plgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fld select { width: 100%; max-width: none; }
+.check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex: none; }
+.check:has(input:disabled) { opacity: 0.55; cursor: default; }
 
 /* ---------- wall mode ---------- */
 .exit { display: none; }
@@ -243,6 +256,11 @@ body.clean .exit {
   opacity: 0.35; transition: opacity 0.2s;
 }
 body.clean .exit:hover, body.clean .exit:focus-visible { opacity: 1; }
+body.no-panel .tile.sel, body.clean .tile.sel { outline-color: transparent; }
+body.no-panel .tile.pinned, body.clean .tile.pinned { outline-color: var(--accent); }
+/* After a few idle seconds the cursor, tile buttons and exit button disappear. */
+body.clean.idle, body.clean.idle * { cursor: none !important; }
+body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit { opacity: 0 !important; }
 
 .toast {
   position: fixed; z-index: 50; left: 50%; transform: translate(-50%, 12px);
@@ -253,28 +271,3 @@ body.clean .exit:hover, body.clean .exit:focus-visible { opacity: 1; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-
-.plgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 8px 0 12px; }
-.fld select { width: 100%; max-width: none; }
-
-[hidden] { display: none !important; }
-
-body.no-panel .inspector { display: none; }
-
-.tile.pinned { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-body.no-panel .tile.sel, body.clean .tile.sel { outline-color: transparent; }
-body.clean.idle, body.clean.idle * { cursor: none !important; }
-body.clean.idle .hud, body.clean.idle .rz { opacity: 0 !important; }
-body.clean.idle .exit { opacity: 0 !important; }
-
-.plgrid + .plgrid { grid-template-columns: 1fr 1fr; margin-top: 0; }
-
-.plgrid + .plgrid { grid-template-columns: 1fr 1fr 1fr; }
-
-.plgrid.two { grid-template-columns: 1fr 1fr; }
-
-.wall.free { display: block; position: relative; padding: 0; }
-.wall.free .tile { position: absolute; cursor: grab; touch-action: none; }
-.wall.free .tile.dragging { cursor: grabbing; opacity: 1; z-index: 5; }
-.wall.free .ghost { position: absolute; }
