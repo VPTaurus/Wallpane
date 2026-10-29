@@ -53,7 +53,8 @@
     undo: svg('<path d="M5.5 3.5L2.5 6.5l3 3M2.5 6.5H10a3.5 3.5 0 0 1 0 7H7"/>'),
     redo: svg('<path d="M10.5 3.5l3 3-3 3M13.5 6.5H6a3.5 3.5 0 0 0 0 7h3"/>'),
     bookmark: svg('<path d="M4 2h8v12l-4-3-4 3z"/>'),
-    gear: svg('<path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>'),
+    // A cog: a ring with eight square teeth (thin round rays would read as a sun).
+    gear: svg('<circle cx="8" cy="8" r="4.3"/><circle cx="8" cy="8" r="1.7"/><path stroke-width="2.6" stroke-linecap="butt" d="M12.3 8h2.4M11.04 11.04l1.7 1.7M8 12.3v2.4M4.96 11.04l-1.7 1.7M3.7 8H1.3M4.96 4.96l-1.7-1.7M8 3.7V1.3M11.04 4.96l1.7-1.7"/>'),
     panel: svg('<path d="M2 3h12v10H2zM10 3v10"/>'),
     tv: svg('<path d="M1.5 3h13v8.5h-13zM5 14.5h6M8 11.5v3"/>'),
     window: svg('<path d="M1.5 5.5h9v8h-9zM4.5 5.5V2.5h10v8h-4"/>'),
