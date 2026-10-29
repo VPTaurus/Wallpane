@@ -445,6 +445,18 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   // A recorded WebM doesn't say how long it is; the app finds out by itself.
   await expect.poll(() => video.evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(2);
   await expect(tile.locator('.vbar .vseek')).toBeAttached();
+  // With the control bar showing, the bottom edge still resizes; the bar's controls and the buttons on top keep clear
+  // of the resize grips.
+  const tb = await tile.boundingBox();
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  const hit = (x, y) => page.evaluate(([px, py]) => {
+    const e = document.elementFromPoint(px, py), rz = e && e.closest('.rz');
+    return rz ? 'grip ' + rz.dataset.edge : e && e.closest('.vbar') ? 'bar' : e && e.closest('.hb') ? 'button' : 'other';
+  }, [x, y]);
+  expect(await hit(tb.x + tb.width / 2, tb.y + tb.height - 4)).toBe('grip s');
+  expect(await hit(tb.x + tb.width / 2, tb.y + tb.height - 26)).toBe('bar');
+  expect(await hit(tb.x + 32, tb.y + tb.height - 26)).toBe('bar');           // the play button, near the corner
+  expect(await hit(tb.x + tb.width - 32, tb.y + 14)).toBe('button');        // Remove, on top
   // From the right-click menu (on a narrow tile, a click near its top may land on one of the tile's buttons).
   await tile.click({ button: 'right' });
   await menuItem('Loop a part').click();                      // opens Properties at Playback
