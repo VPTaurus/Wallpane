@@ -10,72 +10,76 @@
 </head>
 <body>
 <div class="app">
+  <!-- The bar, left to right: add media | shape the wall | playback | undo | (right) saved walls, playlist, panel, settings, wall mode.
+       Icons are filled in from data-icon by ui/core.js. -->
   <header class="bar">
     <div class="brand">
       <h1>Media Wall</h1>
       <span class="readout" id="readout">4 × 3</span>
     </div>
 
-    <div class="ctl"><span class="lab">Columns</span>
-      <div class="step"><button id="colsDec" aria-label="Fewer columns">−</button><input id="cols" type="number" min="1" max="12" inputmode="numeric" aria-label="Columns"><button id="colsInc" aria-label="More columns">+</button></div>
-    </div>
-    <div class="ctl"><span class="lab">Rows</span>
-      <div class="step"><button id="rowsDec" aria-label="Fewer rows">−</button><input id="rows" type="number" min="1" max="12" inputmode="numeric" aria-label="Rows"><button id="rowsInc" aria-label="More rows">+</button></div>
-    </div>
-    <div class="ctl"><label class="lab" for="gap">Gap</label>
-      <div class="row" style="gap:4px"><input id="gap" type="range" min="0" max="24" step="1"><span class="gapval" id="gapval">6 px</span></div>
-    </div>
-    <div class="ctl"><label class="lab" for="modeSel">Layout</label>
-      <select id="modeSel"><option value="grid">Grid</option><option value="free">Free</option></select>
-    </div>
-    <div class="ctl"><label class="lab" for="aspect">Cell shape</label>
-      <select id="aspect"><option value="fill">Fill window</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">Square</option><option value="9:16">9:16 portrait</option></select>
-    </div>
-    <div class="ctl"><label class="lab" for="fit">Media fit</label>
-      <select id="fit"><option value="cover">Fill cell</option><option value="contain">Show whole frame</option></select>
-    </div>
-    <div class="ctl"><label class="lab" for="display">Wall display</label>
-      <select id="display"><option value="">Current display</option></select>
-    </div>
-
-    <span class="sp"></span>
-    <div class="row">
-      <button class="btn pri" id="addBtn"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>Add files</button>
+    <div class="grp">
       <div class="popwrap">
-        <button class="btn" id="folderBtn" aria-expanded="false" aria-controls="popF">Add folder</button>
-        <div class="pop" id="popF" hidden>
-          <span class="lab">Add a folder</span>
-          <div class="row">
-            <button class="btn pri" id="folderPl" type="button">As a playlist</button>
-            <button class="btn" id="folderTiles" type="button">One tile per file</button>
-          </div>
-          <p class="note">A playlist fills the empty cells and keeps rotating through the folder, using the options in the Playlist panel. One tile per file puts each file on its own tile, and anything that does not fit becomes a playlist.</p>
+        <button class="btn pri" id="addBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popAdd"><span data-icon="plus"></span>Add<span data-icon="chev"></span></button>
+        <div class="pop menu" id="popAdd" hidden>
+          <button class="mi" id="addFiles" type="button"><span data-icon="file"></span><span><b>Files…</b><small>Videos, images and GIFs</small></span></button>
+          <button class="mi" id="folderTiles" type="button"><span data-icon="folder"></span><span><b>Folder, a tile per file…</b><small>Files that do not fit play in turn</small></span></button>
+          <button class="mi" id="folderPl" type="button"><span data-icon="playlist"></span><span><b>Folder as a playlist…</b><small>Fills the empty cells and keeps rotating</small></span></button>
+          <p class="note">You can also drop files and folders from Explorer onto the wall.</p>
         </div>
       </div>
+    </div>
 
+    <div class="grp">
       <div class="popwrap">
-        <button class="btn" id="presetBtn" aria-expanded="false" aria-controls="pop">Presets</button>
-        <div class="pop" id="pop" hidden>
-          <span class="lab">Wall presets</span>
-          <form class="save" id="saveForm">
-            <input id="presetName" type="text" maxlength="48" placeholder="Name this wall" autocomplete="off" aria-label="Preset name">
-            <button class="btn pri" id="saveBtn" type="submit">Save</button>
-          </form>
-          <div class="plist" id="plist"></div>
-          <div class="row">
-            <button class="btn" id="exportBtn" type="button">Export…</button>
-            <button class="btn" id="importBtn" type="button">Import…</button>
-            <button class="btn" id="revealBtn" type="button">Show file</button>
+        <button class="btn" id="gridBtn" type="button" aria-expanded="false" aria-controls="popGrid" title="Grid size, gap and cell shape"><span data-icon="grid"></span><span id="gridLabel">4 × 3</span><span data-icon="chev"></span></button>
+        <div class="pop" id="popGrid" hidden>
+          <span class="lab">Wall</span>
+          <div class="frow"><span id="colsLab">Columns</span>
+            <div class="step"><button type="button" id="colsDec" aria-label="Fewer columns">−</button><input id="cols" type="number" min="1" max="12" inputmode="numeric" aria-labelledby="colsLab"><button type="button" id="colsInc" aria-label="More columns">+</button></div>
           </div>
-          <p class="note">A preset keeps the grid, each tile's position and settings, and the path of each file. The files stay where they are. If a file has moved, its tile shows "File not found" and you can locate it.</p>
-          <p class="note" id="storeNote"></p>
+          <div class="frow"><span id="rowsLab">Rows</span>
+            <div class="step"><button type="button" id="rowsDec" aria-label="Fewer rows">−</button><input id="rows" type="number" min="1" max="12" inputmode="numeric" aria-labelledby="rowsLab"><button type="button" id="rowsInc" aria-label="More rows">+</button></div>
+          </div>
+          <div class="frow"><label for="gap">Gap</label>
+            <div class="row"><input id="gap" type="range" min="0" max="24" step="1"><span class="gapval" id="gapval">6 px</span></div>
+          </div>
+          <div class="frow"><label for="aspect">Cell shape</label>
+            <select id="aspect"><option value="fill">Fill the window</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">Square</option><option value="9:16">9:16 portrait</option></select>
+          </div>
+          <div class="frow"><label for="fit">New tiles show</label>
+            <select id="fit"><option value="cover">Fill the cell</option><option value="contain">The whole frame</option></select>
+          </div>
+          <p class="note" id="gridNote" hidden>Columns and rows apply when tiles snap to the grid.</p>
         </div>
       </div>
-
+      <div class="seg modeseg" id="modeSeg" role="group" aria-label="How tiles are placed">
+        <button type="button" data-mode="grid" aria-pressed="true" title="Tiles snap to whole cells of the grid">Snap to grid</button>
+        <button type="button" data-mode="free" aria-pressed="false" title="Place and size every tile by the pixel">Free (pixels)</button>
+      </div>
       <div class="popwrap">
-        <button class="btn" title="Move the current tiles into saved frames, in reading order" id="layoutBtn" aria-expanded="false" aria-controls="popL">Layouts</button>
+        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr"><span data-icon="wand"></span>Arrange<span data-icon="chev"></span></button>
+        <div class="pop menu" id="popArr" hidden>
+          <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles so their media fills them</small></span></button>
+          <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Auto-arrange</b><small id="arrangeHint">Pack all tiles from the top left</small></span></button>
+          <button class="mi" id="rowsBtn" type="button"><span data-icon="rows"></span><span><b>Rows and columns…</b><small>A different number of tiles in each row</small></span></button>
+          <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Frame layouts…</b><small id="layoutHint">Move the tiles into ready-made frames</small></span></button>
+        </div>
+        <div class="pop" id="popB" hidden>
+          <span class="lab">Rows and columns</span>
+          <div class="seg" id="bDir" role="group" aria-label="Build the wall from">
+            <button type="button" data-dir="rows" aria-pressed="true">Rows</button>
+            <button type="button" data-dir="cols" aria-pressed="false">Columns</button>
+          </div>
+          <div class="blines" id="bLines"></div>
+          <div class="row"><button class="btn" id="bAdd" type="button"><span data-icon="plus"></span><span id="bAddLbl">Add a row</span></button></div>
+          <div class="bprev" id="bPrev" aria-hidden="true"></div>
+          <p class="note" id="bNote"></p>
+          <button class="btn pri" id="bApply" type="button">Apply to the wall</button>
+          <p class="note">Your tiles move into the new frames in reading order; frames left over become empty tiles, ready for media or a playlist.</p>
+        </div>
         <div class="pop" id="popL" hidden>
-          <span class="lab">Layouts</span>
+          <span class="lab">Frame layouts</span>
           <div class="lgrid" id="lgrid"></div>
           <span class="lab">Your layouts</span>
           <div class="plist" id="ulist"></div>
@@ -86,20 +90,53 @@
           <p class="note">A layout moves your current tiles into new frames, keeping their order from left to right and top to bottom. It does not change which media you have.</p>
         </div>
       </div>
+    </div>
+
+    <div class="grp">
+      <button class="btn ib" id="playAll" type="button" aria-label="Pause all"></button>
+      <button class="btn ib" id="muteAll" type="button" aria-label="Unmute all"></button>
+      <button class="btn ib" id="loopAll" type="button" aria-label="Loop all videos"></button>
+    </div>
+    <div class="grp">
+      <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
+      <button class="btn ib" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
+    </div>
+
+    <span class="sp"></span>
+
+    <div class="grp">
+      <div class="popwrap">
+        <button class="btn" id="presetBtn" type="button" aria-expanded="false" aria-controls="pop" title="Save this wall, or load a saved one"><span data-icon="bookmark"></span><span class="lbl">Saved walls</span></button>
+        <div class="pop" id="pop" hidden>
+          <span class="lab">Saved walls</span>
+          <form class="save" id="saveForm">
+            <input id="presetName" type="text" maxlength="48" placeholder="Name this wall" autocomplete="off" aria-label="Name for this wall">
+            <button class="btn pri" id="saveBtn" type="submit">Save</button>
+          </form>
+          <div class="plist" id="plist"></div>
+          <div class="row">
+            <button class="btn" id="exportBtn" type="button">Export…</button>
+            <button class="btn" id="importBtn" type="button">Import…</button>
+            <button class="btn" id="revealBtn" type="button">Show file</button>
+          </div>
+          <p class="note">A saved wall keeps the grid, each tile's place and settings, and the path of each file. The files stay where they are. If a file has moved, its tile shows "File not found" and you can locate it.</p>
+          <p class="note" id="storeNote"></p>
+        </div>
+      </div>
 
       <div class="popwrap">
-        <button class="btn" id="playlistBtn" aria-expanded="false" aria-controls="popP">Playlist</button>
+        <button class="btn" id="playlistBtn" type="button" aria-expanded="false" aria-controls="popP" title="Folder playlist options"><span data-icon="playlist"></span><span class="lbl">Playlist</span></button>
         <div class="pop" id="popP" hidden>
           <span class="lab">Folder playlist</span>
+          <p class="note">These options are for new playlists. To change one that is already playing, right-click one of its tiles and choose Playlist settings.</p>
           <div class="plgrid">
-                        <label class="fld"><span>Order</span><select id="plOrder"><option value="name">Name order</option><option value="shuffle">Shuffle</option></select></label>
+            <label class="fld"><span>Order</span><select id="plOrder"><option value="name">Name order</option><option value="shuffle">Shuffle</option></select></label>
             <label class="fld"><span>Image seconds</span><input id="plSecs" type="number" min="2" max="300" value="10" inputmode="numeric"></label>
-          </div>
-          <div class="plgrid">
             <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image seconds</option><option value="once">One full play</option></select></label>
             <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">At the beginning</option><option value="random">At a random point</option></select></label>
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
             <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
+            <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
           </div>
           <div class="row">
             <button class="btn pri" id="plStart" type="button">Choose folder</button>
@@ -107,32 +144,88 @@
             <button class="btn warn" id="plStop" type="button" hidden>Stop playlist</button>
           </div>
           <p class="note" id="plStatus"></p>
-          <p class="note">Pick a folder and it fills the empty cells of the wall, one file per tile, as many as the folder has files. Add rows or columns and the new cells fill with it too. You can also drop a folder on the wall to fill it, or on one tile to give just that tile the folder (Own folder in the side panel does the same). When a clip ends, or an image has been shown long enough, the tile takes the next file. Max clip seconds cuts long videos short (0 plays them fully), and a random start picks a different point each time. The folder is checked every 15 seconds and new files join the queue. The skip button on a tile skips it, and the pin keeps it.</p>
+          <p class="note">A folder playlist fills the empty cells, one file per tile. When a clip ends, or an image has been shown long enough, the tile takes the next file. Cells you add later fill too, and new files in the folder join the queue. Drop a folder on one tile (or use Own folder in the side panel) to give just that tile the folder. On a tile, the skip button moves on and the pin keeps the current file.</p>
         </div>
       </div>
 
-      <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>Undo</button>
-      <button class="btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>Redo</button>
-      <button class="btn" id="arrangeBtn" title="Pack all tiles from the top left, in reading order">Auto-arrange</button>
-      <button class="btn" id="fitMediaBtn" title="Resize and rearrange tiles so each media fills its tile with as few bars as possible">Fit to media</button>
-      <button class="btn" id="playAll">Pause all</button>
-      <button class="btn" id="muteAll">Unmute all</button>
-      <button class="btn" id="loopAll">Loop: on</button>
-      <button class="btn" id="panelBtn" title="Hide or show the side panel (Ctrl+B)" aria-pressed="false">Hide panel</button>
-      <button class="btn" id="newWinBtn" title="Open another wall window, for example for a second monitor">New window</button>
-      <button class="btn" id="cleanBtn" title="Hide the controls and fill the screen (F11)">Wall mode</button>
-      <button class="btn" id="clearBtn">Clear wall</button>
+      <div class="popwrap">
+        <button class="btn ib" id="helpBtn" type="button" aria-label="Help and keys" title="Help and keys" aria-expanded="false" aria-controls="popH"><span data-icon="help"></span></button>
+        <div class="pop" id="popH" hidden>
+          <span class="lab">Getting started</span>
+          <ul class="tips">
+            <li>Add media with the Add button, or drop files and folders from Explorer. Drop on a tile to replace it.</li>
+            <li>Drag a tile to move it; tiles in the way make room. Drag any border or corner to resize.</li>
+            <li>Right-click a tile for everything you can do with it, including Properties (exact position and size). Right-click empty wall to add media or a new empty tile there.</li>
+            <li>For sizes in between cells, switch to Free (pixels). Shift keeps a tile's shape while you resize it.</li>
+            <li>Scroll over the selected tile to zoom its media; Reposition and zoom lets you drag the media inside the tile.</li>
+            <li>Wall mode shows only the wall, on the display you pick in Settings.</li>
+          </ul>
+          <span class="lab">Keys</span>
+          <dl class="keys">
+            <dt><kbd>Tab</kbd></dt><dd>Select the next tile</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move (Free: 1 px, with Ctrl 10)</dd>
+            <dt><kbd>Shift</kbd> + arrows</dt><dd>Resize</dd>
+            <dt><kbd>Alt</kbd> <kbd>Enter</kbd></dt><dd>Properties of the selected tile</dd>
+            <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
+            <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
+            <dt>Double-click</dt><dd>One tile full screen</dd>
+          </dl>
+          <p class="note">Sample tiles disappear when you add your own media. The wall you leave open comes back next time.</p>
+        </div>
+      </div>
+
+      <div class="popwrap">
+        <button class="btn ib" id="settingsBtn" type="button" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="popS"><span data-icon="gear"></span></button>
+        <div class="pop" id="popS" hidden>
+          <span class="lab">Wall mode</span>
+          <div class="frow"><label for="display">Show on</label><select id="display"><option value="">This window's display</option></select></div>
+          <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
+          <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
+          <span class="lab">Startup</span>
+          <label class="check"><input type="checkbox" id="setLogin"> Start Media Wall when I sign in to Windows</label>
+          <p class="note" id="loginNote"></p>
+          <p class="note">For a wall that runs on its own, turn on both start options: the wall comes back full screen after a restart. Esc or F11 leaves wall mode.</p>
+          <span class="lab">Windows</span>
+          <button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button>
+          <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
+          <hr class="div">
+          <button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button>
+        </div>
+      </div>
+
+      <button class="btn wallbtn" id="cleanBtn" type="button" title="Hide the controls and fill the screen (F11)"><span data-icon="tv"></span>Wall mode</button>
     </div>
   </header>
 
   <main class="work">
     <section class="stage" id="stage"><div class="wall" id="wall"></div></section>
-    <aside class="inspector" id="inspector" aria-live="polite"></aside>
   </main>
 </div>
 
-<button class="btn exit" id="exitBtn">Exit wall mode</button>
+<!-- Properties of the selected tile: a floating card next to it (right-click > Properties, or Alt+Enter). -->
+<div class="pop props inspector" id="inspector" role="dialog" aria-label="Tile properties" hidden></div>
+<button class="btn exit" id="exitBtn" type="button">Exit wall mode</button>
 <div class="toast" id="toast" role="status"></div>
-<script src="app.js"></script>
+<!-- Plain logic first (also tested in Node), then the page, then startup. -->
+<script src="lib/formats.js"></script>
+<script src="lib/util.js"></script>
+<script src="lib/geometry.js"></script>
+<script src="lib/freegeo.js"></script>
+<script src="lib/fit.js"></script>
+<script src="lib/playlist.js"></script>
+<script src="lib/records.js"></script>
+<script src="lib/view.js"></script>
+<script src="ui/core.js"></script>
+<script src="ui/tiles.js"></script>
+<script src="ui/inspector.js"></script>
+<script src="ui/media.js"></script>
+<script src="ui/playlists.js"></script>
+<script src="ui/presets.js"></script>
+<script src="ui/controls.js"></script>
+<script src="ui/menus.js"></script>
+<script src="ui/builder.js"></script>
+<script src="ui/boot.js"></script>
 </body>
 </html>

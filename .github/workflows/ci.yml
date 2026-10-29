@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/
+
+  # Builds the installer and the portable .exe when you run the workflow by hand or push a tag like v1.1.0.
+  # Signing happens only if the CSC_LINK (certificate) and CSC_KEY_PASSWORD secrets are set; see README.
+  build:
+    needs: check
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run dist
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - name: End-to-end tests against the built app
+        run: npm run test:e2e
+        env:
+          MEDIA_WALL_EXE: ${{ github.workspace }}\dist\win-unpacked\Media Wall.exe
+      - uses: actions/upload-artifact@v5
+        with:
+          name: media-wall-windows
+          path: dist/*.exe
