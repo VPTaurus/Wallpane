@@ -15,6 +15,11 @@ Wallpane is free software under the [GNU General Public License, version 3 or la
 
 ## Build a Windows app
 `npm run dist` creates an installer and a portable .exe in `dist/`.
+
+### Releases
+1. Raise `version` in `package.json` (`npm version 1.3.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
+2. On GitHub: Releases › Draft a new release › tag `v1.3.0` (the same version) on `main`, paste the changelog section, Publish.
+3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
 (Building on Windows is simplest.)
 
 ### Code signing
@@ -99,7 +104,7 @@ While hidden, keys, drops and right-clicks don't reach the wall, so nothing on i
 - `npm run test:e2e`: starts the real app with Playwright and goes through the main features (test data in a temporary folder)
 - `npm run check`: all three
 
-GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
+GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or publishing a release (see Releases above), also builds the .exe files.
 
 ### Code map
 - `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows, the emergency hide key. Every call from the page goes through `handle()`, which only accepts our own wall windows.

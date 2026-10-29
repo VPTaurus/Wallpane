@@ -1,0 +1,24 @@
+# Changelog
+
+## 1.2.0 — first public release
+
+Wallpane is a video wall for Windows: your own videos, images and GIFs, many at once, on a grid or placed freely by the pixel, on one screen or several. It plays local files only and never goes online. Formerly called Media Wall; your saved walls and settings come over on the first start.
+
+### Download
+- **Wallpane Setup 1.2.0.exe**: installer (per user, no admin rights needed, choose the folder).
+- **Wallpane 1.2.0.exe**: portable, runs without installing.
+
+Windows 10 or 11, 64-bit. The files are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info**, then **Run anyway**.
+
+### What's in it
+- **Walls:** drop files and folders from Explorer; Snap to grid or Free (pixels) placement; drag to move and resize by any edge, with tiles making room; rows and columns with a different number of tiles in each; frame layouts; Fit to media; empty tiles; undo and redo.
+- **Tiles:** zoom and reposition the media inside a tile; Properties with exact position and size; a right-click menu for everything; split, duplicate, replace, locate missing files.
+- **Video controls:** a control bar on every video tile (play, timeline, sound, volume, speed), loop just a part of a video, and keys: Space/K, J/L, [ ] \, < >, M.
+- **Playlists:** a folder plays on the wall or in one tile, in order or shuffled, with crossfades, image times, max clip length, and zoom kept across files if you like; new files in the folder join by themselves.
+- **Emergency hide:** one key (Ctrl+Shift+H, or F9, Scroll Lock, a media key or a mouse button) from any program mutes every wall window at once, pauses the videos and shows a spreadsheet, a black screen or a picture, or makes the windows go away. The same again brings everything back.
+- **Clock, stopwatch and timer** in the top bar.
+- **Unattended walls:** wall mode on any display, start with Windows straight into wall mode, keep the display awake, several wall windows (one per monitor).
+- **Saved walls:** save, load, export and import; files stay where they are.
+- **Settings** in one panel: General, Wall mode, Emergency hide, Keys, About.
+
+Free software under the GNU GPL, version 3 or later.

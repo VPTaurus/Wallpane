@@ -1,11 +1,14 @@
 {
   "name": "wallpane",
   "productName": "Wallpane",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A video wall for your own videos, images and GIFs. Local files only, never online.",
   "author": "Pavels Mazurs",
   "license": "GPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/VPTaurus/wallpane" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VPTaurus/wallpane"
+  },
   "homepage": "https://github.com/VPTaurus/wallpane",
   "main": "main.js",
   "private": true,
@@ -19,7 +22,7 @@
     "test": "node --test \"test/unit/*.test.js\"",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run test:e2e",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win --publish never"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

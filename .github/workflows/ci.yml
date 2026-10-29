@@ -3,8 +3,9 @@ name: CI
 on:
   push:
     branches: [main, Dev]
-    tags: ['v*']
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -26,18 +27,27 @@ jobs:
           name: test-results
           path: test-results/
 
-  # Builds the installer and the portable .exe when you run the workflow by hand or push a tag like v1.1.0.
+  # Builds the installer and the portable .exe when you run the workflow by hand, or when you publish a release on
+  # GitHub (tag v1.2.0 for version 1.2.0): then the two .exe files are attached to that release.
   # Signing happens only if the CSC_LINK (certificate) and CSC_KEY_PASSWORD secrets are set; see README.
   build:
     needs: check
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
     runs-on: windows-latest
+    permissions:
+      contents: write   # to attach the files to the release
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
+      - name: The release tag matches the version in package.json
+        if: github.event_name == 'release'
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$v" -ne '${{ github.event.release.tag_name }}') { throw "The release tag is ${{ github.event.release.tag_name }} but package.json says $v. Use the tag v$v." }
       - run: npm ci
       - run: npm run dist
         env:
@@ -51,3 +61,9 @@ jobs:
         with:
           name: wallpane-windows
           path: dist/*.exe
+      - name: Attach the installer and the portable .exe to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload '${{ github.event.release.tag_name }}' (Get-ChildItem dist/*.exe).FullName --clobber --repo '${{ github.repository }}'
