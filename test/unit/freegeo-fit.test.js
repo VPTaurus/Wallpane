@@ -25,6 +25,33 @@ test('snapping pulls an edge onto a nearby line only', () => {
   assert.equal(F.snapPos(480, [0, 500]), 480);
 });
 
+test('fitBox shrinks a tile to its media shape inside its old box', () => {
+  const ratio = (b, gap) => (b.w - gap) / (b.h - gap);
+  const wide = F.fitBox({ x: 10, y: 20, w: 406, h: 406 }, 16 / 9, 6);
+  assert.deepEqual([wide.x, wide.y, wide.w], [10, 20, 406]);
+  assert.ok(Math.abs(ratio(wide, 6) - 16 / 9) < 1e-9);
+  const tall = F.fitBox({ x: 0, y: 0, w: 406, h: 206 }, 9 / 16, 6);
+  assert.equal(tall.h, 206);
+  assert.ok(Math.abs(ratio(tall, 6) - 9 / 16) < 1e-9);
+  assert.ok(tall.w < 406);
+  assert.equal(F.fitBox({ x: 0, y: 0, w: 300, h: 30 }, 1 / 20, 0).w, F.MIN, 'never smaller than the minimum');
+});
+
+test('keepRatio holds the shape while resizing from an edge or a corner', () => {
+  const g0 = { x: 100, y: 100, w: 206, h: 106 };   // 200 x 100 inside a 6 px gap
+  const shape = (b) => (b.w - 6) / (b.h - 6);
+  const e = F.keepRatio(g0, { x: 100, y: 100, w: 306, h: 106 }, 'e', 6);
+  assert.deepEqual([e.x, e.y, e.w, e.h], [100, 100, 306, 156]);
+  const n = F.keepRatio(g0, { x: 100, y: 50, w: 206, h: 156 }, 'n', 6);
+  assert.equal(n.y + n.h, 206, 'the bottom stays put');
+  assert.ok(Math.abs(shape(n) - 2) < 1e-9);
+  const nw = F.keepRatio(g0, { x: 0, y: 90, w: 306, h: 116 }, 'nw', 6);
+  assert.equal(nw.x + nw.w, 306, 'the right side stays put');
+  assert.equal(nw.y + nw.h, 206, 'the bottom stays put');
+  assert.ok(Math.abs(shape(nw) - 2) < 1e-9);
+  assert.equal(nw.w, 306, 'the side that moved more leads');
+});
+
 test('findGap finds room for a new tile, or none on a full wall', () => {
   assert.deepEqual(F.findGap({}, d), { x: 0, y: 0, w: d.W / 3, h: d.H / 3 });
   assert.equal(F.findGap({ 1: { x: 0, y: 0, w: d.W, h: d.H } }, d), null);

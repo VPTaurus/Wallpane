@@ -52,7 +52,6 @@
     if (A.winId > 1) document.title = 'Media Wall · Wall ' + A.winId;
     A.render();
     A.applyPrefs(got[0]);
-    A.applyPanel();
     A.loadUserLayouts(got[2]);
     var displays = Array.isArray(got[3]) ? got[3] : [];
     var sel = $('#display');

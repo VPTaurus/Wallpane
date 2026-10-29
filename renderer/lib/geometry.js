@@ -84,8 +84,9 @@
   }
   /* Push-aside placement: put one tile where it is wanted, and every tile it lands on makes room by moving
      to the nearest free spot (or, if the wall is packed, by bumping another tile, or shrinking to one cell).
-     `base` is the layout to start from (by id); returns the new layout by id, or null when there is no room. */
-  function resolve(items, id, g, base, cols, rows) {
+     `base` is the layout to start from (by id); returns the new layout by id, or null when there is no room.
+     noShrink: tiles in the way may move but not shrink. */
+  function resolve(items, id, g, base, cols, rows, noShrink) {
     if (g.col < 0 || g.row < 0 || g.w < 1 || g.h < 1 || g.col + g.w > cols || g.row + g.h > rows) return null;
     var geo = {}, src = base || geoMap(items);
     Object.keys(src).forEach(function (k) { geo[k] = src[k]; });
@@ -103,11 +104,35 @@
       var everyone = items.filter(function (x) { return x.id !== victim.id; }).map(function (x) { return geo[x.id]; });
       var fixedBoxes = fixedIds.map(function (k) { return geo[k]; });
       var one = { col: v.col, row: v.row, w: 1, h: 1 };
-      var spot = nearestSpot(v, everyone, cols, rows) || nearestSpot(v, fixedBoxes, cols, rows) || nearestSpot(one, everyone, cols, rows) || nearestSpot(one, fixedBoxes, cols, rows);
+      var spot = nearestSpot(v, everyone, cols, rows) || nearestSpot(v, fixedBoxes, cols, rows) ||
+        (noShrink ? null : nearestSpot(one, everyone, cols, rows) || nearestSpot(one, fixedBoxes, cols, rows));
       if (!spot) return null;
       geo[victim.id] = spot; fixed[victim.id] = true;
     }
     return null;
+  }
+  // Like resolve, but empty tiles (kind 'empty') give way when there is no other room: a tile may take their cells,
+  // and the empty tiles it covers go. In order: tiles move aside; else empty tiles give way; only then do tiles in
+  // the way shrink. Returns { geo, removed: [ids of empty tiles that go] } or null.
+  function resolveYield(items, id, g, base, cols, rows) {
+    var solid = items.filter(function (i) { return i.kind !== 'empty' || i.id === id; });
+    var tries = [[items, true], [solid, true], [items, false], [solid, false]];
+    var geo = null, used = null;
+    for (var t = 0; t < tries.length && !geo; t++) {
+      if (t % 2 && solid.length === items.length) continue;   // no empty tiles: nothing to give way
+      geo = resolve(tries[t][0], id, g, base, cols, rows, tries[t][1]);
+      used = tries[t][0];
+    }
+    if (!geo) return null;
+    if (used === items) return { geo: geo, removed: [] };
+    var src = base || geoMap(items), removed = [];
+    items.forEach(function (i) {
+      if (i.kind !== 'empty' || i.id === id) return;
+      var box = src[i.id];
+      if (solid.some(function (s) { return overlap(geo[s.id], box); })) removed.push(i.id);
+      else geo[i.id] = box;
+    });
+    return { geo: geo, removed: removed };
   }
   // A new grid size: tiles that still fit stay where they are; the others move to the first free spot
   // (as one cell if needed). Tiles with no room at all are listed in `dropped`.
@@ -150,9 +175,37 @@
     return frames;
   }
 
+  /* ---------- rows (or columns) with their own number of tiles ---------- */
+  function gcd(a, b) { while (b) { var t = b; b = a % b; a = t; } return a; }
+  function lcm(a, b) { return a / gcd(a, b) * b; }
+  // counts: tiles in each line, e.g. [3, 4] is 3 tiles in the first row and 4 in the second; dir 'rows' or 'cols'.
+  // On a grid the lines need a common number of cells (the least common multiple: 12 for 3 and 4), at most 12.
+  // Returns { grid, cols, rows, frames: [{ col, row, w, h }], boxes: [{ fx, fy, fw, fh }] }: frames for the grid,
+  // boxes (fractions of the wall) for Free layout, both in reading order.
+  function linesLayout(counts, dir) {
+    var n = counts.length, m = counts.reduce(lcm, 1), byRows = dir !== 'cols';
+    var out = { grid: m <= 12 && n <= 12, cols: byRows ? m : n, rows: byRows ? n : m, frames: [], boxes: [] };
+    counts.forEach(function (k, i) {
+      var span = m / k;
+      for (var j = 0; j < k; j++) {
+        if (byRows) { out.frames.push({ col: j * span, row: i, w: span, h: 1 }); out.boxes.push({ fx: j / k, fy: i / n, fw: 1 / k, fh: 1 / n }); }
+        else { out.frames.push({ col: i, row: j * span, w: 1, h: span }); out.boxes.push({ fx: i / n, fy: j / k, fw: 1 / n, fh: 1 / k }); }
+      }
+    });
+    if (!byRows) {                                       // reading order: top to bottom, then left to right
+      var order = out.frames.map(function (f, i) { return i; }).sort(function (a, b) {
+        return out.boxes[a].fy - out.boxes[b].fy || out.boxes[a].fx - out.boxes[b].fx;
+      });
+      out.frames = order.map(function (i) { return out.frames[i]; });
+      out.boxes = order.map(function (i) { return out.boxes[i]; });
+    }
+    return out;
+  }
+
   return {
+    linesLayout: linesLayout, lcm: lcm,
     overlap: overlap, emptyGrid: emptyGrid, mark: mark, occupancy: occupancy, freeSpot: freeSpot, validLayout: validLayout,
-    arrange: arrange, itemAt: itemAt, geoMap: geoMap, applyGeo: applyGeo, nearestSpot: nearestSpot, resolve: resolve, shrinkTo: shrinkTo,
+    arrange: arrange, itemAt: itemAt, geoMap: geoMap, applyGeo: applyGeo, nearestSpot: nearestSpot, resolve: resolve, resolveYield: resolveYield, shrinkTo: shrinkTo,
     gridFrames: gridFrames, validFrames: validFrames, layoutSlots: layoutSlots
   };
 });

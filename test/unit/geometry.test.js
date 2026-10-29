@@ -50,6 +50,29 @@ test('resolve starts from the given base layout, so dragging back restores it', 
   assert.deepEqual(back, base);
 });
 
+test('on a full grid, empty tiles give way to a tile that grows', () => {
+  // 3 x 2, every cell taken: five media tiles and one empty tile (id 6) at the end of the first row.
+  const items = [tile(1, 0, 0), tile(2, 1, 0), tile(4, 0, 1), tile(5, 1, 1), tile(7, 2, 1), Object.assign(tile(6, 2, 0), { kind: 'empty' })];
+  assert.equal(G.resolve(items, 2, { col: 1, row: 0, w: 2, h: 1 }, null, 3, 2), null, 'no room without giving way');
+  const r = G.resolveYield(items, 2, { col: 1, row: 0, w: 2, h: 1 }, null, 3, 2);
+  assert.deepEqual(r.removed, [6]);
+  assert.deepEqual(r.geo[2], { col: 1, row: 0, w: 2, h: 1 });
+  // Growing the first tile pushes the second into the empty tile's cell instead.
+  const r2 = G.resolveYield(items, 1, { col: 0, row: 0, w: 2, h: 1 }, null, 3, 2);
+  assert.deepEqual(r2.removed, [6]);
+  assert.deepEqual(r2.geo[2], { col: 2, row: 0, w: 1, h: 1 });
+  // With room to spare, nothing goes.
+  assert.deepEqual(G.resolveYield(items, 1, { col: 0, row: 0, w: 1, h: 1 }, null, 3, 2).removed, []);
+  // A tile in the way would rather lose an empty tile next to it than shrink to one cell.
+  const row = [tile(1, 0, 0, 2, 1), Object.assign(tile(2, 2, 0, 2, 1), { kind: 'empty' }), tile(3, 4, 0, 2, 1)];
+  const grow = G.resolveYield(row, 1, { col: 0, row: 0, w: 3, h: 1 }, null, 6, 1);
+  assert.deepEqual(grow.removed, [2]);
+  assert.deepEqual(grow.geo[3], { col: 4, row: 0, w: 2, h: 1 });
+  // Media tiles never give way.
+  const full = items.map((i) => Object.assign({}, i, { kind: 'image' }));
+  assert.equal(G.resolveYield(full, 2, { col: 1, row: 0, w: 2, h: 1 }, null, 3, 2), null);
+});
+
 test('shrinkTo keeps tiles that fit and finds room for the rest', () => {
   const items = [tile(1, 0, 0), tile(2, 3, 0), tile(3, 3, 2)];
   const r = G.shrinkTo(items, 2, 2);

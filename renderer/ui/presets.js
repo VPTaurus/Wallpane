@@ -10,19 +10,21 @@
     return {
       name: name, savedAt: Date.now(), cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, presetName: S.presetName, mode: S.mode,
       playlists: A.usedPlaylists(), fillPl: (S.fillPl && S.playlists[S.fillPl]) ? S.fillPl : null,
-      items: S.items.filter(function (i) { return !i.sample && i.path; }).map(function (i) {
-        return { path: i.path, name: i.name, kind: i.kind, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, pl: i.pl || null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh };
+      items: S.items.filter(function (i) { return !i.sample && !i._gone && (i.path || i.kind === 'empty'); }).map(function (i) {
+        var v = MW.view.of(i);
+        return { path: i.path, name: i.name, kind: i.kind, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, pl: i.pl || null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: v.mx, my: v.my, zoom: v.zoom };
       })
     };
   };
   // Puts a cleaned record on the wall. Resolves with the number of files that were not found.
   A.applyRecord = async function (rec, label) {
     var items = rec.items.map(function (i) {
-      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, shown: 0 };
+      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: i.mx, my: i.my, zoom: i.zoom, shown: 0 };
     });
-    var ex = items.length ? await api.exists(items.map(function (i) { return i.path; })) : [];
+    var withMedia = items.filter(function (i) { return i.kind !== 'empty'; });
+    var ex = withMedia.length ? await api.exists(withMedia.map(function (i) { return i.path; })) : [];
     var missing = 0;
-    items.forEach(function (it, n) { if (ex[n]) it.url = U.fileUrl(it.path); else { it.missing = true; missing++; } });
+    withMedia.forEach(function (it, n) { if (ex[n]) it.url = U.fileUrl(it.path); else { it.missing = true; missing++; } });
     S.items = items; S.sel = null; S.presetName = label || null; S.mode = rec.mode === 'free' ? 'free' : 'grid'; S.playlists = rec.playlists || {}; S.fillPl = (rec.fillPl && S.playlists[rec.fillPl]) ? rec.fillPl : null;
     S.cols = rec.cols; S.rows = rec.rows; S.gap = rec.gap; S.aspect = rec.aspect; S.fit = rec.fit;
     if (S.mode === 'free') F.toFree(S.items, S.cols, S.rows, S.gap, A.wallPx(), true);

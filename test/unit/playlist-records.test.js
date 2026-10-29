@@ -20,6 +20,15 @@ test('make keeps options in range', () => {
   assert.equal(p.maxClip, 0);
   assert.equal(p.fade, 5);
   assert.equal(p.shuffle, true);
+  assert.equal(p.keepView, false, 'zoom and position start fresh for each file unless asked');
+});
+
+test('keeping zoom and position is saved with the playlist', () => {
+  const p = PL.make([file('a.png')], { keepView: true });
+  assert.equal(p.keepView, true);
+  assert.equal(PL.fields(p).keepView, true);
+  assert.equal(PL.clean({ x: PL.fields(p) }).x.keepView, true);
+  assert.equal(PL.clean({ x: { files: [file('a.png')] } }).x.keepView, false, 'older saved walls');
 });
 
 test('refresh queues new files after the ones still to come and drops removed ones', () => {

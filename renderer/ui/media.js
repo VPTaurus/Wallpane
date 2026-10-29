@@ -31,16 +31,51 @@
       col: g.col, row: g.row, w: g.w, h: g.h, fit: S.fit, muted: true, loop: true, sample: false, missing: false
     };
   };
+  // A frame without media: drop media on it or choose some later. Playlists fill empty tiles first.
+  A.makeEmptyItem = function (g) {
+    return {
+      id: S.nid++, name: 'Empty tile', path: '', kind: 'empty', url: null,
+      col: g.col, row: g.row, w: g.w, h: g.h, fit: S.fit, muted: true, loop: true, sample: false, missing: false
+    };
+  };
   A.replaceMedia = function (it, entry) {
     A.removeTileEl(it.id);
     it.name = entry.name; it.path = entry.path; it.kind = entry.kind; it.url = U.fileUrl(entry.path);
     it.sample = false; it.missing = false; it.muted = true; it.loop = true; it.gifSecs = undefined;
+    it.mx = 0.5; it.my = 0.5; it.zoom = 1;
   };
   function relinkItem(it, entry) {
-    var mu = it.muted, lp = it.loop, ft = it.fit;
+    var mu = it.muted, lp = it.loop, ft = it.fit, v = MW.view.of(it);
     A.replaceMedia(it, entry);
-    it.muted = mu; it.loop = lp; it.fit = ft; it.done = false;
+    it.muted = mu; it.loop = lp; it.fit = ft; it.done = false; it.mx = v.mx; it.my = v.my; it.zoom = v.zoom;
   }
+  // Pick a file for this tile (or a new one in its place).
+  A.chooseMedia = function (it) {
+    A.api.openFiles(false).then(function (res) {
+      var f = res.entries[0];
+      if (!f) { if (A.picked(res)) A.toast(A.noMediaMessage(res)); return; }
+      A.pushHistory(); A.replaceMedia(it, f);
+      if (it.pl) { it.pinned = true; it.loop = true; }
+      A.render(); A.refreshInspector();
+    });
+  };
+  // Give this tile a folder of its own to play.
+  A.ownFolder = function (it) {
+    A.api.openFolder().then(function (res) {
+      if (res.entries.length) A.assignFolder(it, res);
+      else if (A.picked(res)) A.toast(A.noMediaMessage(res));
+    });
+  };
+  // Put files into the empty tiles, in reading order. Returns the tiles that got media.
+  function fillEmpties(list) {
+    var filled = [];
+    S.items.filter(function (i) { return i.kind === 'empty'; }).sort(S.mode === 'free' ? byFreeOrder : U.readingOrder).forEach(function (t) {
+      if (!list.length) return;
+      A.replaceMedia(t, list.shift()); filled.push(t);
+    });
+    return filled;
+  }
+  function byFreeOrder(a, b) { return ((a.fy || 0) - (b.fy || 0)) || ((a.fx || 0) - (b.fx || 0)); }
   A.relinkOne = function (it) {
     A.api.openFiles(false).then(function (res) {
       var f = res.entries[0];
@@ -62,6 +97,7 @@
     });
   };
   A.removeItem = function (id) {
+    if (A.reposId === id) A.reposId = null;
     A.pushHistory();
     S.items = S.items.filter(function (i) { return i.id !== id; });
     if (S.sel === id) S.sel = null;
@@ -120,6 +156,8 @@
       start = target.row * S.cols + target.col;
     }
     dropSamples();
+    // Added without a place in mind: empty tiles are waiting for media, so they come first.
+    if (!target) fillEmpties(list).forEach(function (t) { fresh.push(t); });
     var m = G.occupancy(S.items, S.cols, S.rows), skipped = 0;
     if (inherit && list.length) {
       var it0 = A.makeItem(list.shift(), inherit);
@@ -172,6 +210,16 @@
     S.items.pop();
     return false;
   }
+  // A new tile a quarter of the wall in size, centred on the screen point p (others make room), else in the first gap.
+  function placeFreeAt(it, p) {
+    var d = A.wallPx(), r = wall.getBoundingClientRect(), w = d.W / 4, h = d.H / 4;
+    var box = { x: clamp(p.x - r.left - w / 2, 0, d.W - w), y: clamp(p.y - r.top - h / 2, 0, d.H - h), w: w, h: h };
+    F.setPx(it, box, d); S.items.push(it);
+    var res = F.resolve(S.items.map(function (i) { return i.id; }), it.id, box, A.freeGeoPx(), d, { shrink: true });
+    if (res) { A.applyFreePx(res); return true; }
+    S.items.pop();
+    return placeFreeNew(it);
+  }
   function addFilesFree(res, target) {
     var media = U.sortEntries(res.entries || []);
     if (!media.length) { A.toast(A.noMediaMessage(res)); return; }
@@ -182,10 +230,12 @@
       var f1 = media.shift();
       if (under.missing) relinkItem(under, f1); else A.replaceMedia(under, f1);
       if (under.pl) { under.pinned = true; under.loop = true; }
-    }
+    } else if (target && target.free) {
+      if (!placeFreeAt(A.makeItem(media.shift(), { col: 0, row: 0, w: 1, h: 1 }), target)) media.unshift(null);
+    } else fillEmpties(media);
     var failed = 0;
     media.forEach(function (f) {
-      if (!placeFreeNew(A.makeItem(f, { col: 0, row: 0, w: 1, h: 1 }))) failed++;
+      if (!f || !placeFreeNew(A.makeItem(f, { col: 0, row: 0, w: 1, h: 1 }))) failed++;
     });
     A.render(); A.refreshInspector();
     var msg = [];
@@ -193,6 +243,84 @@
     msg = msg.concat(A.scanNotes(res));
     if (msg.length) A.toast(msg.join(' '));
   }
+
+  /* ---------- new, duplicated and split tiles ---------- */
+  function finishNew(it, msg) {
+    A.render(); A.select(it.id); A.refreshInspector();
+    if (msg) A.toast(msg);
+  }
+  // An empty tile at a grid cell ({ col, row }) or a screen point ({ x, y, free: true }).
+  A.newEmptyTile = function (target) {
+    if (S.mode === 'free') {
+      A.pushHistory(); dropSamples();
+      var it = A.makeEmptyItem({ col: 0, row: 0, w: 1, h: 1 });
+      if (!(target && target.free ? placeFreeAt(it, target) : placeFreeNew(it))) { A.dropHistory(); A.toast('There is no room for another tile.'); A.render(); return; }
+      finishNew(it, 'New empty tile. Drag its edges to size it, then drop media on it.');
+      return;
+    }
+    var m = G.occupancy(S.items.filter(function (i) { return !i.sample; }), S.cols, S.rows);
+    var start = target ? target.row * S.cols + target.col : 0, s = G.freeSpot(m, 1, 1, start, S.cols, S.rows);
+    if (!s) { A.toast('There is no empty cell. Add rows or columns first.'); return; }
+    A.pushHistory(); dropSamples();
+    var e = A.makeEmptyItem({ col: s.col, row: s.row, w: 1, h: 1 });
+    S.items.push(e);
+    finishNew(e, 'New empty tile. Drag its edges to size it, then drop media on it.');
+  };
+  function copyOf(it, g) {
+    var c = it.kind === 'empty' ? A.makeEmptyItem(g) : A.makeItem({ name: it.name, path: it.path, kind: it.kind }, g);
+    ['fit', 'fitSet', 'muted', 'loop', 'mx', 'my', 'zoom', 'missing', 'pl'].forEach(function (k) { if (it[k] !== undefined) c[k] = it[k]; });
+    if (c.missing) c.url = null;
+    return c;
+  }
+  // A second tile with the same media and settings, next to this one if there is room.
+  A.duplicateTile = function (it) {
+    if (S.mode === 'free') {
+      var d = A.wallPx(), geo = A.freeGeoPx(), g = geo[it.id];
+      var tries = [{ x: g.x + g.w, y: g.y }, { x: g.x, y: g.y + g.h }, { x: g.x - g.w, y: g.y }, { x: g.x, y: g.y - g.h }].map(function (p) { return { x: p.x, y: p.y, w: g.w, h: g.h }; });
+      var spot = tries.filter(function (b) {
+        return F.inside(b, d) && Object.keys(geo).every(function (k) { return !F.ovl(b, geo[k]); });
+      })[0];
+      var c = copyOf(it, { col: 0, row: 0, w: 1, h: 1 });
+      A.pushHistory();
+      if (spot) { F.setPx(c, spot, d); S.items.push(c); }
+      else if (!placeFreeAt(c, { x: wall.getBoundingClientRect().left + g.x + g.w, y: wall.getBoundingClientRect().top + g.y + g.h / 2 })) { A.dropHistory(); A.toast('There is no room for a copy.'); return; }
+      finishNew(c);
+      return;
+    }
+    var m = G.occupancy(S.items, S.cols, S.rows), start = it.row * S.cols + it.col + 1;
+    var s = G.freeSpot(m, it.w, it.h, start, S.cols, S.rows), w = it.w, h = it.h;
+    if (!s) { w = 1; h = 1; s = G.freeSpot(m, 1, 1, start, S.cols, S.rows); }
+    if (!s) { A.toast('There is no empty cell for a copy. Add rows or columns first.'); return; }
+    A.pushHistory();
+    var cp = copyOf(it, { col: s.col, row: s.row, w: w, h: h });
+    S.items.push(cp);
+    finishNew(cp);
+  };
+  // Split a tile in two ('v': side by side, 'h': one above the other). The new half is an empty tile.
+  A.canSplit = function (it, dir) {
+    if (S.mode === 'free') { var g = A.freeGeoPx()[it.id]; return !!g && (dir === 'v' ? g.w : g.h) >= 2 * F.MIN; }
+    return (dir === 'v' ? it.w : it.h) >= 2;
+  };
+  A.splitTile = function (it, dir) {
+    if (!A.canSplit(it, dir)) { A.toast(S.mode === 'free' ? 'This tile is too small to split.' : 'Only a tile two or more cells ' + (dir === 'v' ? 'wide' : 'tall') + ' can split. Switch to Free (pixels) to split any tile.'); return; }
+    A.pushHistory();
+    var e;
+    if (S.mode === 'free') {
+      var d = A.wallPx(), g = A.freeGeoPx()[it.id], a = { x: g.x, y: g.y, w: g.w, h: g.h }, b;
+      if (dir === 'v') { a.w = g.w / 2; b = { x: g.x + a.w, y: g.y, w: g.w - a.w, h: g.h }; }
+      else { a.h = g.h / 2; b = { x: g.x, y: g.y + a.h, w: g.w, h: g.h - a.h }; }
+      F.setPx(it, a, d);
+      e = A.makeEmptyItem({ col: 0, row: 0, w: 1, h: 1 }); F.setPx(e, b, d);
+    } else if (dir === 'v') {
+      var w1 = Math.ceil(it.w / 2);
+      e = A.makeEmptyItem({ col: it.col + w1, row: it.row, w: it.w - w1, h: it.h }); it.w = w1;
+    } else {
+      var h1 = Math.ceil(it.h / 2);
+      e = A.makeEmptyItem({ col: it.col, row: it.row + h1, w: it.w, h: it.h - h1 }); it.h = h1;
+    }
+    S.items.push(e);
+    A.render(); A.refreshInspector();
+  };
 
   /* ---------- drag and drop ---------- */
   // What a drop at the pointer would do: move or swap a tile being dragged, or add files from Explorer.
@@ -204,16 +332,16 @@
       var c = A.cellAt(e.clientX, e.clientY);
       var mine = { col: clamp(c.col - A.drag.dx, 0, S.cols - it.w), row: clamp(c.row - A.drag.dy, 0, S.rows - it.h), w: it.w, h: it.h };
       var o = {}; o[it.id] = mine;
-      if (G.validLayout(S.items, S.cols, S.rows, o)) return { ok: true, changes: o, ghost: mine, label: 'Move' };
+      if (G.validLayout(S.items, S.cols, S.rows, o)) return { ok: true, plan: { geo: o, removed: [] }, ghost: mine, label: 'Move' };
       var occ = G.itemAt(S.items, c.col, c.row, it.id);
       if (occ && occ.w === it.w && occ.h === it.h) {
         var a = { col: occ.col, row: occ.row, w: it.w, h: it.h };
         var b = { col: it.col, row: it.row, w: occ.w, h: occ.h };
         var o2 = {}; o2[it.id] = a; o2[occ.id] = b;
-        if (G.validLayout(S.items, S.cols, S.rows, o2)) return { ok: true, changes: o2, ghost: a, label: 'Swap' };
+        if (G.validLayout(S.items, S.cols, S.rows, o2)) return { ok: true, plan: { geo: o2, removed: [] }, ghost: a, label: 'Swap' };
       }
-      var res = G.resolve(S.items, it.id, mine, null, S.cols, S.rows);
-      if (res) return { ok: true, changes: res, ghost: mine, label: 'Move, others make room' };
+      var res = G.resolveYield(S.items, it.id, mine, null, S.cols, S.rows);
+      if (res) return { ok: true, plan: res, ghost: mine, label: res.removed.length ? 'Move, over the empty tile' : 'Move, others make room' };
       return { ok: false, ghost: mine, label: 'No room' };
     }
     if (!isFiles) return null;
@@ -241,7 +369,7 @@
     A.hideGhost(); wall.classList.remove('hot');
     if (A.drag.id != null) {
       var plan = planDrop(e, false);
-      if (plan && plan.ok) { A.pushHistory(); G.applyGeo(S.items, plan.changes); A.render(); A.refreshInspector(); }
+      if (plan && plan.ok) { A.pushHistory(); A.commitYield(plan.plan); A.render(); A.refreshInspector(); }
       else if (plan && plan.label === 'No room') A.toast('The wall is too full to make room for that.');
       A.drag.id = null;
       return;
@@ -270,11 +398,12 @@
       lost = dropped.length; S.mode = 'grid';
     }
     A.savePrefs(); A.render(); A.refreshInspector();
-    A.toast(m === 'free' ? 'Free layout: drag, and resize by any edge. Alt turns snapping off. Arrow keys move by 1 px, Ctrl makes it 10.' : (lost ? 'Back on the grid; ' + lost + ' tiles did not fit and were removed. Ctrl+Z brings them back.' : 'Back on the grid.'));
+    A.toast(m === 'free' ? 'Free (pixels): drag tiles, and resize by any edge. Shift keeps the shape, Alt turns snapping off. Arrow keys move by 1 px, Ctrl makes it 10.' : (lost ? 'Back on the grid; ' + lost + ' tiles did not fit and were removed. Ctrl+Z brings them back.' : 'Back on the grid.'));
   }
-  $('#modeSel').addEventListener('change', function () { setMode($('#modeSel').value); });
+  $('#modeSeg').addEventListener('click', function (e) { var b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
 
   $('#arrangeBtn').addEventListener('click', function () {
+    A.closePops();
     if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
     var plan = G.arrange(S.items, S.cols, S.rows);
     if (!plan) { A.toast('Not enough room. Add rows or columns first.'); return; }
@@ -291,13 +420,38 @@
     if (w > 0 && h > 0) { it.ar = w / h; return { a: it.ar, known: true }; }
     return { a: it.ar || 16 / 9, known: !!it.ar };
   }
+  // Free layout: shrink tiles to the exact shape of their media, so there are no bars and nothing is cropped.
+  // On the grid this first switches to Free layout (tiles stay where they are on screen); one Ctrl+Z undoes both.
+  A.fitTilesToMedia = function (list) {
+    var ready = [], waiting = 0;
+    list.forEach(function (it) {
+      if (!A.hasMedia(it)) return;
+      var r = mediaAspect(it);
+      if (r.known) ready.push([it, r.a]); else waiting++;
+    });
+    if (!ready.length) { A.toast(waiting ? 'The media has not loaded yet. Try again in a moment.' : 'Nothing to fit.'); return; }
+    A.pushHistory();
+    var switched = S.mode !== 'free';
+    if (switched) { F.toFree(S.items, S.cols, S.rows, S.gap, A.wallPx(), false); S.mode = 'free'; A.savePrefs(); }
+    var geo = A.freeGeoPx();
+    ready.forEach(function (p) {
+      var it = p[0];
+      if (geo[it.id]) geo[it.id] = F.fitBox(geo[it.id], p[1], S.gap);
+      it.fit = 'contain'; it.fitSet = true;
+    });
+    A.applyFreePx(geo); A.render(); A.refreshInspector();
+    var msg = ready.length === 1 ? 'The tile now has the exact shape of its media.' : ready.length + ' tiles now have the exact shape of their media.';
+    if (switched) msg += ' Tiles are now placed freely, by the pixel. Ctrl+Z undoes this.';
+    if (waiting) msg += ' ' + waiting + (waiting === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and stayed as they were.';
+    A.toast(msg);
+  };
   function fitToMedia() {
-    if (S.mode === 'free') { A.toast('Fit to media works on the grid. Switch Layout to Grid first.'); return; }
+    if (S.mode === 'free') { A.fitTilesToMedia(S.items); return; }
     var N = S.items.length;
     if (!N) { A.toast('Nothing to fit yet.'); return; }
     if (N > S.cols * S.rows) { A.toast('There are more tiles than cells. Add rows or columns first.'); return; }
     var mt = A.metrics(), unknown = 0;
-    var asp = S.items.map(function (it) { var r = mediaAspect(it); if (!r.known) unknown++; return r.a; });
+    var asp = S.items.map(function (it) { var r = mediaAspect(it); if (!r.known && A.hasMedia(it)) unknown++; return r.a; });
     var before = FIT.coverage(S.items.map(function (i) { return { w: i.w, h: i.h }; }), null, asp, mt.px, mt.py, S.gap);
     // A quarter of a second is plenty to find a good layout, and short enough that the videos keep playing smoothly.
     var best = FIT.plan({ cols: S.cols, rows: S.rows, asp: asp, px: mt.px, py: mt.py, gap: S.gap, budgetMs: 250, now: function () { return performance.now(); } });
@@ -312,5 +466,5 @@
     if (unknown) msg += ' ' + unknown + (unknown === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and counted as 16:9.';
     A.toast(msg);
   }
-  $('#fitMediaBtn').addEventListener('click', fitToMedia);
+  $('#fitMediaBtn').addEventListener('click', function () { A.closePops(); fitToMedia(); });
 })(window.MW.app);

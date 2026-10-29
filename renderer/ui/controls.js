@@ -5,14 +5,6 @@
   var MW = window.MW, G = MW.geo, U = MW.util;
   var S = A.S, $ = A.$, api = A.api, wall = A.wall, clamp = U.clamp;
 
-  /* ---------- side panel ---------- */
-  A.applyPanel = function () {
-    document.body.classList.toggle('no-panel', !S.panel);
-    $('#panelBtn').textContent = S.panel ? 'Hide panel' : 'Show panel';
-    $('#panelBtn').setAttribute('aria-pressed', String(!S.panel));
-  };
-  $('#panelBtn').addEventListener('click', function () { S.panel = !S.panel; A.applyPanel(); A.savePrefs(); });
-
   /* ---------- grid size and look ---------- */
   function setGrid(c, r) {
     c = clamp(parseInt(c, 10) || S.cols, 1, 12); r = clamp(parseInt(r, 10) || S.rows, 1, 12);
@@ -50,7 +42,8 @@
   $('#display').addEventListener('change', function () { var v = $('#display').value; S.display = v === '' ? null : Number(v); A.savePrefs(); });
 
   /* ---------- adding media ---------- */
-  $('#addBtn').addEventListener('click', function () {
+  $('#addFiles').addEventListener('click', function () {
+    A.closePops();
     api.openFiles(true).then(function (res) { if (A.picked(res)) A.addFiles(res, null); });
   });
   $('#folderPl').addEventListener('click', function () {
@@ -100,6 +93,7 @@
   // Wall mode hides the controls and goes fullscreen on the chosen display, keeping the display awake if Settings
   // say so. Leaving fullscreen by any route leaves wall mode.
   A.setClean = function (on) {
+    if (on) { A.closeProps(); A.closePops(); }
     document.body.classList.toggle('clean', on);
     wake();
     api.setFullscreen(on, S.display);
@@ -120,6 +114,7 @@
   document.addEventListener('mousemove', wake);
   document.addEventListener('mousedown', wake);
   $('#newWinBtn').addEventListener('click', function () {
+    A.closePops();
     api.newWindow().then(function (r) { if (r && r.error) A.toast(r.error); });
   });
   $('#cleanBtn').addEventListener('click', function () { A.setClean(true); });
@@ -129,6 +124,11 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target, inField = t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
     if (e.key === 'F11') { e.preventDefault(); A.setClean(!document.body.classList.contains('clean')); return; }
+    // Escape (or Enter) first closes the right-click menu, or finishes repositioning media, or closes Properties.
+    if (e.key === 'Escape' && A.menuOpen()) { A.hideMenu(); return; }
+    if ((e.key === 'Escape' || (e.key === 'Enter' && !inField)) && A.reposId != null) { e.preventDefault(); A.endRepos(); return; }
+    if (e.key === 'Escape' && A.propsOpen) { A.closeProps(); return; }
+    if (e.key === 'Enter' && e.altKey && A.selected()) { e.preventDefault(); A.openProps(A.selected()); return; }
     if (e.key === 'Escape') {
       if (document.body.classList.contains('clean')) A.setClean(false);
       else if (A.isFs) api.setFullscreen(false, null);
@@ -138,7 +138,6 @@
     }
     if ((e.ctrlKey || e.metaKey) && !inField) {
       var k = String(e.key).toLowerCase();
-      if (k === 'b') { e.preventDefault(); $('#panelBtn').click(); return; }
       if (k === 'z' && !e.shiftKey) { e.preventDefault(); A.undo(); return; }
       if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); A.redo(); return; }
     }
@@ -152,38 +151,43 @@
     var g = { col: it.col, row: it.row, w: it.w, h: it.h };
     if (e.shiftKey) { g.w = clamp(g.w + d[0], 1, S.cols); g.h = clamp(g.h + d[1], 1, S.rows); }
     else { g.col += d[0]; g.row += d[1]; }
-    var res = G.resolve(S.items, it.id, g, null, S.cols, S.rows);
-    if (res) { A.pushHistory(); G.applyGeo(S.items, res); A.render(); A.refreshInspector(); }
+    var res = G.resolveYield(S.items, it.id, g, null, S.cols, S.rows);
+    if (res) { A.pushHistory(); A.commitYield(res); A.render(); A.refreshInspector(); }
   });
 
+  // Clear wall (in Settings) takes two clicks: the first arms it for three seconds.
   var clearArmed = false;
   $('#clearBtn').addEventListener('click', function () {
-    var b = this;
+    var b = this, lbl = b.querySelector('.lbl');
     if (!clearArmed) {
-      clearArmed = true; b.textContent = 'Click again to clear'; b.classList.add('warn');
-      setTimeout(function () { clearArmed = false; b.textContent = 'Clear wall'; b.classList.remove('warn'); }, 3000);
+      clearArmed = true; lbl.textContent = 'Click again to clear the wall'; b.classList.add('armed');
+      setTimeout(function () { clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed'); }, 3000);
       return;
     }
-    clearArmed = false; b.textContent = 'Clear wall'; b.classList.remove('warn');
+    clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed');
+    A.closePops();
     A.pushHistory();
     S.items = []; S.sel = null; S.presetName = null; S.playlists = {}; S.fillPl = null; A.render(); A.refreshInspector();
+    A.toast('Wall cleared. Ctrl+Z brings it back.');
   });
 
-  /* ---------- popovers ---------- */
+  /* ---------- popovers and menus ---------- */
+  // name: [popover, the button it hangs from]. Frame layouts opens from the Arrange menu, so it has no button of its own.
   var POPS = {
-    folder: ['#popF', '#folderBtn'], presets: ['#pop', '#presetBtn'], layouts: ['#popL', '#layoutBtn'],
-    playlist: ['#popP', '#playlistBtn'], settings: ['#popS', '#settingsBtn']
+    add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
+    presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
   };
   // Popovers are positioned from their button and clamped to the window, so they never run off an edge.
+  // They open to the right of buttons on the left side of the bar, and to the left of the others.
   function placePop(pop, btn) {
     var vw = document.documentElement.clientWidth, vh = window.innerHeight, m = 12;
-    var w = Math.min(380, vw - 2 * m);
+    var w = Math.min(pop.classList.contains('menu') ? 300 : 380, vw - 2 * m);
     var r = btn.getBoundingClientRect();
     pop.style.width = w + 'px';
-    pop.style.left = clamp(r.right - w, m, Math.max(m, vw - w - m)) + 'px';
+    pop.style.left = clamp(r.left + w <= vw - m ? r.left : r.right - w, m, Math.max(m, vw - w - m)) + 'px';
     var below = vh - r.bottom - 8 - m;
     if (below >= 260 || below >= r.top - 8 - m) {
       pop.style.bottom = 'auto'; pop.style.top = (r.bottom + 8) + 'px';
@@ -211,10 +215,15 @@
     else if (which === 'settings') refreshSettings();
     placeOpen();
   }
+  A.openPop = openPop;
   Object.keys(POPS).forEach(function (k) {
+    if (k === 'layouts' || k === 'builder') return;   // these open from the Arrange menu
     $(POPS[k][1]).addEventListener('click', function (e) { e.stopPropagation(); if ($(POPS[k][0]).hidden) openPop(k); else A.closePops(); });
   });
-  document.addEventListener('click', function (e) { if (!e.target.closest('.popwrap')) A.closePops(); });
+  $('#layoutBtn').addEventListener('click', function (e) { e.stopPropagation(); openPop('layouts'); });
+  // A click outside closes popovers. Not outside: a button that a popover just redrew (no longer on the page), and the
+  // right-click menu, whose items may open a popover themselves.
+  document.addEventListener('click', function (e) { if (e.target.isConnected && !e.target.closest('.popwrap, .ctx')) A.closePops(); });
 
   /* ---------- Settings: wall mode and startup ---------- */
   function refreshSettings() {

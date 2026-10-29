@@ -2,10 +2,11 @@
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free;
+  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, V = MW.view;
   var S = A.S, wall = A.wall, $ = A.$, ICON = A.ICON, clamp = U.clamp;
 
   function idsNow() { return S.items.map(function (i) { return i.id; }); }
+  A.hasMedia = function (it) { return !it.missing && it.kind !== 'empty'; };
 
   /* ---------- building a tile ---------- */
   function createTile(it) {
@@ -18,7 +19,13 @@
     el.setAttribute('role', 'group');
     el.setAttribute('aria-label', it.name + ' (' + A.kindLabel(it) + (it.missing ? ', file not found' : '') + ')');
     var media;
-    if (it.missing) {
+    if (it.kind === 'empty') {
+      // A frame without media yet: drop media on it, or choose some.
+      media = document.createElement('div');
+      media.className = 'media empty-ph';
+      media.innerHTML = '<span class="ic" aria-hidden="true">' + ICON.tile + '</span><span>Empty tile</span><span class="sub">Drop media here, or</span>' +
+        '<button class="btn" type="button" data-act="choose">Choose…</button>';
+    } else if (it.missing) {
       media = document.createElement('div');
       media.className = 'media offline-ph';
       var box = document.createElement('div');
@@ -51,7 +58,11 @@
       media.addEventListener('error', function () { if (!el._dead) A.failAdvance(it); });
       media.addEventListener('load', function () { var pp = S.playlists[it.pl]; if (pp) pp.bad = 0; });
     }
-    el.appendChild(media);
+    // The media sits in a view that clips it, so it can be moved and zoomed inside the tile.
+    var view = document.createElement('div');
+    view.className = 'mview';
+    view.appendChild(media);
+    el.appendChild(view);
     el._media = media;
 
     var fail = document.createElement('div');
@@ -75,7 +86,15 @@
     el.appendChild(hud);
     el._playBtn = bt.querySelector('[data-act="play"]');
 
+    // Shown while the media is being repositioned (see A.startRepos).
+    var rbar = document.createElement('div');
+    rbar.className = 'repobar';
+    rbar.innerHTML = '<span>Drag to move · scroll to zoom</span><button class="hb wide" type="button" data-act="viewReset">Reset</button><button class="hb wide on" type="button" data-act="reposDone">Done</button>';
+    el.appendChild(rbar);
+
     if (it.sample) { var bd = document.createElement('span'); bd.className = 'badge'; bd.textContent = 'SAMPLE'; el.appendChild(bd); }
+    // Pinned playlist tiles get a small pin in the corner (selection has its own ring, so the two never look alike).
+    if (it.pl) { var pm = document.createElement('span'); pm.className = 'pinmark'; pm.setAttribute('aria-hidden', 'true'); pm.innerHTML = ICON.pin; el.appendChild(pm); }
 
     ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'].forEach(function (edge) {
       var hd = document.createElement('div');
@@ -97,17 +116,26 @@
       A.select(S.sel === it.id ? null : it.id);
     });
     el.addEventListener('pointerdown', function (e) {
-      if (S.mode !== 'free' || e.button !== 0) return;
-      if (e.target.closest('[data-act]') || e.target.closest('.rz')) return;
-      startMoveFree(e, it, el);
+      if (e.button !== 0 || e.target.closest('[data-act]') || e.target.closest('.rz')) return;
+      if (A.reposId === it.id) { startPan(e, it, el); return; }
+      if (S.mode === 'free') startMoveFree(e, it, el);
     });
+    // The scroll wheel zooms the media of the selected tile (or the one being repositioned).
+    el.addEventListener('wheel', function (e) {
+      if (!A.hasMedia(it) || document.body.classList.contains('clean') || (S.sel !== it.id && A.reposId !== it.id)) return;
+      e.preventDefault();
+      A.zoomMedia(it, Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+    }, { passive: false });
     el.addEventListener('click', function (e) {
       if (el._moved) { el._moved = false; return; }
       var b = e.target.closest('[data-act]');
-      if (!b) { A.select(S.sel === it.id ? null : it.id); return; }
+      if (!b) { if (A.reposId !== it.id) A.select(S.sel === it.id ? null : it.id); return; }
       e.stopPropagation();
       var act = b.dataset.act;
       if (act === 'remove') { A.removeItem(it.id); return; }
+      if (act === 'choose') { A.select(it.id); A.chooseMedia(it); return; }
+      if (act === 'reposDone') { A.endRepos(); return; }
+      if (act === 'viewReset') { A.resetView(it); return; }
       if (act === 'next') { if (it.pinned) A.toast('This tile is pinned. Unpin it to skip.'); else A.advance(it); return; }
       if (act === 'pin') { A.setPinned(it, !it.pinned); return; }
       if (act === 'relink') { A.select(it.id); A.relinkOne(it); return; }
@@ -128,6 +156,7 @@
       } catch (err) { /* ignore */ }
     });
     el.addEventListener('dragstart', function (e) {
+      if (A.reposId === it.id) { e.preventDefault(); return; }
       var c = A.cellAt(e.clientX, e.clientY);
       A.drag.id = it.id;
       A.drag.dx = clamp(c.col - it.col, 0, it.w - 1);
@@ -141,8 +170,9 @@
   }
 
   /* ---------- resizing and moving ---------- */
-  /* Drag any border or corner: the edge you grab follows the pointer, snapped to cells; tiles in the way move aside.
-     Every step is computed from the layout at the start of the drag, so dragging back puts tiles back. */
+  /* Drag any border or corner: the edge you grab follows the pointer, snapped to cells; tiles in the way move aside,
+     and empty tiles give way when there is no other room. Every step is computed from the layout at the start of the
+     drag, so dragging back puts tiles back. */
   function startResize(e, it, el, hd, edge) {
     if (S.mode === 'free') { startResizeFree(e, it, el, hd, edge); return; }
     e.preventDefault(); e.stopPropagation();
@@ -160,55 +190,87 @@
       if (edge.indexOf('n') > -1) { g.row = g0.row + dy; g.h = g0.h - dy; }
       return g;
     }
-    function changed(geo) {
-      return S.items.some(function (i) { var g = geo[i.id]; return g && (g.col !== i.col || g.row !== i.row || g.w !== i.w || g.h !== i.h); });
+    function changed(r) {
+      return S.items.some(function (i) {
+        var g = r.geo[i.id];
+        return (g && (g.col !== i.col || g.row !== i.row || g.w !== i.w || g.h !== i.h)) || !!i._gone !== (r.removed.indexOf(i.id) > -1);
+      });
     }
     function mv(ev) {
       var dx = useX ? Math.round((ev.clientX - sx) / m.px) : 0;
       var dy = useY ? Math.round((ev.clientY - sy) / m.py) : 0;
       var res, n = 0;
       for (;;) {
-        res = G.resolve(S.items, it.id, geom(dx, dy), base, S.cols, S.rows);
+        res = G.resolveYield(S.items, it.id, geom(dx, dy), base, S.cols, S.rows);
         if (res || n++ > 40) break;
         if (Math.abs(dx) >= Math.abs(dy)) dx += dx > 0 ? -1 : 1; else dy += dy > 0 ? -1 : 1;
       }
       if (res && changed(res)) {
         if (!pushed) { A.pushHistory(); pushed = true; }
-        G.applyGeo(S.items, res); A.render(); A.refreshInspector();
+        A.previewYield(res); A.render(); A.refreshInspector();
       }
     }
     function up() {
       hd.classList.remove('active');
       hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
       el.draggable = S.mode !== 'free';
+      A.dropGone(); A.render(); A.refreshInspector();
     }
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
   }
 
-  // Free layout: tiles are placed by the pixel, snap to the wall's and other tiles' edges (Alt turns snapping off).
+  /* Free layout, moving: the tile always follows the pointer (snapping to the wall's and other tiles' edges; Alt turns
+     that off) and the other tiles show where they will go. Where they cannot make room, dropping on another tile swaps
+     the two; anywhere else the tile goes back to where it was. */
   function startMoveFree(e, it, el) {
     var d = A.wallPx(), base = A.freeGeoPx(), g0 = base[it.id];
     if (!g0) return;
-    var sx = e.clientX, sy = e.clientY, moved = false, pushed = false, lines = F.snapLines(base, it.id, d);
+    var sx = e.clientX, sy = e.clientY, moved = false, lines = F.snapLines(base, it.id, d), plan = null;
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    // The tile (other than this one) whose place contains the pointer, by the layout at the start.
+    function tileUnder(ev) {
+      var r = wall.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
+      return Object.keys(base).filter(function (k) {
+        var b = base[k];
+        return String(k) !== String(it.id) && px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h;
+      })[0];
+    }
     function mv(ev) {
       var dx = ev.clientX - sx, dy = ev.clientY - sy;
-      if (!moved) { if (Math.abs(dx) + Math.abs(dy) < 4) return; moved = true; el.classList.add('dragging'); }
+      if (!moved) {
+        if (Math.abs(dx) + Math.abs(dy) < 4) return;
+        moved = true; el.classList.add('dragging'); A.pushHistory();
+      }
       var x = clamp(g0.x + dx, 0, d.W - g0.w), y = clamp(g0.y + dy, 0, d.H - g0.h);
       if (!ev.altKey) {
         x = clamp(x + F.snapAxis(x, g0.w, lines.X), 0, d.W - g0.w);
         y = clamp(y + F.snapAxis(y, g0.h, lines.Y), 0, d.H - g0.h);
       }
-      var res = F.resolve(idsNow(), it.id, { x: x, y: y, w: g0.w, h: g0.h }, base, d);
-      if (res) { if (!pushed) { A.pushHistory(); pushed = true; } A.applyFreePx(res); A.render(); A.refreshInspector(); }
+      var want = { x: x, y: y, w: g0.w, h: g0.h };
+      var res = F.resolve(idsNow(), it.id, want, base, d), land = 'move', other;
+      if (!res && (other = tileUnder(ev))) {
+        res = Object.assign({}, base); res[other] = base[it.id]; res[it.id] = base[other]; land = 'swap';
+      }
+      if (!res) { res = base; land = 'back'; }
+      plan = { land: land, final: res };
+      var shown = Object.assign({}, res); shown[it.id] = want;   // this tile under the pointer, the rest where they will go
+      A.applyFreePx(shown); A.render();
+      el.classList.toggle('nodrop', land === 'back');
+      if (land === 'swap') A.showGhostPx(res[it.id], true, 'Swap'); else A.hideGhost();
     }
     function up() {
       el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
-      el.classList.remove('dragging');
-      if (moved) { el._moved = true; setTimeout(function () { el._moved = false; }, 0); }
+      el.classList.remove('dragging', 'nodrop');
+      A.hideGhost();
+      if (!moved) return;
+      el._moved = true; setTimeout(function () { el._moved = false; }, 0);
+      A.applyFreePx(plan.final); A.render(); A.refreshInspector();
+      if (plan.land === 'back') { A.dropHistory(); A.toast('No room there. Drop on another tile to swap the two.'); }
     }
     el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   }
+  /* Free layout, resizing: the sides that move out push the tiles in their way, which are squeezed once they reach the
+     wall. When even that is not enough, the side stops as far as it can go. */
   function startResizeFree(e, it, el, hd, edge) {
     e.preventDefault(); e.stopPropagation();
     A.select(it.id); hd.classList.add('active');
@@ -216,13 +278,22 @@
     var d = A.wallPx(), base = A.freeGeoPx(), g0 = base[it.id], MIN = F.MIN;
     if (!g0) return;
     var sx = e.clientX, sy = e.clientY, pushed = false, lines = F.snapLines(base, it.id, d);
+    function lerp(t, g) { return { x: g0.x + (g.x - g0.x) * t, y: g0.y + (g.y - g0.y) * t, w: g0.w + (g.w - g0.w) * t, h: g0.h + (g.h - g0.h) * t }; }
     function mv(ev) {
       var dx = ev.clientX - sx, dy = ev.clientY - sy, g = { x: g0.x, y: g0.y, w: g0.w, h: g0.h }, snap = !ev.altKey, p;
       if (edge.indexOf('e') > -1) { p = g0.x + g0.w + dx; if (snap) p = F.snapPos(p, lines.X); p = clamp(p, g0.x + MIN, d.W); g.w = p - g0.x; }
       if (edge.indexOf('w') > -1) { p = g0.x + dx; if (snap) p = F.snapPos(p, lines.X); p = clamp(p, 0, g0.x + g0.w - MIN); g.x = p; g.w = g0.x + g0.w - p; }
       if (edge.indexOf('s') > -1) { p = g0.y + g0.h + dy; if (snap) p = F.snapPos(p, lines.Y); p = clamp(p, g0.y + MIN, d.H); g.h = p - g0.y; }
       if (edge.indexOf('n') > -1) { p = g0.y + dy; if (snap) p = F.snapPos(p, lines.Y); p = clamp(p, 0, g0.y + g0.h - MIN); g.y = p; g.h = g0.y + g0.h - p; }
-      var res = F.resolve(idsNow(), it.id, g, base, d);
+      if (ev.shiftKey) g = F.keepRatio(g0, g, edge, S.gap);   // Shift keeps the tile's proportions
+      var ids = idsNow(), res = F.pushResize(ids, it.id, g0, g, base, d);
+      if (!res) {                                    // as far towards the pointer as it goes
+        var lo = 0, hi = 1;
+        for (var i = 0; i < 10; i++) {
+          var mid = (lo + hi) / 2, r = F.pushResize(ids, it.id, g0, lerp(mid, g), base, d);
+          if (r) { lo = mid; res = r; } else hi = mid;
+        }
+      }
       if (res) { if (!pushed) { A.pushHistory(); pushed = true; } A.applyFreePx(res); A.render(); A.refreshInspector(); }
     }
     function up() {
@@ -247,6 +318,75 @@
     A.applyFreePx(res); A.render(); A.refreshInspector();
   };
 
+  /* ---------- the media inside a tile: reposition (drag) and zoom (scroll wheel) ---------- */
+  A.reposId = null;
+  function viewGeom(it, el) {
+    var r = el.getBoundingClientRect(), m = el._media;
+    var a = m.tagName === 'VIDEO' ? m.videoWidth / m.videoHeight : m.naturalWidth / m.naturalHeight;
+    return { r: r, c: V.content(r.width, r.height, a, it.fit) };
+  }
+  function setView(it, v) {
+    var o = V.of(it);
+    if (o.mx === v.mx && o.my === v.my && o.zoom === v.zoom) return false;
+    it.mx = v.mx; it.my = v.my; it.zoom = v.zoom;
+    return true;
+  }
+  A.startRepos = function (it) {
+    if (!A.hasMedia(it)) return;
+    A.select(it.id);
+    A.reposId = it.id;
+    A.render();
+    A.toast('Drag the media to move it inside the tile, and scroll to zoom. Enter or Esc when done.');
+  };
+  A.endRepos = function () {
+    if (A.reposId == null) return;
+    A.reposId = null;
+    A.render();
+  };
+  A.resetView = function (it) {
+    if (V.isDefault(it)) return;
+    A.pushHistory();
+    it.mx = 0.5; it.my = 0.5; it.zoom = 1;
+    A.render(); A.refreshInspector();
+  };
+  // Zoom by `factor` around the screen point (cx, cy). Quick wheel turns count as one undo step.
+  var lastZoom = { id: null, t: 0 };
+  A.zoomMedia = function (it, factor, cx, cy) {
+    var el = A.tileEls.get(it.id);
+    if (!el || !A.hasMedia(it)) return;
+    var g = viewGeom(it, el), v = V.of(it);
+    var nv = V.zoomAt(v, g.r.width, g.r.height, g.c, v.zoom * factor, cx - g.r.left, cy - g.r.top);
+    if (v.zoom === nv.zoom && v.mx === nv.mx && v.my === nv.my) return;
+    var now = Date.now();
+    if (lastZoom.id !== it.id || now - lastZoom.t > 700) A.pushHistory();
+    lastZoom = { id: it.id, t: now };
+    setView(it, nv); A.render(); A.refreshInspector();
+  };
+  function startPan(e, it, el) {
+    e.preventDefault(); e.stopPropagation();
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    var sx = e.clientX, sy = e.clientY, v0 = V.of(it), g = viewGeom(it, el), pushed = false;
+    el.classList.add('panning');
+    function mv(ev) {
+      var nv = V.pan(v0, g.r.width, g.r.height, g.c, ev.clientX - sx, ev.clientY - sy);
+      if (!pushed && (nv.mx !== v0.mx || nv.my !== v0.my)) { A.pushHistory(); pushed = true; }
+      if (setView(it, nv)) A.render();
+    }
+    function up() {
+      el.classList.remove('panning');
+      el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+      el._moved = true; setTimeout(function () { el._moved = false; }, 0);
+      A.refreshInspector();
+    }
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  }
+  // Reposition mode ends when you press elsewhere (the Properties card, with its zoom slider, does not count).
+  document.addEventListener('pointerdown', function (e) {
+    if (A.reposId == null) return;
+    var el = A.tileEls.get(A.reposId);
+    if (!el || (!el.contains(e.target) && !e.target.closest('#inspector'))) A.endRepos();
+  }, true);
+
   /* ---------- keeping tiles in sync with the state ---------- */
   function syncPlayBtn(el) {
     var v = el._media, b = el._playBtn;
@@ -265,11 +405,17 @@
       el.style.gridColumn = (it.col + 1) + ' / span ' + it.w;
       el.style.gridRow = (it.row + 1) + ' / span ' + it.h;
     }
-    el.draggable = S.mode !== 'free';
+    el.draggable = S.mode !== 'free' && A.reposId !== it.id;
     el.classList.toggle('sel', S.sel === it.id);
     el.classList.toggle('pinned', !!it.pinned);
+    el.classList.toggle('repos', A.reposId === it.id);
+    el.classList.toggle('gone', !!it._gone);
     var m = el._media;
-    if (!it.missing) m.style.objectFit = it.fit;
+    if (A.hasMedia(it)) {
+      var vc = V.css(it);
+      m.style.objectFit = it.fit;
+      m.style.objectPosition = vc.objectPosition; m.style.transformOrigin = vc.transformOrigin; m.style.transform = vc.transform;
+    }
     if (m.tagName === 'VIDEO') { m.muted = it.muted; m.loop = it.loop; }
     // The buttons only change when these do, so leave their markup alone otherwise (render runs on every drag step).
     var ui = [it.muted, it.fit, !!it.pinned, it.loop].join('|');
@@ -301,8 +447,19 @@
   ghost.innerHTML = '<span></span>';
   wall.appendChild(ghost);
   A.showGhost = function (g, ok, label) {
+    ghost.style.left = ghost.style.top = ghost.style.width = ghost.style.height = '';
     ghost.style.gridColumn = (g.col + 1) + ' / span ' + g.w;
     ghost.style.gridRow = (g.row + 1) + ' / span ' + g.h;
+    ghost.classList.toggle('bad', !ok);
+    ghost.firstChild.textContent = label || '';
+    ghost.hidden = false;
+  };
+  // The same in Free layout, for a box in pixels of the wall.
+  A.showGhostPx = function (b, ok, label) {
+    var hg = S.gap / 2;
+    ghost.style.gridColumn = ghost.style.gridRow = '';
+    ghost.style.left = (b.x + hg) + 'px'; ghost.style.top = (b.y + hg) + 'px';
+    ghost.style.width = Math.max(0, b.w - S.gap) + 'px'; ghost.style.height = Math.max(0, b.h - S.gap) + 'px';
     ghost.classList.toggle('bad', !ok);
     ghost.firstChild.textContent = label || '';
     ghost.hidden = false;
@@ -351,12 +508,19 @@
     renderSlots();
 
     var gridOnly = S.mode === 'free';
-    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'arrangeBtn', 'layoutBtn', 'fitMediaBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
-    $('#modeSel').value = S.mode;
-    var count = S.items.length + (S.items.length === 1 ? ' item' : ' items');
+    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'arrangeBtn', 'layoutBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
+    Array.prototype.forEach.call($('#modeSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)); });
+    $('#gridLabel').textContent = gridOnly ? 'Free' : S.cols + ' × ' + S.rows;
+    $('#gridNote').hidden = !gridOnly;
+    $('#fitHint').textContent = gridOnly ? 'Shrink every tile to its media’s exact shape' : 'Reshape tiles so their media fills them';
+    $('#arrangeHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Pack all tiles from the top left';
+    $('#layoutHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Move the tiles into ready-made frames';
+    // The grid size shows on its own button, so the line under the title only counts tiles (and names the saved wall).
+    var count = S.items.length + (S.items.length === 1 ? ' tile' : ' tiles');
     $('#readout').textContent = (A.winId > 1 ? 'Wall ' + A.winId + ' · ' : '') +
-      (gridOnly ? 'Free layout · ' + count : S.cols + ' × ' + S.rows + ' · ' + count + ' on ' + (S.cols * S.rows) + ' cells') +
+      (gridOnly ? count + ', placed freely' : count + ' on ' + (S.cols * S.rows) + ' cells') +
       (S.presetName ? ' · ' + S.presetName : '');
+    $('#readout').title = $('#readout').textContent;
     $('#cols').value = S.cols; $('#rows').value = S.rows;
     $('#gap').value = S.gap; $('#gapval').textContent = S.gap + ' px';
     $('#aspect').value = S.aspect; $('#fit').value = S.fit;
@@ -376,15 +540,25 @@
     A.tileEls.forEach(function (el) { var v = el._media; if (v && v.tagName === 'VIDEO') vids.push(v); });
     return vids;
   };
+  // Icon buttons: the icon and label say what a click does; the loop button shows on / mixed / off as pressed.
+  function iconBtn(b, icon, label, title) {
+    if (b._icon !== icon) { b._icon = icon; b.innerHTML = '<span class="ic" aria-hidden="true">' + ICON[icon] + '</span>'; }
+    b.setAttribute('aria-label', label); b.title = title || label;
+  }
   A.updateTransport = function () {
     var vids = A.videos(), imgPl = A.hasImagePlaylist();
     $('#playAll').disabled = !(vids.length > 0 || imgPl); $('#muteAll').disabled = !vids.length;
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing; });
     var vl = vi.filter(function (i) { return !i.pl; });
     var nl = vl.filter(function (i) { return i.loop; }).length;
+    var loop = !vl.length || nl === vl.length ? 'on' : (nl ? 'mixed' : 'off');
     $('#loopAll').disabled = !vl.length;
-    $('#loopAll').textContent = !vl.length || nl === vl.length ? 'Loop: on' : (nl ? 'Loop: mixed' : 'Loop: off');
-    $('#playAll').textContent = (vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused)) ? 'Pause all' : 'Play all';
-    $('#muteAll').textContent = vi.some(function (i) { return !i.muted; }) ? 'Mute all' : 'Unmute all';
+    $('#loopAll').classList.toggle('on', loop === 'on' && vl.length > 0);
+    $('#loopAll').setAttribute('aria-pressed', loop === 'mixed' ? 'mixed' : String(loop === 'on'));
+    iconBtn($('#loopAll'), 'loop', 'Loop all videos', 'Loop: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'loop every video'));
+    var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
+    iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
+    var loud = vi.some(function (i) { return !i.muted; });
+    iconBtn($('#muteAll'), loud ? 'mute' : 'vol', loud ? 'Mute all' : 'Unmute all');
   };
 })(window.MW.app);

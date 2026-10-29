@@ -1,5 +1,6 @@
 // Folder playlists: one folder feeds one or more tiles. A playlist is plain data:
-// { name, files: [{ path, name, kind }], shuffle, secs, randomStart, maxClip, fade, gifOnce, root, order, pos, truncated }.
+// { name, files: [{ path, name, kind }], shuffle, secs, randomStart, maxClip, fade, gifOnce, keepView, root, order, pos, truncated }.
+// keepView: a tile keeps its zoom and the position of its media when it moves on to the next file.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./util'));
   else (root.MW = root.MW || {}).pl = factory(root.MW.util);
@@ -30,7 +31,7 @@
       name: (U.baseName(dir) || dir || 'Playlist').slice(0, 60), files: files.map(fileOf),
       shuffle: !!opts.shuffle, secs: U.clamp(+opts.secs || 10, 2, 300), randomStart: !!opts.randomStart,
       maxClip: U.clamp(+opts.maxClip || 0, 0, 3600), fade: U.clamp(+opts.fade || 0, 0, 5), gifOnce: !!opts.gifOnce,
-      root: root || null, order: null, pos: 0, truncated: false
+      keepView: !!opts.keepView, root: root || null, order: null, pos: 0, truncated: false
     };
   }
   // The folder a playlist came from, if every file really lives inside it. Used to pick up new files.
@@ -69,7 +70,7 @@
   }
   // The stored fields of a playlist (no runtime extras).
   function fields(p) {
-    return { name: p.name, files: p.files, shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, root: p.root, order: p.order, pos: p.pos, truncated: !!p.truncated };
+    return { name: p.name, files: p.files, shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, keepView: !!p.keepView, root: p.root, order: p.order, pos: p.pos, truncated: !!p.truncated };
   }
   // A copy for undo: the order is copied, the file list is shared (it is replaced, never changed in place).
   function clone(o) {
@@ -90,7 +91,7 @@
       var order = Array.isArray(p.order) && p.order.length === files.length && p.order.every(function (x) { return Number.isInteger(x) && x >= 0 && x < files.length; }) ? p.order.slice() : null;
       out[k] = {
         name: typeof p.name === 'string' ? p.name.slice(0, 60) : 'Playlist', files: files, shuffle: !!p.shuffle, secs: U.clamp(+p.secs || 10, 2, 300),
-        randomStart: !!p.randomStart, maxClip: U.clamp(+p.maxClip || 0, 0, 3600), fade: U.clamp(+p.fade || 0, 0, 5), gifOnce: !!p.gifOnce,
+        randomStart: !!p.randomStart, maxClip: U.clamp(+p.maxClip || 0, 0, 3600), fade: U.clamp(+p.fade || 0, 0, 5), gifOnce: !!p.gifOnce, keepView: !!p.keepView,
         root: typeof p.root === 'string' ? p.root : null, order: order, pos: order ? U.clamp(p.pos | 0, 0, order.length) : 0, truncated: !!p.truncated
       };
     });

@@ -13,11 +13,12 @@
     if (it.pinned) return;
     var f = PL.nextFile(p);
     if (!f) return;
-    var mu = it.muted, ft = it.fit;
+    var mu = it.muted, ft = it.fit, view = MW.view.of(it);
     var old = p.fade > 0 ? A.tileEls.get(it.id) : null;
     if (old) A.tileEls.delete(it.id); // keep the old element on screen while the new one fades in
     A.replaceMedia(it, f);
     it.muted = mu; it.fit = ft; it.loop = false; it.shown = 0;
+    if (p.keepView) { it.mx = view.mx; it.my = view.my; it.zoom = view.zoom; }   // same framing for every file
     A.render();
     if (old) crossfade(it, old, p.fade);
     if (S.sel === it.id) A.refreshInspector();
@@ -36,6 +37,7 @@
   };
   function crossfade(it, old, secs) {
     old._dead = true;
+    old.classList.add('leaving');
     old.style.pointerEvents = 'none';
     old.classList.remove('sel');
     var ov = old.querySelector('video'), vol = ov ? ov.volume : 0;
@@ -186,15 +188,19 @@
       randomStart: $('#plFrom').value === 'random',
       maxClip: clamp(parseInt($('#plMax').value, 10) || 0, 0, 3600),
       fade: parseFloat($('#plFade').value) || 0,
-      gifOnce: $('#plGif').value === 'once'
+      gifOnce: $('#plGif').value === 'once',
+      keepView: $('#plView').value === 'keep'
     };
   };
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
-  // A folder that fills the empty cells of the wall. Rows or columns added later fill up with it too.
+  // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
   A.fillWithFolder = function (res, opts) {
     var files = res.entries || [];
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
-    if (S.mode === 'free') { A.toast('A playlist fills the grid. Switch Layout to Grid, or select a tile and use Own folder.'); return; }
+    if (S.mode === 'free' && !S.items.some(function (i) { return i.kind === 'empty'; })) {
+      A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
+      return;
+    }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
     if (S.sel && !A.itemById(S.sel)) S.sel = null;
@@ -208,14 +214,22 @@
       ? 'Playing "' + p.name + '" (' + files.length + ' files) on ' + n + (n === 1 ? ' tile.' : ' tiles.') + ' Add rows or columns and they fill too.'
       : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' '));
   };
-  // Puts a tile playing the fill folder into each empty cell (never more tiles than files). With onlyNew, only cells
-  // outside the old oldCols by oldRows grid are filled.
+  // Puts the fill folder into each empty tile, then (on the grid) into each empty cell, never more tiles than files.
+  // With onlyNew (the grid grew), only cells outside the old oldCols by oldRows grid are filled.
   A.autoFill = function (onlyNew, oldCols, oldRows) {
     var p = S.fillPl && S.playlists[S.fillPl];
-    if (!p || S.mode === 'free') return 0;
-    var room = p.files.length - S.items.filter(function (i) { return i.pl === S.fillPl; }).length;
+    if (!p) return 0;
+    var room = p.files.length - S.items.filter(function (i) { return i.pl === S.fillPl; }).length, count = 0;
     if (room <= 0) return 0;
-    var m = G.occupancy(S.items, S.cols, S.rows), count = 0;
+    if (!onlyNew) S.items.forEach(function (it) {
+      if (count >= room || it.kind !== 'empty') return;
+      var f = PL.nextFile(p);
+      A.replaceMedia(it, f);
+      it.pl = S.fillPl; it.loop = false; it.shown = 0;
+      count++;
+    });
+    if (S.mode === 'free') return count;
+    var m = G.occupancy(S.items, S.cols, S.rows);
     for (var r = 0; r < S.rows && count < room; r++) for (var c = 0; c < S.cols && count < room; c++) {
       if (m[r][c]) continue;
       if (onlyNew && c < oldCols && r < oldRows) continue;
@@ -234,6 +248,15 @@
     S.playlists = {}; S.fillPl = null;
     A.render(); A.refreshInspector(); A.refreshPlaylistStatus();
   }
+  // This tile stops playing its folder and keeps showing the file it has now.
+  A.leavePlaylist = function (it) {
+    if (!it.pl) return;
+    A.pushHistory();
+    it.pl = null; it.pinned = false; it.loop = true; it.shown = 0;
+    A.removeTileEl(it.id);
+    A.render(); A.refreshInspector();
+    A.toast('This tile now keeps showing ' + it.name + '.');
+  };
   // Give one tile its own folder. It gets a separate playlist, so other tiles keep theirs.
   A.assignFolder = function (it, res) {
     var files = res.entries || [];
