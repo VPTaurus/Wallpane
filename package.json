@@ -5,8 +5,8 @@
   "description": "A video wall for your own videos, images and GIFs. Local files only, never online.",
   "author": "Pavels Mazurs",
   "license": "GPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/VPTaurus/media-wall" },
-  "homepage": "https://github.com/VPTaurus/media-wall",
+  "repository": { "type": "git", "url": "https://github.com/VPTaurus/wallpane" },
+  "homepage": "https://github.com/VPTaurus/wallpane",
   "main": "main.js",
   "private": true,
   "engines": {
