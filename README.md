@@ -1,8 +1,12 @@
-# Media Wall (Windows desktop app)
+# Wallpane
 
-A grid wall for videos, images and GIFs. Drop files or folders from Explorer, drag borders to resize tiles, save wall presets (they link to your files, nothing is copied) and layouts.
+A video wall for Windows: your own videos, images and GIFs, many at once, arranged on a grid or placed freely by the pixel, on one screen or several. Drop files or folders from Explorer, resize tiles by their edges, play folders as playlists, and save walls to come back to (they link to your files; nothing is copied).
 
-Everything stays on your computer: the app plays local files only and never connects to the internet.
+Everything stays on your computer: Wallpane plays local files only and never connects to the internet.
+
+Wallpane used to be called Media Wall. On its first start it copies your saved walls and settings from the old `%APPDATA%\Media Wall` folder, which stays as a backup; older exports import as before.
+
+Wallpane is free software under the [GNU General Public License, version 3 or later](LICENSE).
 
 ## Run it
 1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
@@ -21,10 +25,11 @@ Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows prote
 The GitHub workflow does the same with repository secrets of the same names.
 
 ## Data
-Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Media Wall`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
+Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
 
 ## The window
-- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**.
+- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
+- The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). While one is in use, a chip next to the clock shows it; both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. The clock follows Windows' 12 or 24-hour format unless you tick 24-hour.
 - The wall has the whole window. The selected tile has an orange ring with round grips at its corners; drag a grip or any edge to resize. A pinned playlist tile shows a pin badge.
 - Right-click a tile for: reposition and zoom its media, fit, sound, replace, own folder, duplicate, split in two, Properties, remove. Right-click empty wall to add media or a folder right there, or to make a new empty tile.
 - **Properties** (right-click a tile, or Alt+Enter) opens a card next to the tile with its exact position and size (cells, or pixels in Free mode), how the media fits and its zoom, playback, playlist and file actions. Esc or × closes it; selecting another tile moves it there.
@@ -32,14 +37,17 @@ Saved walls, frame layouts, settings and your last wall are JSON files in `%APPD
 
 ## Tiles
 - Empty tiles are frames without media: size and place them first, then drop media on them, click Choose…, or add a folder as a playlist (playlists fill empty tiles first, also in Free layout). On the grid they give way: when a tile grows or moves and there is no other room, it takes their cells and they go (before any tile is shrunk). In Free (pixels) they are pushed and squeezed like other tiles.
+- A video tile has a control bar along its bottom (it shows when the pointer is over the tile): play, time, a timeline you can drag, sound, volume and speed. Properties > Playback holds the same, plus **Loop a part**: type a start and end time (like 1:23.5) or play to a spot and press Now, and the video repeats just that part; the timeline shows it. Volume, speed and the looped part are saved with the wall.
 - Media inside a tile can be moved and zoomed: scroll the wheel over the selected tile to zoom (up to 8×) around the pointer; Reposition and zoom (right-click menu or Properties) lets you drag the media inside the tile. Reset puts it back. Each tile remembers this in saved walls.
 - Arrange > Rows and columns builds the wall from rows (or columns) with their own number of tiles, for example 3 in the first row and 4 in the second. When the rows share a grid of up to 12 cells (3 and 4 do: 12) the wall stays on the grid; otherwise it switches to Free (pixels). Tiles move into the new frames in reading order and leftover frames become empty tiles.
 
 ## Keys
 - F11 wall mode on or off, Esc leaves wall mode / fullscreen
-- Tab moves between tiles and selects them; Enter or Space selects or lets go
+- Ctrl+Shift+H emergency hide, from any program (see below); press again to come back
+- Tab moves between tiles and selects them; Enter selects or lets go
 - Arrows move the selected tile, Shift+arrows resize, Delete removes it
 - Alt+Enter opens Properties for the selected tile; Esc closes it (or the right-click menu, or Reposition), and a second Esc lets go of the tile
+- On a selected video: Space or K plays and pauses, J / L skip 5 seconds back / on, [ and ] set where the looped part starts and ends, \ stops looping it, < and > change the speed, M mutes
 - Ctrl+Z / Ctrl+Y undo / redo
 - Double-click a tile for single-tile fullscreen
 
@@ -53,9 +61,19 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 - Settings (the gear):
   - Start this window in wall mode.
   - Keep the display awake in wall mode (on by default).
-  - Start Media Wall when you sign in to Windows (installed or portable app only).
+  - Start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
 
   Together these bring a wall back full screen after a restart.
+
+## Emergency hide
+Press **Ctrl+Shift+H** in any program and every wall window hides at once: the sound goes off (the window is muted, not just the videos), videos and playlists pause, and the windows show something else. Press it again and everything comes back as it was, the videos playing on. Starting Wallpane again also brings it back, in case the key slips your mind.
+
+Settings > Emergency hide:
+- **Key**: click it and press the new keys. A key with letters or numbers needs two modifiers (like Ctrl+Shift or Ctrl+Alt), because the key is taken from every other program while Wallpane runs; F-keys also work alone. If another program already holds the key, Settings says so, and it then works only while Wallpane is the active window.
+- **Windows show**: a spreadsheet (a plain budget table; you can click cells and move with the arrow keys, and the window title changes to match), a black screen, a picture you choose, or nothing at all: the windows go away, off the taskbar too.
+- **Hide now** tries it.
+
+While hidden, keys, drops and right-clicks don't reach the wall, so nothing on it can change by accident. The settings are shared by all wall windows (`hide.json`).
 
 ## Notes
 - Playlist: choose a folder (Playlist > Choose folder, or Add > Folder as a playlist) and it fills the empty cells, one file per tile; rows or columns you add later fill too. Drop a folder on a tile to give just that tile the folder. Options: order, image seconds, GIFs, crossfade, random video start, max clip length. New files in the folder join the queue as they appear (the app watches the folder, and also rescans every two minutes for network drives). Pin a tile to keep it. A folder is read up to 3,000 files.
@@ -73,11 +91,11 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 - `npm run test:e2e`: starts the real app with Playwright and goes through the main features (test data in a temporary folder)
 - `npm run check`: all three
 
-GitHub Actions runs all three on every push and pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
+GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
 
 ### Code map
-- `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows. Every call from the page goes through `handle()`, which only accepts our own wall windows.
+- `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows, the emergency hide key. Every call from the page goes through `handle()`, which only accepts our own wall windows.
 - `preload.js`: the small API the page gets (`window.wall`).
 - `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`).
-- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, and the pan and zoom maths (`view.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), and `boot.js` last.
+- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process) and the stopwatch and timer (`clock.js`).
+- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), and `boot.js` last.

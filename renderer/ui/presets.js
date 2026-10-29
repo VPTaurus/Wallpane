@@ -12,14 +12,18 @@
       playlists: A.usedPlaylists(), fillPl: (S.fillPl && S.playlists[S.fillPl]) ? S.fillPl : null,
       items: S.items.filter(function (i) { return !i.sample && !i._gone && (i.path || i.kind === 'empty'); }).map(function (i) {
         var v = MW.view.of(i);
-        return { path: i.path, name: i.name, kind: i.kind, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, pl: i.pl || null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: v.mx, my: v.my, zoom: v.zoom };
+        return {
+          path: i.path, name: i.name, kind: i.kind, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, pl: i.pl || null, pinned: !!i.pinned, fitSet: !!i.fitSet,
+          fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: v.mx, my: v.my, zoom: v.zoom,
+          vol: i.vol == null ? 1 : i.vol, speed: i.speed || 1, loopA: i.loopA == null ? null : i.loopA, loopB: i.loopB == null ? null : i.loopB
+        };
       })
     };
   };
   // Puts a cleaned record on the wall. Resolves with the number of files that were not found.
   A.applyRecord = async function (rec, label) {
     var items = rec.items.map(function (i) {
-      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: i.mx, my: i.my, zoom: i.zoom, shown: 0 };
+      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: i.mx, my: i.my, zoom: i.zoom, vol: i.vol, speed: i.speed, loopA: i.loopA, loopB: i.loopB, shown: 0 };
     });
     var withMedia = items.filter(function (i) { return i.kind !== 'empty'; });
     var ex = withMedia.length ? await api.exists(withMedia.map(function (i) { return i.path; })) : [];
@@ -114,7 +118,7 @@
   $('#revealBtn').addEventListener('click', function () { api.revealStore(); });
   $('#exportBtn').addEventListener('click', function () {
     listPresets().then(function (list) {
-      var text = JSON.stringify({ app: 'media-wall', version: 1, presets: list, layouts: A.userLayouts }, null, 2);
+      var text = JSON.stringify({ app: 'wallpane', version: 1, presets: list, layouts: A.userLayouts }, null, 2);
       return api.exportData(text);
     }).then(function (file) { if (file) A.toast('Exported to ' + file); });
   });
@@ -123,7 +127,8 @@
       if (!res) return;
       if (res.error) { A.toast(res.error); return; }
       var d = res.data;
-      if (!d || d.app !== 'media-wall') { A.toast('That file is not a Media Wall export.'); return; }
+      // Exports from before the rename say 'media-wall'.
+      if (!d || (d.app !== 'wallpane' && d.app !== 'media-wall')) { A.toast('That file is not a Wallpane export.'); return; }
       return listPresets().then(function (list) {
         var added = 0;
         (Array.isArray(d.presets) ? d.presets : []).forEach(function (r) {

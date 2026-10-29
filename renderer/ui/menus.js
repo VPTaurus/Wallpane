@@ -69,6 +69,8 @@
     if (media && it.kind === 'video') {
       items.push({ label: it.muted ? 'Sound on' : 'Sound off', icon: it.muted ? 'vol' : 'mute', act: function () { it.muted = !it.muted; A.render(); A.refreshInspector(); } });
       if (!it.pl) items.push({ label: it.loop ? 'Play once' : 'Loop', icon: 'loop', act: function () { it.loop = !it.loop; A.render(); A.refreshInspector(); } });
+      if (!it.pl && MW.play.hasLoop(it)) items.push({ label: 'Stop looping the part', hint: MW.play.fmtTime(it.loopA || 0, true) + ' to ' + (it.loopB == null ? 'the end' : MW.play.fmtTime(it.loopB, true)), icon: 'loop', act: function () { A.setLoop(it, null, null); } });
+      else if (!it.pl) items.push({ label: 'Loop a part…', hint: 'Speed, volume and loop in Properties', icon: 'loop', act: function () { A.openProps(it, '#pbSec'); } });
     }
     if (it.pl && S.playlists[it.pl]) {
       items.push({ label: 'Next file', icon: 'next', disabled: !!it.pinned, act: function () { A.advance(it); } },

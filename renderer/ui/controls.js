@@ -144,6 +144,22 @@
     var it = A.selected();
     if (!it || inField) return;
     if (e.key === 'Delete') { e.preventDefault(); A.removeItem(it.id); return; }
+    // A selected video: Space or K plays and pauses, J and L skip 5 s back and on, [ and ] set where the looped part
+    // starts and ends, \ stops looping it, < and > change the speed, M mutes.
+    var vid = A.videoOf(it), key = e.key;
+    if (vid && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if ((key === ' ' && t.tagName !== 'BUTTON') || key === 'k' || key === 'K') { e.preventDefault(); if (vid.paused) vid.play().catch(function () {}); else vid.pause(); return; }
+      if (/^[jJlL]$/.test(key)) {
+        e.preventDefault();
+        vid.currentTime = clamp(vid.currentTime + (key.toLowerCase() === 'j' ? -5 : 5), 0, isFinite(vid.duration) ? vid.duration : Infinity);
+        return;
+      }
+      if (!it.pl && key === '[') { e.preventDefault(); var at = vid.currentTime; A.setLoop(it, at, it.loopB != null && it.loopB > at ? it.loopB : null); return; }
+      if (!it.pl && key === ']') { e.preventDefault(); A.setLoop(it, it.loopA || 0, vid.currentTime); return; }
+      if (!it.pl && key === '\\') { e.preventDefault(); A.setLoop(it, null, null); return; }
+      if (key === '<' || key === '>') { e.preventDefault(); A.setSpeed(it, MW.play.stepSpeed(it.speed || 1, key === '>' ? 1 : -1)); A.toast('Speed ' + it.speed + '×'); return; }
+      if (key === 'm' || key === 'M') { e.preventDefault(); it.muted = !it.muted; A.render(); A.refreshInspector(); A.updateTransport(); return; }
+    }
     var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (!d) return;
     e.preventDefault();
@@ -171,11 +187,32 @@
     A.toast('Wall cleared. Ctrl+Z brings it back.');
   });
 
+  /* ---------- the bar on one line ---------- */
+  // Measured rather than set by window width: the clock's chips come and go. Changes wait for the next frame, so a
+  // change here never feeds back into the observer that asked for it.
+  var bar = $('.bar'), fitQueued = false;
+  function oneLine() { return bar.lastElementChild.getBoundingClientRect().top < bar.firstElementChild.getBoundingClientRect().bottom; }
+  A.fitBar = function () {
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(function () {
+      fitQueued = false;
+      bar.classList.remove('c1', 'c2', 'c3');
+      ['c1', 'c2', 'c3'].some(function (c) {
+        if (oneLine()) return true;
+        bar.classList.add(c);
+        return false;
+      });
+    });
+  };
+  new ResizeObserver(A.fitBar).observe(bar);
+
   /* ---------- popovers and menus ---------- */
   // name: [popover, the button it hangs from]. Frame layouts opens from the Arrange menu, so it has no button of its own.
   var POPS = {
     add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
-    presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn']
+    presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn'],
+    time: ['#popT', '#timeBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
@@ -213,7 +250,27 @@
     }
     else if (which === 'playlist') A.refreshPlaylistStatus();
     else if (which === 'settings') refreshSettings();
+    else if (which === 'help') fillAbout();
+    else if (which === 'time') A.refreshTime();
     placeOpen();
+  }
+  // About, in Help: version and licence, the source code, and support links when package.json lists any.
+  function fillAbout() {
+    api.appInfo().then(function (info) {
+      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      var box = $('#aboutLinks'), links = [];
+      if (info.links.source) links.push(['Source code', info.links.source]);
+      info.links.support.forEach(function (u) {
+        links.push([/buymeacoffee\.com/.test(u) ? 'Buy me a coffee' : /github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
+      });
+      box.innerHTML = '';
+      links.forEach(function (l) {
+        var b = document.createElement('button');
+        b.className = 'btn'; b.type = 'button'; b.textContent = l[0]; b.title = l[1] + ' (opens in your browser)';
+        b.addEventListener('click', function () { api.openLink(l[1]); });
+        box.appendChild(b);
+      });
+    });
   }
   A.openPop = openPop;
   Object.keys(POPS).forEach(function (k) {
@@ -227,6 +284,7 @@
 
   /* ---------- Settings: wall mode and startup ---------- */
   function refreshSettings() {
+    A.refreshHideSettings();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     api.loginItem().then(function (r) {

@@ -1,9 +1,12 @@
 {
-  "name": "media-wall",
-  "productName": "Media Wall",
+  "name": "wallpane",
+  "productName": "Wallpane",
   "version": "1.1.0",
-  "description": "A video-wall player for local videos, images and GIFs.",
+  "description": "A video wall for your own videos, images and GIFs. Local files only, never online.",
   "author": "Pavels Mazurs",
+  "license": "GPL-3.0-or-later",
+  "repository": { "type": "git", "url": "https://github.com/VPTaurus/wallpane" },
+  "homepage": "https://github.com/VPTaurus/wallpane",
   "main": "main.js",
   "private": true,
   "engines": {
@@ -27,8 +30,8 @@
     "globals": "^17.13.0"
   },
   "build": {
-    "appId": "local.mediawall.app",
-    "productName": "Media Wall",
+    "appId": "io.github.vptaurus.wallpane",
+    "productName": "Wallpane",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -38,7 +41,8 @@
       "preload.js",
       "lib/**/*",
       "renderer/**/*",
-      "package.json"
+      "package.json",
+      "LICENSE"
     ],
     "win": {
       "target": [

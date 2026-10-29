@@ -2,7 +2,7 @@
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, PL = MW.pl;
+  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, PL = MW.pl, P = MW.play;
   var S = A.S, $ = A.$, inspector = A.inspector, clamp = U.clamp, esc = U.esc;
 
   A.select = function (id) {
@@ -39,6 +39,24 @@
       '<input id="' + id + '" type="number" min="' + min + '" max="' + max + '" value="' + val + '" inputmode="numeric"></label>';
   }
 
+  /* ---------- a video tile: sound, speed, and a part of the video that loops ---------- */
+  function playbackSec(it) {
+    var vol = Math.round((it.vol == null ? 1 : it.vol) * 100), loop = !it.pl && P.hasLoop(it);
+    return '<div class="sec" id="pbSec"><span class="lab">Playback</span>' + seg('sMute', 'Sound off', 'Sound on', it.muted) +
+      (it.pl ? '' : seg('sLoop', 'Loop', 'Play once', it.loop)) +
+      '<div class="frow zoomrow"><label for="insVol">Volume</label><div class="row"><input id="insVol" type="range" min="0" max="100" step="1" value="' + vol + '"><span class="gapval" id="insVolVal">' + vol + '%</span></div></div>' +
+      '<div class="frow"><label for="insSpeed">Speed</label><select id="insSpeed">' +
+      P.SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === (it.speed || 1) ? ' selected' : '') + '>' + s + '×' + (s === 1 ? ' (normal)' : '') + '</option>'; }).join('') + '</select></div>' +
+      (it.pl ? '<p class="note">Looping a part works on a single video, not on a playlist tile.</p>' :
+        '<span class="lab">Loop a part</span><div class="loopgrid">' +
+        '<label class="fld" for="insLoopA"><span>Start</span><input id="insLoopA" type="text" inputmode="decimal" autocomplete="off" placeholder="0:00.0" value="' + (loop ? P.fmtTime(it.loopA || 0, true) : '') + '"></label>' +
+        '<button class="btn" id="insLoopANow" type="button" title="Start the part where the video is now ( [ )">Now</button>' +
+        '<label class="fld" for="insLoopB"><span>End</span><input id="insLoopB" type="text" inputmode="decimal" autocomplete="off" placeholder="the end" value="' + (loop && it.loopB != null ? P.fmtTime(it.loopB, true) : '') + '"></label>' +
+        '<button class="btn" id="insLoopBNow" type="button" title="End the part where the video is now ( ] )">Now</button></div>' +
+        (loop ? '<button class="btn" id="insLoopClear" type="button">Stop looping the part</button>' : '<p class="note">Type times like 1:23.5, or play to a spot and press Now.</p>')) +
+      '</div>';
+  }
+
   /* ---------- a tile that plays a folder: that playlist's own options ---------- */
   function playersOf(it) { return S.items.filter(function (i) { return i.pl === it.pl; }).length; }
   function playlistSec(it) {
@@ -70,11 +88,15 @@
   // file, just the numbers and the name are updated, so nothing you are typing in the card is lost.
   var shownKey = null, shownItem = null;
   function keyOf(it) {
-    return it ? [it.id, S.mode, S.cols, S.rows, it.kind, !!it.missing, !!it.sample, it.pl || '', !!it.pinned, it.muted, it.loop, it.fit, playlistSig(it)].join('|') : '';
+    return it ? [it.id, S.mode, S.cols, S.rows, it.kind, !!it.missing, !!it.sample, it.pl || '', !!it.pinned, it.muted, it.loop, it.fit,
+      it.speed || 1, it.loopA == null ? '' : it.loopA, it.loopB == null ? '' : it.loopB, playlistSig(it)].join('|') : '';
   }
   function updatePlacement(it) {
     var v = S.mode === 'free' ? freeValues(it) : { fCol: it.col + 1, fRow: it.row + 1, fW: it.w, fH: it.h };
     v.insZoom = MW.view.of(it).zoom * 100;
+    v.insVol = (it.vol == null ? 1 : it.vol) * 100;
+    var vl = document.getElementById('insVolVal');
+    if (vl) vl.textContent = Math.round(v.insVol) + '%';
     Object.keys(v).forEach(function (id) {
       var input = document.getElementById(id);
       if (input && input !== document.activeElement) input.value = Math.round(v[id]);
@@ -135,7 +157,7 @@
         '<div class="acts"><button class="btn" id="insRepos" title="Drag the media inside the tile; scroll to zoom"><span class="ic" aria-hidden="true">' + A.ICON.move + '</span>Reposition</button>' +
         '<button class="btn" id="insViewReset" title="Centre the media and zoom out"><span class="ic" aria-hidden="true">' + A.ICON.reset + '</span>Reset</button></div>' +
         '<button class="btn" id="insFitTile" title="Shrink the tile to the exact shape of its media: no bars, nothing cropped"><span class="ic" aria-hidden="true">' + A.ICON.fit + '</span>Fit tile to media</button></div>') +
-      (it.kind === 'video' && !it.missing ? '<div class="sec"><span class="lab">Playback</span>' + seg('sMute', 'Sound off', 'Sound on', it.muted) + (it.pl ? '' : seg('sLoop', 'Loop', 'Play once', it.loop)) + '</div>' : '') +
+      (it.kind === 'video' && !it.missing ? playbackSec(it) : '') +
       (it.pl && S.playlists[it.pl] ? playlistSec(it) : '') +
       '<div class="sec"><span class="lab">' + (it.kind === 'empty' ? 'Media' : 'File') + '</span><div class="acts">' +
       (it.missing ? '<button class="btn pri" id="insRelink">Locate file…</button>' : it.kind === 'empty' ? '<button class="btn pri" id="insReplace">Choose media…</button>' : '<button class="btn" id="insReplace">Replace…</button>') +
@@ -168,6 +190,23 @@
     if ($('#sMute')) $('#sMute').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; it.muted = b.dataset.v === 'a'; A.render(); A.refreshInspector(); });
     if ($('#sLoop')) $('#sLoop').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; it.loop = b.dataset.v === 'a'; A.render(); A.refreshInspector(); });
     if ($('#insFitTile')) $('#insFitTile').addEventListener('click', function () { A.fitTilesToMedia([it]); });
+    if ($('#insVol')) $('#insVol').addEventListener('input', function () { A.setVolume(it, this.value / 100); });
+    if ($('#insSpeed')) $('#insSpeed').addEventListener('change', function () { A.setSpeed(it, parseFloat(this.value)); });
+    // Loop a part: typed times, or Now for where the video is. A time that can't be read puts the fields back.
+    function loopFromFields() {
+      var a = $('#insLoopA').value.trim(), b = $('#insLoopB').value.trim();
+      var pa = a === '' ? 0 : P.parseTime(a), pb = b === '' ? null : P.parseTime(b);
+      if (Number.isNaN(pa) || Number.isNaN(pb)) { A.toast('Type a time like 1:23.5 or 83.5.'); shownKey = null; A.refreshInspector(); return; }
+      if (!A.setLoop(it, pa, pb)) { shownKey = null; A.refreshInspector(); }
+    }
+    function now() { var v = A.videoOf(it); return v ? v.currentTime : 0; }
+    if ($('#insLoopA')) {
+      $('#insLoopA').addEventListener('change', loopFromFields);
+      $('#insLoopB').addEventListener('change', loopFromFields);
+      $('#insLoopANow').addEventListener('click', function () { A.setLoop(it, now(), it.loopB != null && it.loopB > now() ? it.loopB : null); });
+      $('#insLoopBNow').addEventListener('click', function () { A.setLoop(it, it.loopA || 0, now()); });
+    }
+    if ($('#insLoopClear')) $('#insLoopClear').addEventListener('click', function () { A.setLoop(it, null, null); });
     if ($('#sPin')) $('#sPin').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; A.setPinned(it, b.dataset.v === 'b'); });
     // Playlist options apply at once to the folder this tile plays (and to every tile that plays it).
     if ($('#plOpts')) $('#plOpts').addEventListener('change', function () {

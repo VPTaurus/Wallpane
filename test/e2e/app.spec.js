@@ -37,9 +37,12 @@ test.beforeAll(async () => {
     fs.writeFileSync(path.join(media, 'img' + (i + 1) + '.png'), png(w, h, [40 * i, 120, 200 - 30 * i]));
   });
   fs.writeFileSync(path.join(media, 'old clip.avi'), 'not really a video');
-  const env = Object.assign({}, process.env, { MEDIA_WALL_USER_DATA: path.join(dir, 'data') });
-  // MEDIA_WALL_EXE runs the same tests against a built app (dist\win-unpacked\Media Wall.exe), to catch packaging mistakes.
-  app = await electron.launch(process.env.MEDIA_WALL_EXE ? { executablePath: process.env.MEDIA_WALL_EXE, args: [], env } : { args: [root], env });
+  // The same window everywhere: GitHub's Windows runners have a 1024 × 768 screen, so the tests use that size here too.
+  fs.mkdirSync(path.join(dir, 'data'));
+  fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: path.join(dir, 'data') });
+  // WALLPANE_EXE runs the same tests against a built app (dist\win-unpacked\Wallpane.exe), to catch packaging mistakes.
+  app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
   page = await app.firstWindow();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.waitForSelector('body[data-ready="1"]');
@@ -150,7 +153,7 @@ test('presets: save, export and import', async () => {
   await page.click('#exportBtn');
   await expect(toast()).toContainText('Exported to');
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  expect(data.app).toBe('media-wall');
+  expect(data.app).toBe('wallpane');
   expect(data.presets.map((p) => p.name)).toEqual(['E2E wall']);
   await page.click('#importBtn');
   await expect(toast()).toContainText('Imported 1 preset');
@@ -186,7 +189,7 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
 test('Settings: start in wall mode is saved; starting with Windows is offered only in a built app', async () => {
   await page.click('#settingsBtn');
   // Never clicked here: that would add a real startup entry to this PC.
-  if (process.env.MEDIA_WALL_EXE) await expect(page.locator('#setLogin')).toBeEnabled();
+  if (process.env.WALLPANE_EXE) await expect(page.locator('#setLogin')).toBeEnabled();
   else {
     await expect(page.locator('#setLogin')).toBeDisabled();
     await expect(page.locator('#loginNote')).toContainText('installed or portable app');
@@ -282,6 +285,9 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(card).toBeHidden();
   await page.click('#helpBtn');
   await expect(page.locator('#popH')).toContainText('Alt');
+  await expect(page.locator('#aboutLine')).toContainText('Wallpane');
+  await expect(page.locator('#aboutLine')).toContainText('GPL');
+  await expect(page.locator('#aboutLinks')).toContainText('Source code');
   await page.keyboard.press('Escape');
 });
 
@@ -383,6 +389,168 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await card.locator('#plLeave').click();
   await expect(card.locator('#plSec')).toHaveCount(0);
   expect(await page.evaluate(() => window.MW.app.selected().pl)).toBeNull();
+  await page.keyboard.press('Escape');
+});
+
+test('video controls: speed, volume, a looped part, and keys', async () => {
+  // Record a 3-second WebM right in the page (canvas + MediaRecorder), so the test needs no video file of its own.
+  const b64 = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+    const g = c.getContext('2d'), rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm;codecs=vp8' }), parts = [];
+    rec.ondataavailable = (e) => parts.push(e.data);
+    const stopped = new Promise((r) => { rec.onstop = r; });
+    rec.start();
+    const t0 = performance.now();
+    await new Promise((done) => (function draw() {
+      const t = performance.now() - t0;
+      g.fillStyle = 'hsl(' + Math.round(t / 10) % 360 + ',70%,50%)'; g.fillRect(0, 0, 160, 90);
+      if (t < 3000) requestAnimationFrame(draw); else done();
+    })());
+    rec.stop(); await stopped;
+    const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
+    let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  });
+  const clip = path.join(dir, 'clip.webm');
+  fs.writeFileSync(clip, Buffer.from(b64, 'base64'));
+  await answerDialogs(clip);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const tile = page.locator('#wall .tile.is-video').first(), video = tile.locator('video');
+  await expect(tile).toBeVisible();
+  // A recorded WebM doesn't say how long it is; the app finds out by itself.
+  await expect.poll(() => video.evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(2);
+  await expect(tile.locator('.vbar .vseek')).toBeAttached();
+  // From the right-click menu (on a narrow tile, a click near its top may land on one of the tile's buttons).
+  await tile.click({ button: 'right' });
+  await menuItem('Loop a part').click();                      // opens Properties at Playback
+  const card = page.locator('#inspector');
+  await card.locator('#insSpeed').selectOption('2');
+  await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(2);
+  await card.locator('#insVol').fill('50');
+  await expect.poll(() => video.evaluate((v) => v.volume)).toBeCloseTo(0.5, 2);
+  // Loop 0.5 s to 1.5 s: the video stays in that part.
+  await card.locator('#insLoopA').fill('0.5');
+  await card.locator('#insLoopA').press('Tab');
+  await card.locator('#insLoopB').fill('1.5');
+  await card.locator('#insLoopB').press('Tab');
+  await expect(tile.locator('.vloop')).toBeVisible();
+  await card.locator('#insSpeed').selectOption('1');
+  await video.evaluate((v) => v.play());
+  const times = [];
+  for (let i = 0; i < 12; i++) { await page.waitForTimeout(200); times.push(await video.evaluate((v) => v.currentTime)); }
+  expect(Math.min(...times)).toBeGreaterThanOrEqual(0.45);
+  expect(Math.max(...times)).toBeLessThan(1.7);
+  // Keys on the selected video: Space pauses, > speeds up, \ stops looping the part.
+  await page.keyboard.press('Escape');                       // close Properties, keep the tile selected
+  await page.locator('body').press('Space');
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  await page.locator('body').press('Shift+Period');
+  await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(1.25);
+  await page.locator('body').press('Backslash');
+  await expect(tile.locator('.vloop')).toBeHidden();
+  await page.keyboard.press('Escape');
+});
+
+test('emergency hide: the key covers the wall with a spreadsheet, silences it, and brings it all back', async () => {
+  const video = page.locator('#wall .tile.is-video video').first();
+  await video.evaluate((v) => v.play());
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  const count = await tiles().count();
+  const muted = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isAudioMuted());
+  await tiles().first().click({ button: 'right' });            // selects it (Delete would remove it)
+  await page.keyboard.press('Escape');                         // closes the menu, keeps the tile selected
+  await page.keyboard.press('Control+Shift+H');
+  const cover = page.locator('#cover');
+  await expect(cover).toBeVisible();
+  await expect(cover.locator('.sh-grid')).toContainText('Department budget 2026');
+  await expect(page).toHaveTitle('Budget 2026.xlsx');
+  await expect.poll(muted).toBe(true);
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  // While hidden, keys don't reach the wall (Delete would remove the selected tile); the spreadsheet takes the arrows.
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('ArrowRight');
+  await expect(cover.locator('.sh-ref')).toHaveText('C5');
+  await page.keyboard.press('Control+Shift+H');
+  await expect(cover).toBeHidden();
+  await expect(page).not.toHaveTitle('Budget 2026.xlsx');
+  await expect.poll(muted).toBe(false);
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  expect(await tiles().count()).toBe(count);
+});
+
+test('emergency hide settings: a new key, a black screen, and windows that go away', async () => {
+  await page.keyboard.press('Escape');
+  await page.click('#settingsBtn');
+  const key = page.locator('#hideKey');
+  await expect(key).toHaveText('Ctrl + Shift + H');
+  // A key other programs need is refused; Esc stops recording.
+  await key.click();
+  await expect(key).toHaveText('Press the new keys…');
+  await page.keyboard.press('Control+H');
+  await expect(page.locator('#hideNote')).toContainText('two modifier');
+  await page.keyboard.press('Escape');
+  await expect(key).toHaveText('Ctrl + Shift + H');
+  await key.click();
+  await page.keyboard.press('Control+Shift+J');
+  await expect(key).toHaveText('Ctrl + Shift + J');
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).key).toBe('Ctrl+Shift+J');
+  await expect(page.locator('#helpHideKey')).toHaveText('Ctrl Shift J');   // Help shows the new key
+  // Black screen, from Hide now.
+  await page.locator('#hideCover').selectOption('black');
+  await page.click('#hideTry');
+  await expect(page.locator('#cover')).toHaveClass(/\bblack\b/);
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.keyboard.press('Control+Shift+H');                 // the old key does nothing now
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.keyboard.press('Control+Shift+J');
+  await expect(page.locator('#cover')).toBeHidden();
+  // The windows go away and come back.
+  await page.click('#settingsBtn');
+  await page.locator('#hideCover').selectOption('away');
+  const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
+  await page.click('#hideTry');
+  await expect.poll(visible).toBe(false);
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(visible).toBe(true);
+  await page.click('#settingsBtn');
+  await page.locator('#hideCover').selectOption('sheet');
+  await page.keyboard.press('Escape');
+});
+
+test('time in the bar: clock, stopwatch with laps, and a timer that rings', async () => {
+  await expect(page.locator('#clock')).toHaveText(/^\d{1,2}:\d{2}/);
+  await page.click('#timeBtn');
+  await expect(page.locator('#popT')).toBeVisible();
+  await expect(page.locator('#bigClock')).toHaveText(/\d{1,2}:\d{2}:\d{2}/);
+  // The 24-hour choice is saved with the window's settings.
+  await page.locator('#clock24').setChecked(false);
+  await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
+  await page.locator('#clock24').setChecked(true);
+  await expect(page.locator('#clock')).not.toHaveText(/M$/);
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(true);
+  // Stopwatch
+  await page.click('#swGo');
+  await expect(page.locator('#swChip')).toBeVisible();
+  await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
+  await page.click('#swLap');
+  await expect(page.locator('#swLaps li')).toHaveCount(1);
+  await page.click('#swGo');                                   // pause
+  const held = await page.locator('#swTime').textContent();
+  await page.waitForTimeout(300);
+  await expect(page.locator('#swTime')).toHaveText(held);
+  await page.click('#swReset');
+  await expect(page.locator('#swTime')).toHaveText('0:00.0');
+  await expect(page.locator('#swChip')).toBeHidden();
+  // Timer: 2 seconds
+  await page.locator('#tmSet').fill('0:02');
+  await page.click('#tmGo');
+  await expect(page.locator('#tmChip')).toBeVisible();
+  await expect(page.locator('#tmChip')).toHaveClass(/\bdone\b/, { timeout: 6000 });
+  await expect(toast()).toContainText('is up');
+  await page.click('#tmReset');
+  await expect(page.locator('#tmChip')).toBeHidden();
+  await expect(page.locator('#tmTime')).toHaveText('0:02');
   await page.keyboard.press('Escape');
 });
 

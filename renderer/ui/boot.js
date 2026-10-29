@@ -49,7 +49,7 @@
   async function boot() {
     var got = await Promise.all([api.storeGet('prefs'), api.storeGet('session'), api.storeGet('layouts'), api.displays(), api.windowInfo()]);
     A.winId = (got[4] && got[4].id) || 1;
-    if (A.winId > 1) document.title = 'Media Wall · Wall ' + A.winId;
+    if (A.winId > 1) document.title = 'Wallpane · Wall ' + A.winId;
     A.render();
     A.applyPrefs(got[0]);
     A.loadUserLayouts(got[2]);

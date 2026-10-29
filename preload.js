@@ -35,5 +35,17 @@ contextBridge.exposeInMainWorld('wall', {
 
   // starting with Windows
   loginItem: () => ipcRenderer.invoke('app:loginItem'),
-  setLoginItem: (on) => ipcRenderer.invoke('app:setLoginItem', !!on)
+  setLoginItem: (on) => ipcRenderer.invoke('app:setLoginItem', !!on),
+
+  // emergency hide: the key works from any program; the page shows the cover and blocks input while hidden
+  hideState: () => ipcRenderer.invoke('hide:get'),
+  setHide: (change) => ipcRenderer.invoke('hide:set', change),
+  pickHideImage: () => ipcRenderer.invoke('hide:pickImage'),
+  toggleHide: () => ipcRenderer.invoke('hide:toggle'),
+  suspendHideKey: (on) => ipcRenderer.invoke('hide:suspend', !!on),
+  onHide: (cb) => { ipcRenderer.on('hide:changed', (_e, s) => cb(s)); },
+
+  // about: name, version, licence, and the app's own links (opened in the browser)
+  appInfo: () => ipcRenderer.invoke('app:info'),
+  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
 });

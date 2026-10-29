@@ -56,6 +56,22 @@ test('gifSeconds adds up the frame delays of an animated GIF', () => {
   assert.equal(files.gifSeconds(gif([50, 30]).subarray(0, 30)), 0);
 });
 
+test('migrateData copies the old app folder\'s data once, and only into an empty new folder', (t) => {
+  const dir = tempDir();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const oldDir = path.join(dir, 'Media Wall'), newDir = path.join(dir, 'Wallpane');
+  fs.mkdirSync(path.join(oldDir, 'Cache'), { recursive: true });
+  for (const n of ['presets.json', 'session.json', 'session-2.json', 'prefs-2.json', 'window.json', 'layouts.json', 'Preferences', 'notes.json']) fs.writeFileSync(path.join(oldDir, n), n);
+  assert.equal(files.migrateData(oldDir, newDir), 6);
+  assert.deepEqual(fs.readdirSync(newDir).sort(), ['layouts.json', 'prefs-2.json', 'presets.json', 'session-2.json', 'session.json', 'window.json']);
+  assert.ok(fs.existsSync(path.join(oldDir, 'presets.json')), 'the old folder stays as a backup');
+  fs.writeFileSync(path.join(oldDir, 'presets.json'), 'changed later');
+  assert.equal(files.migrateData(oldDir, newDir), 0, 'never twice: the new folder has data now');
+  assert.equal(fs.readFileSync(path.join(newDir, 'presets.json'), 'utf8'), 'presets.json');
+  assert.equal(files.migrateData(path.join(dir, 'missing'), newDir), 0);
+  assert.equal(files.migrateData(newDir, newDir), 0);
+});
+
 test('writeJsonAtomic leaves a whole file and no temporary files, even with saves at the same time', async (t) => {
   const dir = tempDir();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

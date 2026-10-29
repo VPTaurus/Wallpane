@@ -16,7 +16,11 @@
       fx: num(i.fx), fy: num(i.fy), fw: num(i.fw), fh: num(i.fh),
       // where the media sits in the tile, and its zoom
       mx: num(i.mx) === undefined ? 0.5 : U.clamp(+i.mx, 0, 1), my: num(i.my) === undefined ? 0.5 : U.clamp(+i.my, 0, 1),
-      zoom: num(i.zoom) === undefined ? 1 : U.clamp(+i.zoom, 1, 8)
+      zoom: num(i.zoom) === undefined ? 1 : U.clamp(+i.zoom, 1, 8),
+      // playback: volume 0 to 1, speed, and the part of the video that loops (seconds; null for none or "to the end")
+      vol: num(i.vol) === undefined ? 1 : U.clamp(+i.vol, 0, 1), speed: num(i.speed) === undefined ? 1 : U.clamp(+i.speed, 0.25, 4),
+      loopA: num(i.loopA) === undefined || +i.loopA < 0 ? null : +i.loopA,
+      loopB: num(i.loopB) === undefined || +i.loopB <= (+i.loopA || 0) ? null : +i.loopB
     };
   }
   function goodItem(i) {
