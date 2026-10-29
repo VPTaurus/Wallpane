@@ -29,6 +29,18 @@ test('hotkey: accelerators are written one way, compared and shown', () => {
   assert.equal(K.problem('Ctrl+Shift+H'), '');
 });
 
+test('hotkey: Scroll Lock and media keys work alone, with readable names', () => {
+  assert.deepEqual(K.fromEvent(press('ScrollLock', { key: 'ScrollLock' })), { accel: 'Scrolllock' });
+  assert.deepEqual(K.fromEvent(press('AudioVolumeMute', { key: 'AudioVolumeMute' })), { accel: 'VolumeMute' });
+  assert.equal(K.normalize('scrolllock'), 'Scrolllock');
+  assert.equal(K.normalize('mediaplaypause'), 'MediaPlayPause');
+  assert.equal(K.problem('MediaPlayPause'), '');
+  assert.ok(K.problem('Space'), 'Space alone would take it from every program');
+  assert.equal(K.label('VolumeMute'), 'Mute key');
+  assert.equal(K.label('Scrolllock'), 'Scroll Lock');
+  assert.ok(K.matches(press('ScrollLock', { key: 'ScrollLock' }), 'Scrolllock'));
+});
+
 test('clock: stopwatch runs, pauses, laps and resets', () => {
   const w = C.watch();
   C.start(w, 1000);

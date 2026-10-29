@@ -7,7 +7,8 @@
   if (!A) return;
   var MW = window.MW, U = MW.util, K = MW.hotkey;
   var api = A.api, $ = A.$;
-  var cfg = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, ok: false, on: false };
+  var cfg = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '', ok: false, on: false };
+  var BUTTON = { middle: 1, back: 3, forward: 4 };   // PointerEvent.button for each mouse setting
   var hidden = false, was = null, title = '', recording = false;
 
   var cover = document.createElement('div');
@@ -51,8 +52,8 @@
     cfg = s;
     if (s.on) hide(); else show();
     if (!$('#popS').hidden) showSettings();
-    // The key in Help follows Settings.
-    var dt = $('#helpHideKey');
+    // The key in Settings > Keys follows the one set here.
+    var dt = $('#keysHideKey');
     dt.innerHTML = '';
     K.label(cfg.key).split(' + ').forEach(function (p, i) {
       if (i) dt.appendChild(document.createTextNode(' '));
@@ -81,6 +82,17 @@
       e.stopImmediatePropagation();
       if (t !== 'keyup') e.preventDefault();
     }, true);
+  });
+  // The mouse button, while the pointer is over this window (hidden or not). Its click goes no further: no middle-click
+  // scrolling, and no back or forward.
+  function isHideButton(e) { return !!cfg.mouse && e.button === BUTTON[cfg.mouse]; }
+  window.addEventListener('pointerdown', function (e) {
+    if (!isHideButton(e)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    api.toggleHide();
+  }, true);
+  ['mousedown', 'mouseup', 'pointerup', 'auxclick'].forEach(function (t) {
+    window.addEventListener(t, function (e) { if (isHideButton(e)) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   });
 
   /* ---------- the spreadsheet cover: a plain budget table, the same every time ---------- */
@@ -169,12 +181,18 @@
     var k = K.label(cfg.key);
     $('#hideNote').textContent = text || (cfg.ok
       ? 'Press ' + k + ' in any program: every wall window ' + (cfg.cover === 'away' ? 'goes away' : 'is covered') + ', its sound goes off and videos pause. Press it again to come back. Starting Wallpane again also brings it back.'
-      : 'Another program already uses ' + k + ', so it works only while Wallpane is the active window. Click the key to pick another.');
+      : 'Another program already uses ' + k + ', so it works only while Wallpane is the active window. Click the key to pick another.') +
+      (!text && cfg.mouse && cfg.cover === 'away' ? ' With Nothing shown there is no window to click, so only the key brings them back.' : '');
   }
   function showSettings() {
     var b = $('#hideKey');
     if (!recording) { b.textContent = K.label(cfg.key); b.classList.remove('rec'); }
     b.classList.toggle('bad', !cfg.ok);
+    Array.prototype.forEach.call(document.querySelectorAll('#hideQuick [data-key]'), function (q) {
+      q.setAttribute('aria-pressed', String(K.normalize(q.dataset.key) === cfg.key));
+    });
+    $('#hideMouse').value = cfg.mouse || '';
+    $('#hideMouseNote').hidden = !cfg.mouse;
     $('#hideCover').value = cfg.cover;
     $('#hideImageBtn').hidden = cfg.cover !== 'image';
     $('#hideImageBtn').textContent = cfg.image ? 'Picture: ' + U.baseName(cfg.image) : 'Choose picture…';
@@ -185,7 +203,7 @@
     recording = true;
     var b = $('#hideKey');
     b.classList.add('rec'); b.textContent = 'Press the new keys…';
-    hideNote('Hold two of Ctrl, Alt, Shift and Win (one of them not Shift) and press a letter or number. F-keys also work alone. Esc cancels.');
+    hideNote('Hold two of Ctrl, Alt, Shift and Win (one of them not Shift) and press a letter or number. F-keys and Scroll Lock also work alone. Esc cancels.');
     api.suspendHideKey(true);
   }
   function stopRecord() {
@@ -210,6 +228,18 @@
       if (err) hideNote(err); else A.toast('Emergency hide key: ' + K.label(s.key));
     });
   }
+  // One-press keys, picked with a click: a media key may never reach the page, so it could not be recorded by pressing it.
+  Array.prototype.forEach.call(document.querySelectorAll('#hideQuick [data-key]'), function (q) {
+    q.addEventListener('click', function () {
+      api.setHide({ key: q.dataset.key }).then(function (s) {
+        cfg = s; showSettings();
+        if (s.error) hideNote(s.error); else A.toast('Emergency hide key: ' + K.label(s.key));
+      });
+    });
+  });
+  $('#hideMouse').addEventListener('change', function () {
+    api.setHide({ mouse: this.value }).then(function (s) { cfg = s; showSettings(); });
+  });
   $('#hideKey').addEventListener('click', function () { if (recording) stopRecord(); else startRecord(); });
   $('#hideKey').addEventListener('blur', stopRecord);
   $('#hideCover').addEventListener('change', function () {

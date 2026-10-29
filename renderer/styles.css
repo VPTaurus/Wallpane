@@ -195,11 +195,13 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 /* Repositioning the media: drag it inside the tile, scroll to zoom. */
 .tile.repos { cursor: move; outline-color: var(--accent); outline-style: dashed; z-index: 3; }
 .tile.gone { display: none; }   /* an empty tile a drag on the grid is covering, until the drag ends */
-/* Video controls: a bar along the bottom of a video tile, shown like the buttons on top. Narrow tiles drop the extras. */
+/* Video controls: a bar along the bottom of a video tile, shown like the buttons on top. Narrow tiles drop the extras.
+   The resize grips lie above it (.rz), so its controls keep clear of them: 12 px up from the bottom edge and 18 px in
+   from the corners. */
 .tile { container-type: inline-size; }
 .vbar {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
-  display: flex; align-items: center; gap: 6px; padding: 18px 10px 8px;
+  display: flex; align-items: center; gap: 6px; padding: 18px 18px 12px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); border-radius: 0 0 var(--r) var(--r);
   color: #fff; opacity: 0; transition: opacity 0.15s; pointer-events: none;
 }
@@ -233,7 +235,7 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .hud {
   position: absolute; left: 0; right: 0; top: 0; z-index: 4; pointer-events: none;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 12px; background: linear-gradient(rgba(0,0,0,0.7), transparent);
+  padding: 12px 18px; background: linear-gradient(rgba(0,0,0,0.7), transparent);   /* clear of the resize grips (.rz) */
   border-radius: var(--r) var(--r) 0 0;
   opacity: 0; transition: opacity 0.15s; color: #fff;
 }
@@ -258,7 +260,7 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 
 /* Resize handles: strips along the edges, and squares in the corners. On the selected tile the corner squares
    move out onto the ring and show as round grips. */
-.rz { position: absolute; z-index: 3; touch-action: none; }
+.rz { position: absolute; z-index: 5; touch-action: none; }   /* above the video control bar (.vbar) */
 .rz::after { content: ""; position: absolute; background: transparent; transition: background 0.12s; pointer-events: none; }
 .rz[data-edge="n"], .rz[data-edge="s"] { left: 18px; right: 18px; height: 12px; cursor: ns-resize; }
 .rz[data-edge="e"], .rz[data-edge="w"] { top: 18px; bottom: 18px; width: 12px; cursor: ew-resize; }
@@ -405,6 +407,24 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .loopgrid .btn { height: 34px; }
 .about { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .about .btn { height: 30px; }
+/* Settings: a wider panel, its sections listed down the side and one shown at a time. */
+.pop.settings { flex-direction: row; gap: 0; padding: 0; height: 580px; overflow: hidden; }
+.snav { flex: none; display: flex; flex-direction: column; gap: 2px; width: 182px; padding: 12px 8px; border-right: 1px solid var(--line); background: var(--bg); }
+.snav button { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; white-space: nowrap; font-size: 13.5px; }
+.snav button:hover { background: var(--panel-2); }
+.snav button[aria-selected="true"] { background: var(--panel); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent), 0 1px 2px rgba(0, 0, 0, 0.08); }
+.snav .ic { color: var(--accent); }
+.sbody { flex: 1; min-width: 0; overflow: auto; padding: 18px 20px 20px; }
+.ssec { display: flex; flex-direction: column; gap: 12px; }
+.ssec h2 { margin: 0 0 2px; font: 700 18px/1.2 var(--ui); letter-spacing: -0.01em; }
+.ssec .lab { margin-top: 6px; }
+.ssec .frow { grid-template-columns: 128px minmax(0, 1fr); }
+.ssec .frow select, .ssec .frow .keycap { max-width: 300px; }
+.quick { gap: 6px; }
+.quick .btn { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.bar .pop .quick .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.note.path { font-size: 12px; color: var(--fg); }
+
 /* The time in the bar: the clock, and chips for a stopwatch or timer in use; a finished timer flashes. */
 .timebtn { gap: 8px; }
 .clk { font: 500 15px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }

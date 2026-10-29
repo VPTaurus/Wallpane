@@ -221,7 +221,7 @@
   // They open to the right of buttons on the left side of the bar, and to the left of the others.
   function placePop(pop, btn) {
     var vw = document.documentElement.clientWidth, vh = window.innerHeight, m = 12;
-    var w = Math.min(pop.classList.contains('menu') ? 300 : 380, vw - 2 * m);
+    var w = Math.min(pop.classList.contains('menu') ? 300 : pop.classList.contains('settings') ? 680 : 380, vw - 2 * m);
     var r = btn.getBoundingClientRect();
     pop.style.width = w + 'px';
     pop.style.left = clamp(r.left + w <= vw - m ? r.left : r.right - w, m, Math.max(m, vw - w - m)) + 'px';
@@ -250,11 +250,10 @@
     }
     else if (which === 'playlist') A.refreshPlaylistStatus();
     else if (which === 'settings') refreshSettings();
-    else if (which === 'help') fillAbout();
     else if (which === 'time') A.refreshTime();
     placeOpen();
   }
-  // About, in Help: version and licence, the source code, and support links when package.json lists any.
+  // About, in Settings: version and licence, the source code, and support links when package.json lists any.
   function fillAbout() {
     api.appInfo().then(function (info) {
       $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
@@ -282,17 +281,55 @@
   // right-click menu, whose items may open a popover themselves.
   document.addEventListener('click', function (e) { if (e.target.isConnected && !e.target.closest('.popwrap, .ctx')) A.closePops(); });
 
-  /* ---------- Settings: wall mode and startup ---------- */
+  /* ---------- Settings: a section at a time (General, Wall mode, Emergency hide, Keys, About) ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.snav [role="tab"]')), secNow = 'general';
+  function showSec(name) {
+    secNow = name;
+    tabs.forEach(function (t) {
+      var on = t.dataset.sec === name;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      $('#' + t.getAttribute('aria-controls')).hidden = !on;
+    });
+    $('.sbody').scrollTop = 0;
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { showSec(t.dataset.sec); });
+    // Up and down arrows move between the sections, like any list of tabs.
+    t.addEventListener('keydown', function (e) {
+      var d = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault(); e.stopPropagation();
+      var next = tabs[(i + d + tabs.length) % tabs.length];
+      showSec(next.dataset.sec); next.focus();
+    });
+  });
+  // Opens Settings at one section ('keys', 'about', ...), e.g. from Help.
+  A.openSettings = function (name) {
+    openPop('settings');
+    showSec(name || secNow);
+  };
+  $('#helpKeys').addEventListener('click', function () { A.openSettings('keys'); });
+  $('#helpAbout').addEventListener('click', function () { A.openSettings('about'); });
+
   function refreshSettings() {
+    showSec(secNow);
     A.refreshHideSettings();
+    fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
+    $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');
       cb.disabled = !r.supported; cb.checked = !!r.on;
       $('#loginNote').textContent = r.supported ? '' : 'Starting with Windows works in the installed or portable app, not when run with npm start.';
     });
+    api.storeInfo().then(function (i) { $('#dataDir').textContent = i.dir; });
   }
+  $('#setClock').addEventListener('change', function () {
+    S.clock24 = this.value === '' ? null : this.value === '24';
+    A.savePrefs();
+  });
+  $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
   $('#setAwake').addEventListener('change', function () {
     S.awake = this.checked; A.savePrefs();

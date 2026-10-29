@@ -12,9 +12,17 @@
     Space: 'Space', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
     ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Backquote: '`', Minus: '-', Equal: '=',
     BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',
-    NumpadAdd: 'numadd', NumpadSubtract: 'numsub', NumpadMultiply: 'nummult', NumpadDivide: 'numdiv', NumpadDecimal: 'numdec'
+    NumpadAdd: 'numadd', NumpadSubtract: 'numsub', NumpadMultiply: 'nummult', NumpadDivide: 'numdiv', NumpadDecimal: 'numdec',
+    ScrollLock: 'Scrolllock', AudioVolumeMute: 'VolumeMute', MediaPlayPause: 'MediaPlayPause', MediaTrackNext: 'MediaNextTrack',
+    MediaTrackPrevious: 'MediaPreviousTrack', MediaStop: 'MediaStop'
   };
-  var KEYS = /^(?:[A-Z0-9]|F(?:[1-9]|1\d|2[0-4])|num[0-9]|numadd|numsub|nummult|numdiv|numdec|Space|Insert|Delete|Home|End|PageUp|PageDown|Up|Down|Left|Right|[`\-=[\]\\;',./])$/;
+  // Keys that may be pressed alone: hardly any program needs them for typing. F-keys too (see problem()).
+  var SOLO = ['Scrolllock', 'VolumeMute', 'MediaPlayPause', 'MediaNextTrack', 'MediaPreviousTrack', 'MediaStop'];
+  var WORDS = ['Space', 'Insert', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right'].concat(SOLO);
+  var CANON = {};   // lower case -> the way Electron writes it
+  WORDS.forEach(function (w) { CANON[w.toLowerCase()] = w; });
+  var LABELS = { Super: 'Win', Scrolllock: 'Scroll Lock', VolumeMute: 'Mute key', MediaPlayPause: 'Play/Pause key', MediaNextTrack: 'Next track key', MediaPreviousTrack: 'Previous track key', MediaStop: 'Stop key' };
+  var KEYS = /^(?:[A-Z0-9]|F(?:[1-9]|1\d|2[0-4])|num[0-9]|numadd|numsub|nummult|numdiv|numdec|[`\-=[\]\\;',./])$/;
 
   function keyOfCode(code) {
     var m = /^Key([A-Z])$/.exec(code) || /^Digit([0-9])$/.exec(code) || /^(F(?:[1-9]|1\d|2[0-4]))$/.exec(code);
@@ -32,9 +40,9 @@
       mods[m] = true;
     }
     key = key.trim();
-    if (/^[a-z]$/.test(key)) key = key.toUpperCase();
-    if (/^f\d+$/i.test(key)) key = key.toUpperCase();
-    if (!KEYS.test(key)) return null;
+    if (/^[a-z]$|^f\d+$/i.test(key)) key = key.toUpperCase();
+    else if (CANON[key.toLowerCase()]) key = CANON[key.toLowerCase()];
+    if (!KEYS.test(key) && WORDS.indexOf(key) < 0) return null;
     return MODS.filter(function (n) { return mods[n]; }).concat(key).join('+');
   }
   // Why a shortcut can't be the emergency key, or '' when it can. A global shortcut takes the keys from every other
@@ -45,7 +53,7 @@
     var parts = n.split('+'), key = parts.pop(), fkey = /^F\d+$/.test(key);
     if (fkey && !parts.length && key === 'F11') return 'F11 is the wall mode key. Pick another.';
     if (n === 'Alt+F4') return 'Alt+F4 closes windows. Pick another.';
-    if (fkey) return '';
+    if (fkey || SOLO.indexOf(key) > -1) return '';
     if (!parts.some(function (p) { return p !== 'Shift'; }) || parts.length < 2) return 'Use two modifier keys with it, like Ctrl+Shift.';
     return '';
   }
@@ -63,10 +71,10 @@
     var n = normalize(accel), r = n && fromEvent(e);
     return !!(r && r.accel === n);
   }
-  // "Ctrl+Shift+H" -> "Ctrl + Shift + H"; Super is the Windows key.
+  // "Ctrl+Shift+H" -> "Ctrl + Shift + H"; Super is the Windows key, media keys get their names.
   function label(accel) {
     var n = normalize(accel);
-    return n ? n.split('+').map(function (p) { return p === 'Super' ? 'Win' : p; }).join(' + ') : '';
+    return n ? n.split('+').map(function (p) { return LABELS[p] || p; }).join(' + ') : '';
   }
 
   return { normalize: normalize, problem: problem, fromEvent: fromEvent, matches: matches, label: label };

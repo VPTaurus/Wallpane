@@ -205,7 +205,8 @@ handle('win:keepAwake', (e, on) => {
 /* ---------- emergency hide: one key, from any program, covers or hides every wall window and silences it ---------- */
 // The same key brings everything back. Settings are app-wide (hide.json), not per window.
 const COVERS = ['sheet', 'black', 'image', 'away'];
-const HIDE_DEFAULT = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null };
+const MOUSE = ['', 'middle', 'back', 'forward'];   // a mouse button that also hides, over a Wallpane window ('' none)
+const HIDE_DEFAULT = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '' };
 let hideCfg = Object.assign({}, HIDE_DEFAULT);
 let hideOk = false;        // Windows gave us the key (another program may hold it)
 let hideKeyOn = null;      // the key registered right now (none while Settings records a new one)
@@ -218,6 +219,7 @@ function cleanHide(j) {
     if (k && !hotkey.problem(k)) c.key = k;
     if (typeof j.image === 'string' && j.image) c.image = j.image;
     if (COVERS.includes(j.cover) && (j.cover !== 'image' || c.image)) c.cover = j.cover;
+    if (MOUSE.includes(j.mouse)) c.mouse = j.mouse;
   }
   return c;
 }
@@ -232,7 +234,7 @@ function claimKey(key) {
   try { if (globalShortcut.register(key, () => toggleHide('key'))) { hideKeyOn = key; return true; } } catch { /* refused */ }
   return false;
 }
-function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, ok: hideOk, on: hidden }; }
+function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, mouse: hideCfg.mouse, ok: hideOk, on: hidden }; }
 function tellHide() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
 }
@@ -274,6 +276,7 @@ handle('hide:set', (_e, change) => {
     }
   }
   if (COVERS.includes(c.cover) && (c.cover !== 'image' || hideCfg.image)) hideCfg.cover = c.cover;
+  if (MOUSE.includes(c.mouse)) hideCfg.mouse = c.mouse;
   saveHide(); tellHide();
   return hideState();
 });

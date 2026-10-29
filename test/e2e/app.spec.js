@@ -61,6 +61,11 @@ async function answerDialogs(p, save) {
   }, { p, save });
 }
 const toast = () => page.locator('#toast');
+// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Keys' or 'About'.
+async function settingsAt(sec) {
+  if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
+  await page.click('#tab' + sec);
+}
 const tiles = () => page.locator('#wall .tile');
 
 test('starts with the sample cards', async () => {
@@ -105,7 +110,7 @@ test('selection is a ring with corner grips; a pinned tile has its own badge', a
 });
 
 test('Free layout: a folder added one tile per file', async () => {
-  await page.click('#settingsBtn');
+  await settingsAt('General');
   await page.click('#clearBtn');
   await expect(page.locator('#clearBtn')).toContainText('Click again');
   await page.click('#clearBtn');
@@ -186,17 +191,30 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop']);
 });
 
-test('Settings: start in wall mode is saved; starting with Windows is offered only in a built app', async () => {
-  await page.click('#settingsBtn');
+test('Settings: one section at a time; start in wall mode is saved; starting with Windows only in a built app', async () => {
+  await settingsAt('General');
+  await expect(page.locator('#secGeneral')).toBeVisible();
+  await expect(page.locator('#secWall')).toBeHidden();
   // Never clicked here: that would add a real startup entry to this PC.
   if (process.env.WALLPANE_EXE) await expect(page.locator('#setLogin')).toBeEnabled();
   else {
     await expect(page.locator('#setLogin')).toBeDisabled();
     await expect(page.locator('#loginNote')).toContainText('installed or portable app');
   }
+  // The clock's time format, for this window.
+  await page.locator('#setClock').selectOption('12');
+  await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(false);
+  await page.locator('#setClock').selectOption('');
+  // Arrow keys move between the sections.
+  await page.focus('#tabGeneral');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#secWall')).toBeVisible();
+  await expect(page.locator('#secGeneral')).toBeHidden();
   await page.click('#setStartWall');
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).startWall).toBe(true);
   await page.keyboard.press('Escape');
+  await expect(page.locator('#popS')).toBeHidden();
 });
 
 // Tile boxes on screen, and whether any two overlap.
@@ -283,11 +301,17 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(card).toBeVisible();
   await page.click('#insClose');
   await expect(card).toBeHidden();
+  // Help leads to the keys and About, which live in Settings.
   await page.click('#helpBtn');
-  await expect(page.locator('#popH')).toContainText('Alt');
+  await page.click('#helpKeys');
+  await expect(page.locator('#popH')).toBeHidden();
+  await expect(page.locator('#secKeys')).toBeVisible();
+  await expect(page.locator('#secKeys')).toContainText('Alt');
+  await page.click('#tabAbout');
   await expect(page.locator('#aboutLine')).toContainText('Wallpane');
   await expect(page.locator('#aboutLine')).toContainText('GPL');
   await expect(page.locator('#aboutLinks')).toContainText('Source code');
+  await expect(page.locator('#dataDir')).toHaveText(path.join(dir, 'data'));
   await page.keyboard.press('Escape');
 });
 
@@ -421,6 +445,18 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   // A recorded WebM doesn't say how long it is; the app finds out by itself.
   await expect.poll(() => video.evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(2);
   await expect(tile.locator('.vbar .vseek')).toBeAttached();
+  // With the control bar showing, the bottom edge still resizes; the bar's controls and the buttons on top keep clear
+  // of the resize grips.
+  const tb = await tile.boundingBox();
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  const hit = (x, y) => page.evaluate(([px, py]) => {
+    const e = document.elementFromPoint(px, py), rz = e && e.closest('.rz');
+    return rz ? 'grip ' + rz.dataset.edge : e && e.closest('.vbar') ? 'bar' : e && e.closest('.hb') ? 'button' : 'other';
+  }, [x, y]);
+  expect(await hit(tb.x + tb.width / 2, tb.y + tb.height - 4)).toBe('grip s');
+  expect(await hit(tb.x + tb.width / 2, tb.y + tb.height - 26)).toBe('bar');
+  expect(await hit(tb.x + 32, tb.y + tb.height - 26)).toBe('bar');           // the play button, near the corner
+  expect(await hit(tb.x + tb.width - 32, tb.y + 14)).toBe('button');        // Remove, on top
   // From the right-click menu (on a narrow tile, a click near its top may land on one of the tile's buttons).
   await tile.click({ button: 'right' });
   await menuItem('Loop a part').click();                      // opens Properties at Playback
@@ -479,9 +515,9 @@ test('emergency hide: the key covers the wall with a spreadsheet, silences it, a
   expect(await tiles().count()).toBe(count);
 });
 
-test('emergency hide settings: a new key, a black screen, and windows that go away', async () => {
+test('emergency hide settings: a new key, a black screen, windows that go away, one-press keys, a mouse button', async () => {
   await page.keyboard.press('Escape');
-  await page.click('#settingsBtn');
+  await settingsAt('Hide');
   const key = page.locator('#hideKey');
   await expect(key).toHaveText('Ctrl + Shift + H');
   // A key other programs need is refused; Esc stops recording.
@@ -495,7 +531,7 @@ test('emergency hide settings: a new key, a black screen, and windows that go aw
   await page.keyboard.press('Control+Shift+J');
   await expect(key).toHaveText('Ctrl + Shift + J');
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).key).toBe('Ctrl+Shift+J');
-  await expect(page.locator('#helpHideKey')).toHaveText('Ctrl Shift J');   // Help shows the new key
+  await expect(page.locator('#keysHideKey')).toHaveText('Ctrl Shift J');   // Settings > Keys shows the new key
   // Black screen, from Hide now.
   await page.locator('#hideCover').selectOption('black');
   await page.click('#hideTry');
@@ -506,16 +542,35 @@ test('emergency hide settings: a new key, a black screen, and windows that go aw
   await page.keyboard.press('Control+Shift+J');
   await expect(page.locator('#cover')).toBeHidden();
   // The windows go away and come back.
-  await page.click('#settingsBtn');
+  await settingsAt('Hide');
   await page.locator('#hideCover').selectOption('away');
   const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
   await page.click('#hideTry');
   await expect.poll(visible).toBe(false);
   await page.evaluate(() => window.wall.toggleHide());
   await expect.poll(visible).toBe(true);
-  await page.click('#settingsBtn');
+  await settingsAt('Hide');
   await page.locator('#hideCover').selectOption('sheet');
+  // One press: Scroll Lock, picked with a click.
+  await page.click('#hideQuick [data-key="Scrolllock"]');
+  await expect(key).toHaveText('Scroll Lock');
+  await expect(page.locator('#hideQuick [data-key="Scrolllock"]')).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Escape');
+  await page.keyboard.press('ScrollLock');
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.keyboard.press('ScrollLock');
+  await expect(page.locator('#cover')).toBeHidden();
+  // A mouse button: the middle one, over the wall, hides and brings back.
+  await settingsAt('Hide');
+  await page.locator('#hideMouse').selectOption('middle');
+  await expect(page.locator('#hideMouseNote')).toBeVisible();
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).mouse).toBe('middle');
+  await page.keyboard.press('Escape');
+  const w = await page.locator('#wall').boundingBox();
+  await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });
+  await expect(page.locator('#cover')).toBeHidden();
 });
 
 test('time in the bar: clock, stopwatch with laps, and a timer that rings', async () => {
