@@ -13,7 +13,7 @@
     api: api, $: $,
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
-      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true
+      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),
@@ -66,7 +66,9 @@
     rows: svg('<path d="M2.5 2.5h11v11h-11zM2.5 8h11M6.2 2.5V8M9.8 2.5V8M5.2 8v5.5M8 8v5.5M10.8 8v5.5"/>'),
     sliders: svg('<path d="M2.5 4.5h11M2.5 11.5h11M5.5 3v3M10.5 10v3"/>'),
     help: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4M8 11.4v.2"/>'),
-    x: svg('<path d="M4 4l8 8M12 4l-8 8"/>')
+    x: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+    watch: svg('<path d="M8 4.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM6.5 1.5h3M8 1.5v3M8 9.5l2-2M12.3 4.6l1-1"/>'),
+    timer: svg('<path d="M4 1.5h8M4 14.5h8M5 1.5v2.5l3 4 3-4V1.5M5 14.5V12l3-4 3 4v2.5"/>')
   };
   // Buttons in the page name their icon with data-icon="..."; draw them once here.
   Array.prototype.forEach.call(document.querySelectorAll('[data-icon]'), function (el) {
@@ -81,7 +83,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24 });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -94,6 +96,7 @@
     if (p.mode === 'free') S.mode = 'free';
     if (p.startWall === true) S.startWall = true;
     if (p.awake === false) S.awake = false;
+    if (typeof p.clock24 === 'boolean') S.clock24 = p.clock24;   // null: as Windows shows the time
   };
 
   /* ---------- items ---------- */

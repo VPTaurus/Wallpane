@@ -111,8 +111,16 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .wallbtn { border-color: var(--accent); font-weight: 700; }
 .wallbtn .ic { color: var(--accent); }
 .wallbtn:hover:not(:disabled) { background: var(--accent-soft); }
-/* Narrower windows: the right-hand buttons keep only their icons. */
-@media (max-width: 1420px) { .grp > .popwrap > .btn > .lbl { display: none; } .grp > .popwrap > .btn:has(> .lbl) { width: 34px; padding: 0; justify-content: center; } }
+/* When the bar does not fit on one line (controls.js measures it, since the clock's chips come and go): first the
+   right-hand buttons keep only their icons (c1), then Arrange too, and the tile modes get short names (c2), and
+   last the tile count under the name and the chips' icons go (c3). */
+.bar.c3 .readout, .bar.c3 .tchip .ic { display: none; }
+.bar .short { display: none; }
+.bar.c1 .grp > .popwrap > .btn > .lbl { display: none; }
+.bar.c1 .grp > .popwrap > .btn:has(> .lbl) { width: 34px; padding: 0; justify-content: center; }
+.bar.c2 .long { display: none; }
+.bar.c2 .short { display: inline; }
+.bar.c2 #arrangeMenuBtn { padding: 0 8px; gap: 4px; }
 
 /* ---------- stage + wall ---------- */
 .work { flex: 1; min-height: 0; display: flex; gap: 10px; }
@@ -397,6 +405,78 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .loopgrid .btn { height: 34px; }
 .about { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .about .btn { height: 30px; }
+/* The time in the bar: the clock, and chips for a stopwatch or timer in use; a finished timer flashes. */
+.timebtn { gap: 8px; }
+.clk { font: 500 15px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.tchip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); font: 500 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.tchip .ic { color: var(--accent); }
+.tchip .ic svg { width: 13px; height: 13px; }
+.tchip.dim { opacity: 0.6; }
+.tchip.done { background: var(--accent); color: var(--accent-ink); animation: tflash 1s steps(1) infinite; }
+.tchip.done .ic { color: inherit; }
+@keyframes tflash { 50% { opacity: 0.35; } }
+.thead { display: flex; align-items: center; justify-content: space-between; }
+.thead .check { font-size: 13px; color: var(--muted); }
+.bigtime { font: 500 34px/1.05 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.bigtime.done { color: var(--accent); animation: tflash 1s steps(1) infinite; }
+#dateLine { margin-top: -6px; }
+.laps { list-style: none; margin: 0; padding: 0; max-height: 140px; overflow: auto; font: 400 12px/1.2 var(--mono); }
+.laps li { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; padding: 5px 0; border-top: 1px solid var(--line); }
+.laps li span:first-child, .laps li span:last-child { color: var(--muted); }
+.laps li span:last-child { min-width: 64px; text-align: right; }
+.tpresets { gap: 6px; }
+.tpresets .btn { height: 30px; padding: 0 10px; }
+.tmset { width: 92px; height: 34px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; font: 500 14px var(--mono); }
+@media (prefers-reduced-motion: reduce) { .tchip.done, .bigtime.done { animation: none; } }
+
+/* Settings > Emergency hide: the key, recorded by pressing it */
+.btn.keycap { justify-content: center; font: 500 12px var(--mono); }
+.bar .pop .keycap.rec { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.bar .pop .keycap.bad { border-color: var(--danger); }
+
+/* ---------- emergency hide: a cover over everything. The spreadsheet is always light, like any work file. ---------- */
+.cover { position: fixed; inset: 0; z-index: 2147483647; background: #000; cursor: default; }
+body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
+.cover.image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cover.sheet { background: #fff; color: #202124; font: 13px/1.3 Arial, "Segoe UI", sans-serif; user-select: none; }
+.sh { display: flex; flex-direction: column; height: 100%; }
+.sh-top { display: flex; align-items: center; gap: 12px; padding: 8px 16px 4px; }
+.sh-ico { width: 24px; height: 30px; flex: none; border-radius: 3px; background: linear-gradient(#fff0 70%, #0002), #3f78c9; }
+.sh-doc { font-size: 18px; color: #1f1f1f; }
+.sh-menu { display: flex; gap: 14px; margin-top: 2px; color: #444746; }
+.sh-saved { margin-left: auto; font-size: 12px; color: #5f6368; }
+.sh-tools { display: flex; align-items: center; gap: 8px; height: 38px; margin: 4px 10px 8px; padding: 0 14px; border-radius: 20px; background: #edf2fa; overflow: hidden; }
+.sh-tools i { width: 16px; height: 16px; flex: none; border-radius: 3px; background: #b9c2cf; }
+.sh-tools b { width: 1px; height: 20px; flex: none; background: #c4c7c5; }
+.sh-box { padding: 0 6px; font-size: 13px; color: #1f1f1f; }
+.sh-box.w { width: 92px; }
+.sh-btn { width: 18px; text-align: center; font-weight: 700; color: #1f1f1f; }
+.sh-btn.it { font-style: italic; font-weight: 400; font-family: Georgia, serif; }
+.sh-btn.un { text-decoration: underline; font-weight: 400; }
+.sh-fx { display: flex; align-items: center; height: 30px; border-block: 1px solid #e1e3e1; }
+.sh-ref { width: 92px; padding: 0 12px; border-right: 1px solid #e1e3e1; line-height: 30px; }
+.sh-fxl { padding: 0 12px; color: #80868b; font-style: italic; font-family: Georgia, serif; border-right: 1px solid #e1e3e1; line-height: 30px; }
+.sh-val { padding: 0 12px; white-space: nowrap; overflow: hidden; }
+.sh-grid { flex: 1; min-height: 0; overflow: auto; }
+.sh-grid table { border-collapse: collapse; table-layout: fixed; width: calc(46px + 180px + 15 * 92px); }
+.sh-grid col { width: 92px; }
+.sh-grid col.c0 { width: 46px; }
+.sh-grid col.ca { width: 180px; }
+.sh-grid th, .sh-grid td { height: 22px; padding: 0 6px; border: 1px solid #e1e3e1; white-space: nowrap; overflow: hidden; text-overflow: clip; font-weight: 400; }
+.sh-grid th { position: sticky; background: #f8f9fa; color: #5f6368; font-size: 11px; text-align: center; }
+.sh-grid thead th { top: 0; z-index: 2; }
+.sh-grid tbody th { left: 0; z-index: 1; }
+.sh-grid td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.sh-grid td.b { font-weight: 700; }
+.sh-grid td.big { font-size: 15px; overflow: visible; }
+.sh-grid td.h { background: #eef3fb; }
+.sh-grid td.t { border-top: 2px solid #9aa0a6; }
+.sh-grid td.m { color: #6f7378; font-style: italic; overflow: visible; }
+.sh-grid td.neg { color: #b3261e; }
+.sh-grid td.sel { outline: 2px solid #3f78c9; outline-offset: -2px; }
+.sh-tabs { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 12px; border-top: 1px solid #e1e3e1; background: #f8f9fa; color: #444746; }
+.sh-tabs span { padding: 7px 16px; border-radius: 6px; }
+.sh-tabs .on { background: #e1e9f7; color: #1f3f73; font-weight: 700; }
 
 /* ---------- wall mode ---------- */
 .exit { display: none; }

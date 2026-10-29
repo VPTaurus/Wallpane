@@ -54,11 +54,11 @@
         </div>
       </div>
       <div class="seg modeseg" id="modeSeg" role="group" aria-label="How tiles are placed">
-        <button type="button" data-mode="grid" aria-pressed="true" title="Tiles snap to whole cells of the grid">Snap to grid</button>
-        <button type="button" data-mode="free" aria-pressed="false" title="Place and size every tile by the pixel">Free (pixels)</button>
+        <button type="button" data-mode="grid" aria-pressed="true" title="Snap to grid: tiles snap to whole cells of the grid"><span class="long">Snap to grid</span><span class="short">Grid</span></button>
+        <button type="button" data-mode="free" aria-pressed="false" title="Free (pixels): place and size every tile by the pixel"><span class="long">Free (pixels)</span><span class="short">Free</span></button>
       </div>
       <div class="popwrap">
-        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr"><span data-icon="wand"></span>Arrange<span data-icon="chev"></span></button>
+        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fit, auto-arrange, rows and columns, frame layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
         <div class="pop menu" id="popArr" hidden>
           <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles so their media fills them</small></span></button>
           <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Auto-arrange</b><small id="arrangeHint">Pack all tiles from the top left</small></span></button>
@@ -103,6 +103,43 @@
     </div>
 
     <span class="sp"></span>
+
+    <!-- The time: the clock, and chips for the stopwatch and timer while they are in use. -->
+    <div class="grp">
+      <div class="popwrap">
+        <button class="btn timebtn" id="timeBtn" type="button" aria-expanded="false" aria-controls="popT" title="Clock, stopwatch and timer">
+          <span class="clk" id="clock">--:--</span>
+          <span class="tchip" id="swChip" title="Stopwatch" hidden><span data-icon="watch"></span><span id="swChipT">0:00</span></span>
+          <span class="tchip" id="tmChip" title="Timer" hidden><span data-icon="timer"></span><span id="tmChipT">5:00</span></span>
+        </button>
+        <div class="pop timepop" id="popT" hidden>
+          <div class="thead"><span class="lab">Clock</span><label class="check"><input type="checkbox" id="clock24"> 24-hour</label></div>
+          <div class="bigtime" id="bigClock">--:--:--</div>
+          <p class="note" id="dateLine"></p>
+          <hr class="div">
+          <span class="lab">Stopwatch</span>
+          <div class="bigtime" id="swTime">0:00.0</div>
+          <div class="row">
+            <button class="btn pri" id="swGo" type="button">Start</button>
+            <button class="btn" id="swLap" type="button" disabled>Lap</button>
+            <button class="btn" id="swReset" type="button" disabled>Reset</button>
+          </div>
+          <ol class="laps" id="swLaps" hidden></ol>
+          <hr class="div">
+          <span class="lab">Timer</span>
+          <div class="bigtime" id="tmTime">5:00</div>
+          <div class="row tpresets" id="tmPresets">
+            <button class="btn" type="button" data-min="1">1 min</button><button class="btn" type="button" data-min="5">5</button><button class="btn" type="button" data-min="10">10</button><button class="btn" type="button" data-min="15">15</button><button class="btn" type="button" data-min="30">30</button><button class="btn" type="button" data-min="60">60</button>
+          </div>
+          <div class="row">
+            <input class="tmset" id="tmSet" type="text" inputmode="decimal" value="5" autocomplete="off" aria-label="Timer length: minutes, or minutes and seconds">
+            <button class="btn pri" id="tmGo" type="button">Start</button>
+            <button class="btn" id="tmReset" type="button" disabled>Reset</button>
+          </div>
+          <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode.</p>
+        </div>
+      </div>
+    </div>
 
     <div class="grp">
       <div class="popwrap">
@@ -174,6 +211,7 @@
             <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
             <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
             <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
+            <dt id="helpHideKey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>H</kbd></dt><dd>Emergency hide, from any program; again to come back</dd>
             <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
             <dt>Double-click</dt><dd>One tile full screen</dd>
           </dl>
@@ -197,6 +235,13 @@
           <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
           <p class="note" id="loginNote"></p>
           <p class="note">For a wall that runs on its own, turn on both start options: the wall comes back full screen after a restart. Esc or F11 leaves wall mode.</p>
+          <span class="lab">Emergency hide</span>
+          <div class="frow"><span id="hideKeyLab">Key</span><button class="btn keycap" id="hideKey" type="button" aria-labelledby="hideKeyLab hideKey" title="Click, then press the new keys">Ctrl + Shift + H</button></div>
+          <div class="frow"><label for="hideCover">Windows show</label>
+            <select id="hideCover"><option value="sheet">A spreadsheet</option><option value="black">A black screen</option><option value="image">A picture…</option><option value="away">Nothing: they go away</option></select>
+          </div>
+          <div class="row"><button class="btn" id="hideImageBtn" type="button" hidden>Choose picture…</button><button class="btn" id="hideTry" type="button">Hide now</button></div>
+          <p class="note" id="hideNote"></p>
           <span class="lab">Windows</span>
           <button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button>
           <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
@@ -228,6 +273,8 @@
 <script src="lib/records.js"></script>
 <script src="lib/view.js"></script>
 <script src="lib/playback.js"></script>
+<script src="lib/hotkey.js"></script>
+<script src="lib/clock.js"></script>
 <script src="ui/core.js"></script>
 <script src="ui/tiles.js"></script>
 <script src="ui/inspector.js"></script>
@@ -237,6 +284,8 @@
 <script src="ui/controls.js"></script>
 <script src="ui/menus.js"></script>
 <script src="ui/builder.js"></script>
+<script src="ui/hide.js"></script>
+<script src="ui/clock.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

@@ -187,11 +187,32 @@
     A.toast('Wall cleared. Ctrl+Z brings it back.');
   });
 
+  /* ---------- the bar on one line ---------- */
+  // Measured rather than set by window width: the clock's chips come and go. Changes wait for the next frame, so a
+  // change here never feeds back into the observer that asked for it.
+  var bar = $('.bar'), fitQueued = false;
+  function oneLine() { return bar.lastElementChild.getBoundingClientRect().top < bar.firstElementChild.getBoundingClientRect().bottom; }
+  A.fitBar = function () {
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(function () {
+      fitQueued = false;
+      bar.classList.remove('c1', 'c2', 'c3');
+      ['c1', 'c2', 'c3'].some(function (c) {
+        if (oneLine()) return true;
+        bar.classList.add(c);
+        return false;
+      });
+    });
+  };
+  new ResizeObserver(A.fitBar).observe(bar);
+
   /* ---------- popovers and menus ---------- */
   // name: [popover, the button it hangs from]. Frame layouts opens from the Arrange menu, so it has no button of its own.
   var POPS = {
     add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
-    presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn']
+    presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn'],
+    time: ['#popT', '#timeBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
@@ -230,6 +251,7 @@
     else if (which === 'playlist') A.refreshPlaylistStatus();
     else if (which === 'settings') refreshSettings();
     else if (which === 'help') fillAbout();
+    else if (which === 'time') A.refreshTime();
     placeOpen();
   }
   // About, in Help: version and licence, the source code, and support links when package.json lists any.
@@ -262,6 +284,7 @@
 
   /* ---------- Settings: wall mode and startup ---------- */
   function refreshSettings() {
+    A.refreshHideSettings();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     api.loginItem().then(function (r) {

@@ -28,7 +28,8 @@ The GitHub workflow does the same with repository secrets of the same names.
 Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
 
 ## The window
-- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**.
+- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
+- The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). While one is in use, a chip next to the clock shows it; both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. The clock follows Windows' 12 or 24-hour format unless you tick 24-hour.
 - The wall has the whole window. The selected tile has an orange ring with round grips at its corners; drag a grip or any edge to resize. A pinned playlist tile shows a pin badge.
 - Right-click a tile for: reposition and zoom its media, fit, sound, replace, own folder, duplicate, split in two, Properties, remove. Right-click empty wall to add media or a folder right there, or to make a new empty tile.
 - **Properties** (right-click a tile, or Alt+Enter) opens a card next to the tile with its exact position and size (cells, or pixels in Free mode), how the media fits and its zoom, playback, playlist and file actions. Esc or × closes it; selecting another tile moves it there.
@@ -42,6 +43,7 @@ Saved walls, frame layouts, settings and your last wall are JSON files in `%APPD
 
 ## Keys
 - F11 wall mode on or off, Esc leaves wall mode / fullscreen
+- Ctrl+Shift+H emergency hide, from any program (see below); press again to come back
 - Tab moves between tiles and selects them; Enter selects or lets go
 - Arrows move the selected tile, Shift+arrows resize, Delete removes it
 - Alt+Enter opens Properties for the selected tile; Esc closes it (or the right-click menu, or Reposition), and a second Esc lets go of the tile
@@ -63,6 +65,16 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 
   Together these bring a wall back full screen after a restart.
 
+## Emergency hide
+Press **Ctrl+Shift+H** in any program and every wall window hides at once: the sound goes off (the window is muted, not just the videos), videos and playlists pause, and the windows show something else. Press it again and everything comes back as it was, the videos playing on. Starting Wallpane again also brings it back, in case the key slips your mind.
+
+Settings > Emergency hide:
+- **Key**: click it and press the new keys. A key with letters or numbers needs two modifiers (like Ctrl+Shift or Ctrl+Alt), because the key is taken from every other program while Wallpane runs; F-keys also work alone. If another program already holds the key, Settings says so, and it then works only while Wallpane is the active window.
+- **Windows show**: a spreadsheet (a plain budget table; you can click cells and move with the arrow keys, and the window title changes to match), a black screen, a picture you choose, or nothing at all: the windows go away, off the taskbar too.
+- **Hide now** tries it.
+
+While hidden, keys, drops and right-clicks don't reach the wall, so nothing on it can change by accident. The settings are shared by all wall windows (`hide.json`).
+
 ## Notes
 - Playlist: choose a folder (Playlist > Choose folder, or Add > Folder as a playlist) and it fills the empty cells, one file per tile; rows or columns you add later fill too. Drop a folder on a tile to give just that tile the folder. Options: order, image seconds, GIFs, crossfade, random video start, max clip length. New files in the folder join the queue as they appear (the app watches the folder, and also rescans every two minutes for network drives). Pin a tile to keep it. A folder is read up to 3,000 files.
 - Dropping a folder on empty space: on the grid it plays as a playlist; in Free layout each file gets its own tile.
@@ -82,8 +94,8 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
 
 ### Code map
-- `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows. Every call from the page goes through `handle()`, which only accepts our own wall windows.
+- `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows, the emergency hide key. Every call from the page goes through `handle()`, which only accepts our own wall windows.
 - `preload.js`: the small API the page gets (`window.wall`).
 - `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`).
-- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, and the pan and zoom maths (`view.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), and `boot.js` last.
+- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process) and the stopwatch and timer (`clock.js`).
+- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), and `boot.js` last.

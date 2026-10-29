@@ -1,11 +1,12 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 const files = require('./lib/files');
 const { createWatchers } = require('./lib/watch');
 const formats = require('./renderer/lib/formats');
+const hotkey = require('./renderer/lib/hotkey');
 
 const DEV = process.argv.includes('--dev');
 const pkg = require('./package.json');
@@ -201,6 +202,93 @@ handle('win:keepAwake', (e, on) => {
   return true;
 });
 
+/* ---------- emergency hide: one key, from any program, covers or hides every wall window and silences it ---------- */
+// The same key brings everything back. Settings are app-wide (hide.json), not per window.
+const COVERS = ['sheet', 'black', 'image', 'away'];
+const HIDE_DEFAULT = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null };
+let hideCfg = Object.assign({}, HIDE_DEFAULT);
+let hideOk = false;        // Windows gave us the key (another program may hold it)
+let hideKeyOn = null;      // the key registered right now (none while Settings records a new one)
+let hidden = false, hiddenAway = false, hideAt = 0, hideFrom = '';
+function hideFile() { return path.join(dataDir(), 'hide.json'); }
+function cleanHide(j) {
+  const c = Object.assign({}, HIDE_DEFAULT);
+  if (j && typeof j === 'object') {
+    const k = hotkey.normalize(j.key);
+    if (k && !hotkey.problem(k)) c.key = k;
+    if (typeof j.image === 'string' && j.image) c.image = j.image;
+    if (COVERS.includes(j.cover) && (j.cover !== 'image' || c.image)) c.cover = j.cover;
+  }
+  return c;
+}
+function saveHide() {
+  files.writeJsonAtomic(hideFile(), hideCfg).catch(() => { /* not critical */ });
+}
+function releaseKey() {
+  if (hideKeyOn) { globalShortcut.unregister(hideKeyOn); hideKeyOn = null; }
+}
+function claimKey(key) {
+  releaseKey();
+  try { if (globalShortcut.register(key, () => toggleHide('key'))) { hideKeyOn = key; return true; } } catch { /* refused */ }
+  return false;
+}
+function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, ok: hideOk, on: hidden }; }
+function tellHide() {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
+}
+function setHidden(on) {
+  if (hidden === !!on) return;
+  hidden = !!on;
+  // Sound goes off here at once, whatever the page is doing; the page pauses its videos and covers itself.
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.setAudioMuted(hidden);
+  tellHide();
+  if (hidden && hideCfg.cover === 'away') { hiddenAway = true; for (const w of wins.values()) if (!w.isDestroyed()) w.hide(); }
+  if (!hidden && hiddenAway) { hiddenAway = false; for (const w of wins.values()) if (!w.isDestroyed()) w.show(); }
+}
+// One press, one change, even if both Windows ('key') and the focused page ('page') report the same press.
+function toggleHide(from) {
+  const now = Date.now();
+  if (from !== hideFrom && now - hideAt < 300) return;
+  hideAt = now; hideFrom = from;
+  setHidden(!hidden);
+}
+handle('hide:get', () => hideState());
+handle('hide:toggle', () => { toggleHide('page'); return hidden; });
+// While Settings records a new key, the old one must not hide the windows.
+handle('hide:suspend', (_e, on) => {
+  if (on) releaseKey();
+  else if (!hideKeyOn) hideOk = claimKey(hideCfg.key);
+  return hideState();
+});
+handle('hide:set', (_e, change) => {
+  const c = change && typeof change === 'object' ? change : {};
+  if (c.key !== undefined) {
+    const k = hotkey.normalize(c.key), why = k ? hotkey.problem(k) : 'That key can\'t be a shortcut.';
+    if (why) return Object.assign(hideState(), { error: why });
+    if (k !== hideCfg.key || !hideOk) {
+      if (claimKey(k)) { hideCfg.key = k; hideOk = true; }
+      else {
+        hideOk = claimKey(hideCfg.key);
+        return Object.assign(hideState(), { error: hotkey.label(k) + ' is taken by another program. Pick another.' });
+      }
+    }
+  }
+  if (COVERS.includes(c.cover) && (c.cover !== 'image' || hideCfg.image)) hideCfg.cover = c.cover;
+  saveHide(); tellHide();
+  return hideState();
+});
+handle('hide:pickImage', async (e) => {
+  const r = await dialog.showOpenDialog(winOf(e), {
+    title: 'Picture to show when hidden',
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: formats.IMAGE }]
+  });
+  if (r.canceled || !r.filePaths[0]) return hideState();
+  hideCfg.image = r.filePaths[0]; hideCfg.cover = 'image';
+  saveHide(); tellHide();
+  return hideState();
+});
+
 // Starting with Windows. The portable build runs from a temporary copy, so register the .exe the user started.
 function loginOpts() { return { path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath, args: [] }; }
 function loginSupported() { return app.isPackaged && process.platform === 'win32'; }
@@ -331,16 +419,21 @@ function createWindow(id, given) {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // Starting Wallpane again brings it to the front, and back from an emergency hide (in case the key is forgotten).
   app.on('second-instance', () => {
+    if (hidden) setHidden(false);
     const win = [...wins.values()].pop();
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
     state = loadState();
+    try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
+    hideOk = claimKey(hideCfg.key);
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
   });
   app.on('before-quit', () => { quitting = true; watchers.closeAll(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

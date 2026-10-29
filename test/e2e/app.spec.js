@@ -448,6 +448,107 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await page.keyboard.press('Escape');
 });
 
+test('emergency hide: the key covers the wall with a spreadsheet, silences it, and brings it all back', async () => {
+  const video = page.locator('#wall .tile.is-video video').first();
+  await video.evaluate((v) => v.play());
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  const count = await tiles().count();
+  const muted = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isAudioMuted());
+  await tiles().first().click({ position: { x: 20, y: 30 } });
+  await page.keyboard.press('Control+Shift+H');
+  const cover = page.locator('#cover');
+  await expect(cover).toBeVisible();
+  await expect(cover.locator('.sh-grid')).toContainText('Department budget 2026');
+  await expect(page).toHaveTitle('Budget 2026.xlsx');
+  await expect.poll(muted).toBe(true);
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  // While hidden, keys don't reach the wall (Delete would remove the selected tile); the spreadsheet takes the arrows.
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('ArrowRight');
+  await expect(cover.locator('.sh-ref')).toHaveText('C5');
+  await page.keyboard.press('Control+Shift+H');
+  await expect(cover).toBeHidden();
+  await expect(page).not.toHaveTitle('Budget 2026.xlsx');
+  await expect.poll(muted).toBe(false);
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  expect(await tiles().count()).toBe(count);
+});
+
+test('emergency hide settings: a new key, a black screen, and windows that go away', async () => {
+  await page.keyboard.press('Escape');
+  await page.click('#settingsBtn');
+  const key = page.locator('#hideKey');
+  await expect(key).toHaveText('Ctrl + Shift + H');
+  // A key other programs need is refused; Esc stops recording.
+  await key.click();
+  await expect(key).toHaveText('Press the new keys…');
+  await page.keyboard.press('Control+H');
+  await expect(page.locator('#hideNote')).toContainText('two modifier');
+  await page.keyboard.press('Escape');
+  await expect(key).toHaveText('Ctrl + Shift + H');
+  await key.click();
+  await page.keyboard.press('Control+Shift+J');
+  await expect(key).toHaveText('Ctrl + Shift + J');
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).key).toBe('Ctrl+Shift+J');
+  await expect(page.locator('#helpHideKey')).toHaveText('Ctrl Shift J');   // Help shows the new key
+  // Black screen, from Hide now.
+  await page.locator('#hideCover').selectOption('black');
+  await page.click('#hideTry');
+  await expect(page.locator('#cover')).toHaveClass(/\bblack\b/);
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.keyboard.press('Control+Shift+H');                 // the old key does nothing now
+  await expect(page.locator('#cover')).toBeVisible();
+  await page.keyboard.press('Control+Shift+J');
+  await expect(page.locator('#cover')).toBeHidden();
+  // The windows go away and come back.
+  await page.click('#settingsBtn');
+  await page.locator('#hideCover').selectOption('away');
+  const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
+  await page.click('#hideTry');
+  await expect.poll(visible).toBe(false);
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(visible).toBe(true);
+  await page.click('#settingsBtn');
+  await page.locator('#hideCover').selectOption('sheet');
+  await page.keyboard.press('Escape');
+});
+
+test('time in the bar: clock, stopwatch with laps, and a timer that rings', async () => {
+  await expect(page.locator('#clock')).toHaveText(/^\d{1,2}:\d{2}/);
+  await page.click('#timeBtn');
+  await expect(page.locator('#popT')).toBeVisible();
+  await expect(page.locator('#bigClock')).toHaveText(/\d{1,2}:\d{2}:\d{2}/);
+  // The 24-hour choice is saved with the window's settings.
+  await page.locator('#clock24').setChecked(false);
+  await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
+  await page.locator('#clock24').setChecked(true);
+  await expect(page.locator('#clock')).not.toHaveText(/M$/);
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(true);
+  // Stopwatch
+  await page.click('#swGo');
+  await expect(page.locator('#swChip')).toBeVisible();
+  await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
+  await page.click('#swLap');
+  await expect(page.locator('#swLaps li')).toHaveCount(1);
+  await page.click('#swGo');                                   // pause
+  const held = await page.locator('#swTime').textContent();
+  await page.waitForTimeout(300);
+  await expect(page.locator('#swTime')).toHaveText(held);
+  await page.click('#swReset');
+  await expect(page.locator('#swTime')).toHaveText('0:00.0');
+  await expect(page.locator('#swChip')).toBeHidden();
+  // Timer: 2 seconds
+  await page.locator('#tmSet').fill('0:02');
+  await page.click('#tmGo');
+  await expect(page.locator('#tmChip')).toBeVisible();
+  await expect(page.locator('#tmChip')).toHaveClass(/\bdone\b/, { timeout: 6000 });
+  await expect(toast()).toContainText('is up');
+  await page.click('#tmReset');
+  await expect(page.locator('#tmChip')).toBeHidden();
+  await expect(page.locator('#tmTime')).toHaveText('0:02');
+  await page.keyboard.press('Escape');
+});
+
 test('no page errors along the way', async () => {
   expect(errors).toEqual([]);
 });
