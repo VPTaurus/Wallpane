@@ -37,6 +37,9 @@ test.beforeAll(async () => {
     fs.writeFileSync(path.join(media, 'img' + (i + 1) + '.png'), png(w, h, [40 * i, 120, 200 - 30 * i]));
   });
   fs.writeFileSync(path.join(media, 'old clip.avi'), 'not really a video');
+  // The same window everywhere: GitHub's Windows runners have a 1024 × 768 screen, so the tests use that size here too.
+  fs.mkdirSync(path.join(dir, 'data'));
+  fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
   const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: path.join(dir, 'data') });
   // WALLPANE_EXE runs the same tests against a built app (dist\win-unpacked\Wallpane.exe), to catch packaging mistakes.
   app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
@@ -418,8 +421,9 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   // A recorded WebM doesn't say how long it is; the app finds out by itself.
   await expect.poll(() => video.evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(2);
   await expect(tile.locator('.vbar .vseek')).toBeAttached();
-  await tile.click({ position: { x: 20, y: 30 } });
-  await page.keyboard.press('Alt+Enter');
+  // From the right-click menu (on a narrow tile, a click near its top may land on one of the tile's buttons).
+  await tile.click({ button: 'right' });
+  await menuItem('Loop a part').click();                      // opens Properties at Playback
   const card = page.locator('#inspector');
   await card.locator('#insSpeed').selectOption('2');
   await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(2);
@@ -454,7 +458,8 @@ test('emergency hide: the key covers the wall with a spreadsheet, silences it, a
   await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
   const count = await tiles().count();
   const muted = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isAudioMuted());
-  await tiles().first().click({ position: { x: 20, y: 30 } });
+  await tiles().first().click({ button: 'right' });            // selects it (Delete would remove it)
+  await page.keyboard.press('Escape');                         // closes the menu, keeps the tile selected
   await page.keyboard.press('Control+Shift+H');
   const cover = page.locator('#cover');
   await expect(cover).toBeVisible();
