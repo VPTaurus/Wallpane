@@ -73,7 +73,7 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 - `npm run test:e2e`: starts the real app with Playwright and goes through the main features (test data in a temporary folder)
 - `npm run check`: all three
 
-GitHub Actions runs all three on every push and pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
+GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or pushing a `v*` tag, also builds the .exe files.
 
 ### Code map
 - `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows. Every call from the page goes through `handle()`, which only accepts our own wall windows.
