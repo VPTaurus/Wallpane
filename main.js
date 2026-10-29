@@ -171,7 +171,7 @@ ipcMain.handle('dialog:files', async (_e, multiple) => {
   if (r.canceled) return { entries: [], skipped: 0 };
   return expand(r.filePaths);
 });
-ipcMain.handle('dialog:folder', async () => {
+ipcMain.handle('dialog:folder', async (_e) => {
   const r = await dialog.showOpenDialog(winOf(_e), { title: 'Add a folder of media', properties: ['openDirectory'] });
   if (r.canceled) return { entries: [], skipped: 0 };
   return Object.assign(await expand(r.filePaths), { root: r.filePaths[0] });
@@ -186,7 +186,7 @@ ipcMain.handle('dialog:export', async (_e, text) => {
   await fsp.writeFile(r.filePath, String(text), 'utf8');
   return r.filePath;
 });
-ipcMain.handle('dialog:import', async () => {
+ipcMain.handle('dialog:import', async (_e) => {
   const r = await dialog.showOpenDialog(winOf(_e), {
     title: 'Import presets and layouts',
     properties: ['openFile'],
