@@ -37,9 +37,9 @@ test.beforeAll(async () => {
     fs.writeFileSync(path.join(media, 'img' + (i + 1) + '.png'), png(w, h, [40 * i, 120, 200 - 30 * i]));
   });
   fs.writeFileSync(path.join(media, 'old clip.avi'), 'not really a video');
-  const env = Object.assign({}, process.env, { MEDIA_WALL_USER_DATA: path.join(dir, 'data') });
-  // MEDIA_WALL_EXE runs the same tests against a built app (dist\win-unpacked\Media Wall.exe), to catch packaging mistakes.
-  app = await electron.launch(process.env.MEDIA_WALL_EXE ? { executablePath: process.env.MEDIA_WALL_EXE, args: [], env } : { args: [root], env });
+  const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: path.join(dir, 'data') });
+  // WALLPANE_EXE runs the same tests against a built app (dist\win-unpacked\Wallpane.exe), to catch packaging mistakes.
+  app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
   page = await app.firstWindow();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.waitForSelector('body[data-ready="1"]');
@@ -150,7 +150,7 @@ test('presets: save, export and import', async () => {
   await page.click('#exportBtn');
   await expect(toast()).toContainText('Exported to');
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  expect(data.app).toBe('media-wall');
+  expect(data.app).toBe('wallpane');
   expect(data.presets.map((p) => p.name)).toEqual(['E2E wall']);
   await page.click('#importBtn');
   await expect(toast()).toContainText('Imported 1 preset');
@@ -186,7 +186,7 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
 test('Settings: start in wall mode is saved; starting with Windows is offered only in a built app', async () => {
   await page.click('#settingsBtn');
   // Never clicked here: that would add a real startup entry to this PC.
-  if (process.env.MEDIA_WALL_EXE) await expect(page.locator('#setLogin')).toBeEnabled();
+  if (process.env.WALLPANE_EXE) await expect(page.locator('#setLogin')).toBeEnabled();
   else {
     await expect(page.locator('#setLogin')).toBeDisabled();
     await expect(page.locator('#loginNote')).toContainText('installed or portable app');
@@ -282,6 +282,9 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(card).toBeHidden();
   await page.click('#helpBtn');
   await expect(page.locator('#popH')).toContainText('Alt');
+  await expect(page.locator('#aboutLine')).toContainText('Wallpane');
+  await expect(page.locator('#aboutLine')).toContainText('GPL');
+  await expect(page.locator('#aboutLinks')).toContainText('Source code');
   await page.keyboard.press('Escape');
 });
 

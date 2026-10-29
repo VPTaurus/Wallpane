@@ -8,8 +8,17 @@ const { createWatchers } = require('./lib/watch');
 const formats = require('./renderer/lib/formats');
 
 const DEV = process.argv.includes('--dev');
+const pkg = require('./package.json');
 // The end-to-end tests run the app against a throwaway data folder.
-if (process.env.MEDIA_WALL_USER_DATA) app.setPath('userData', process.env.MEDIA_WALL_USER_DATA);
+if (process.env.WALLPANE_USER_DATA) app.setPath('userData', process.env.WALLPANE_USER_DATA);
+// Wallpane used to be called Media Wall: bring its saved walls and settings over on the first start.
+else try { files.migrateData(path.join(app.getPath('appData'), 'Media Wall'), app.getPath('userData')); } catch { /* start fresh */ }
+
+// Links the page may open in the browser (About and support, in Help). Nothing else leaves the app.
+const LINKS = {
+  source: pkg.homepage,
+  support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || ''))
+};
 
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
@@ -124,8 +133,8 @@ handle('dialog:folder', async (e) => {
 handle('dialog:export', async (e, text) => {
   const r = await dialog.showSaveDialog(winOf(e), {
     title: 'Export presets and layouts',
-    defaultPath: 'media-wall-presets.json',
-    filters: [{ name: 'Media Wall presets', extensions: ['json'] }]
+    defaultPath: 'wallpane-saved-walls.json',
+    filters: [{ name: 'Wallpane saved walls', extensions: ['json'] }]
   });
   if (r.canceled || !r.filePath) return null;
   await fsp.writeFile(r.filePath, String(text), 'utf8');
@@ -135,7 +144,7 @@ handle('dialog:import', async (e) => {
   const r = await dialog.showOpenDialog(winOf(e), {
     title: 'Import presets and layouts',
     properties: ['openFile'],
-    filters: [{ name: 'Media Wall presets', extensions: ['json'] }]
+    filters: [{ name: 'Wallpane or Media Wall saved walls', extensions: ['json'] }]
   });
   if (r.canceled || !r.filePaths[0]) return null;
   try { return { data: JSON.parse(await fsp.readFile(r.filePaths[0], 'utf8')) }; }
@@ -168,6 +177,12 @@ handle('win:fullscreen', (e, on, displayId) => {
 });
 handle('win:isFullscreen', (e) => { const w = winOf(e); return w ? w.isFullScreen() : false; });
 handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
+handle('app:info', () => ({ name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS }));
+// Opens one of the app's own links (source code, support) in the browser; any other address is ignored.
+handle('app:openLink', (_e, url) => {
+  if (url === LINKS.source || LINKS.support.includes(url)) shell.openExternal(url);
+  return true;
+});
 
 // Keep the display from sleeping while a window that asked for it is full screen (wall mode).
 const awake = new Map();   // window id -> { want, blocker }
@@ -256,7 +271,7 @@ function createWindow(id, given) {
     minHeight: 480,
     show: false,
     backgroundColor: '#0e1218',
-    title: id > 1 ? 'Media Wall · Wall ' + id : 'Media Wall',
+    title: id > 1 ? 'Wallpane · Wall ' + id : 'Wallpane',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

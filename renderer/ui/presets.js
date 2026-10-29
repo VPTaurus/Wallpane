@@ -114,7 +114,7 @@
   $('#revealBtn').addEventListener('click', function () { api.revealStore(); });
   $('#exportBtn').addEventListener('click', function () {
     listPresets().then(function (list) {
-      var text = JSON.stringify({ app: 'media-wall', version: 1, presets: list, layouts: A.userLayouts }, null, 2);
+      var text = JSON.stringify({ app: 'wallpane', version: 1, presets: list, layouts: A.userLayouts }, null, 2);
       return api.exportData(text);
     }).then(function (file) { if (file) A.toast('Exported to ' + file); });
   });
@@ -123,7 +123,8 @@
       if (!res) return;
       if (res.error) { A.toast(res.error); return; }
       var d = res.data;
-      if (!d || d.app !== 'media-wall') { A.toast('That file is not a Media Wall export.'); return; }
+      // Exports from before the rename say 'media-wall'.
+      if (!d || (d.app !== 'wallpane' && d.app !== 'media-wall')) { A.toast('That file is not a Wallpane export.'); return; }
       return listPresets().then(function (list) {
         var added = 0;
         (Array.isArray(d.presets) ? d.presets : []).forEach(function (r) {

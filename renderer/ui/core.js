@@ -5,7 +5,7 @@
   var MW = window.MW, F = MW.free, PL = MW.pl;
   var api = window.wall;
   if (!api) {
-    document.body.innerHTML = '<p style="padding:24px;font:14px sans-serif">This page needs the Media Wall desktop app.</p>';
+    document.body.innerHTML = '<p style="padding:24px;font:14px sans-serif">This page needs the Wallpane desktop app.</p>';
     return;
   }
   var $ = function (s) { return document.querySelector(s); };

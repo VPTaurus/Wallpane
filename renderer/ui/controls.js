@@ -213,7 +213,26 @@
     }
     else if (which === 'playlist') A.refreshPlaylistStatus();
     else if (which === 'settings') refreshSettings();
+    else if (which === 'help') fillAbout();
     placeOpen();
+  }
+  // About, in Help: version and licence, the source code, and support links when package.json lists any.
+  function fillAbout() {
+    api.appInfo().then(function (info) {
+      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      var box = $('#aboutLinks'), links = [];
+      if (info.links.source) links.push(['Source code', info.links.source]);
+      info.links.support.forEach(function (u) {
+        links.push([/buymeacoffee\.com/.test(u) ? 'Buy me a coffee' : /github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
+      });
+      box.innerHTML = '';
+      links.forEach(function (l) {
+        var b = document.createElement('button');
+        b.className = 'btn'; b.type = 'button'; b.textContent = l[0]; b.title = l[1] + ' (opens in your browser)';
+        b.addEventListener('click', function () { api.openLink(l[1]); });
+        box.appendChild(b);
+      });
+    });
   }
   A.openPop = openPop;
   Object.keys(POPS).forEach(function (k) {

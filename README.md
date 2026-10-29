@@ -1,8 +1,12 @@
-# Media Wall (Windows desktop app)
+# Wallpane
 
-A grid wall for videos, images and GIFs. Drop files or folders from Explorer, drag borders to resize tiles, save wall presets (they link to your files, nothing is copied) and layouts.
+A video wall for Windows: your own videos, images and GIFs, many at once, arranged on a grid or placed freely by the pixel, on one screen or several. Drop files or folders from Explorer, resize tiles by their edges, play folders as playlists, and save walls to come back to (they link to your files; nothing is copied).
 
-Everything stays on your computer: the app plays local files only and never connects to the internet.
+Everything stays on your computer: Wallpane plays local files only and never connects to the internet.
+
+Wallpane used to be called Media Wall. On its first start it copies your saved walls and settings from the old `%APPDATA%\Media Wall` folder, which stays as a backup; older exports import as before.
+
+Wallpane is free software under the [GNU General Public License, version 3 or later](LICENSE).
 
 ## Run it
 1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
@@ -21,7 +25,7 @@ Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows prote
 The GitHub workflow does the same with repository secrets of the same names.
 
 ## Data
-Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Media Wall`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
+Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
 
 ## The window
 - Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**.
@@ -53,7 +57,7 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 - Settings (the gear):
   - Start this window in wall mode.
   - Keep the display awake in wall mode (on by default).
-  - Start Media Wall when you sign in to Windows (installed or portable app only).
+  - Start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
 
   Together these bring a wall back full screen after a restart.
 

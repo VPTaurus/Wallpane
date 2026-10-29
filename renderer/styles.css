@@ -373,6 +373,8 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .frow.zoomrow { grid-template-columns: 44px minmax(0, 1fr); }
 .zoomrow .row { flex-wrap: nowrap; }
 .zoomrow input[type="range"] { flex: 1; min-width: 0; width: auto; }
+.about { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.about .btn { height: 30px; }
 
 /* ---------- wall mode ---------- */
 .exit { display: none; }

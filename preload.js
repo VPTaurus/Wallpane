@@ -35,5 +35,9 @@ contextBridge.exposeInMainWorld('wall', {
 
   // starting with Windows
   loginItem: () => ipcRenderer.invoke('app:loginItem'),
-  setLoginItem: (on) => ipcRenderer.invoke('app:setLoginItem', !!on)
+  setLoginItem: (on) => ipcRenderer.invoke('app:setLoginItem', !!on),
+
+  // about: name, version, licence, and the app's own links (opened in the browser)
+  appInfo: () => ipcRenderer.invoke('app:info'),
+  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
 });

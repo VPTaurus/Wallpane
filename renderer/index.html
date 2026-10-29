@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; media-src 'self' file: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-<title>Media Wall</title>
+<title>Wallpane</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
        Icons are filled in from data-icon by ui/core.js. -->
   <header class="bar">
     <div class="brand">
-      <h1>Media Wall</h1>
+      <h1>Wallpane</h1>
       <span class="readout" id="readout">4 × 3</span>
     </div>
 
@@ -173,6 +173,11 @@
             <dt>Double-click</dt><dd>One tile full screen</dd>
           </dl>
           <p class="note">Sample tiles disappear when you add your own media. The wall you leave open comes back next time.</p>
+          <span class="lab">About</span>
+          <div class="about" id="aboutBox">
+            <p id="aboutLine">Wallpane</p>
+            <div class="row" id="aboutLinks"></div>
+          </div>
         </div>
       </div>
 
@@ -184,7 +189,7 @@
           <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
           <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
           <span class="lab">Startup</span>
-          <label class="check"><input type="checkbox" id="setLogin"> Start Media Wall when I sign in to Windows</label>
+          <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
           <p class="note" id="loginNote"></p>
           <p class="note">For a wall that runs on its own, turn on both start options: the wall comes back full screen after a restart. Esc or F11 leaves wall mode.</p>
           <span class="lab">Windows</span>

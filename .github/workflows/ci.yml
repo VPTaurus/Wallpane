@@ -46,8 +46,8 @@ jobs:
       - name: End-to-end tests against the built app
         run: npm run test:e2e
         env:
-          MEDIA_WALL_EXE: ${{ github.workspace }}\dist\win-unpacked\Media Wall.exe
+          WALLPANE_EXE: ${{ github.workspace }}\dist\win-unpacked\Wallpane.exe
       - uses: actions/upload-artifact@v5
         with:
-          name: media-wall-windows
+          name: wallpane-windows
           path: dist/*.exe
