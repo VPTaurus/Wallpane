@@ -84,6 +84,17 @@ test('cleanRecord keeps good tiles and puts settings in range', () => {
   assert.equal(REC.cleanRecord('nope', false), null);
 });
 
+test('playback settings in a saved wall are kept in range', () => {
+  const rec = REC.cleanRecord({ items: [
+    { path: 'D:\\a.mp4', name: 'a.mp4', kind: 'video', col: 0, row: 0, w: 1, h: 1, vol: 2, speed: 10, loopA: 3, loopB: 2 },
+    { path: 'D:\\b.mp4', name: 'b.mp4', kind: 'video', col: 1, row: 0, w: 1, h: 1, vol: 0.4, speed: 1.5, loopA: 1, loopB: 4 },
+    { path: 'D:\\c.mp4', name: 'c.mp4', kind: 'video', col: 2, row: 0, w: 1, h: 1 }
+  ] }, false);
+  assert.deepEqual([rec.items[0].vol, rec.items[0].speed, rec.items[0].loopA, rec.items[0].loopB], [1, 4, 3, null]);
+  assert.deepEqual([rec.items[1].vol, rec.items[1].speed, rec.items[1].loopA, rec.items[1].loopB], [0.4, 1.5, 1, 4]);
+  assert.deepEqual([rec.items[2].vol, rec.items[2].speed, rec.items[2].loopA, rec.items[2].loopB], [1, 1, null, null], 'older saved walls');
+});
+
 test('cleanLayout accepts whole-cell frames only', () => {
   assert.deepEqual(REC.cleanLayout({ name: ' Two ', cols: 2, rows: 1, f: [[0, 0, 1, 1], [1, 0, 1, 1]] }),
     { name: 'Two', cols: 2, rows: 1, f: [[0, 0, 1, 1], [1, 0, 1, 1]] });

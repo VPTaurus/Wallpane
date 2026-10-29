@@ -2,7 +2,7 @@
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, V = MW.view;
+  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, V = MW.view, P = MW.play;
   var S = A.S, wall = A.wall, $ = A.$, ICON = A.ICON, clamp = U.clamp;
 
   function idsNow() { return S.items.map(function (i) { return i.id; }); }
@@ -47,6 +47,7 @@
       }
       media.addEventListener('error', function () { el.classList.add('broken'); });
       media.src = it.url;
+      watchVideo(it, el, media);
     } else {
       media = document.createElement('img');
       media.className = 'media'; media.alt = it.name;
@@ -77,14 +78,12 @@
     bt.innerHTML =
       (it.pl ? '<button class="hb" data-act="pin" aria-label="Pin to this tile">' + ICON.pin + '</button>' : '') +
       (it.pl ? '<button class="hb" data-act="next" aria-label="Next in playlist" title="Next in playlist">' + ICON.next + '</button>' : '') +
-      '<button class="hb" data-act="play" aria-label="Play or pause"></button>' +
-      '<button class="hb" data-act="mute" aria-label="Sound on or off"></button>' +
       (it.pl ? '' : '<button class="hb" data-act="loop" aria-label="Loop on or off">' + ICON.loop + '</button>') +
       '<button class="hb" data-act="fit" aria-label="Fit">' + ICON.fit + '</button>' +
       '<button class="hb danger" data-act="remove" aria-label="Remove from wall">' + ICON.trash + '</button>';
     hud.appendChild(nm); hud.appendChild(bt);
     el.appendChild(hud);
-    el._playBtn = bt.querySelector('[data-act="play"]');
+    if (media.tagName === 'VIDEO') buildBar(it, el, media);
 
     // Shown while the media is being repositioned (see A.startRepos).
     var rbar = document.createElement('div');
@@ -111,8 +110,9 @@
 
     el.addEventListener('focus', function () { if (el.matches(':focus-visible')) A.select(it.id); });
     el.addEventListener('keydown', function (e) {
-      if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return;
+      if (e.target !== el || e.key !== 'Enter') return;   // Space plays and pauses (see controls.js)
       e.preventDefault();
+      if (e.altKey) { e.stopPropagation(); A.openProps(it); return; }   // Alt+Enter: this tile's Properties
       A.select(S.sel === it.id ? null : it.id);
     });
     el.addEventListener('pointerdown', function (e) {
@@ -122,7 +122,7 @@
     });
     // The scroll wheel zooms the media of the selected tile (or the one being repositioned).
     el.addEventListener('wheel', function (e) {
-      if (!A.hasMedia(it) || document.body.classList.contains('clean') || (S.sel !== it.id && A.reposId !== it.id)) return;
+      if (!A.hasMedia(it) || document.body.classList.contains('clean') || (S.sel !== it.id && A.reposId !== it.id) || e.target.closest('.vbar')) return;
       e.preventDefault();
       A.zoomMedia(it, Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
     }, { passive: false });
@@ -168,6 +168,110 @@
     el.addEventListener('dragend', function () { A.drag.id = null; el.classList.remove('dragging'); A.hideGhost(); wall.classList.remove('hot'); });
     return el;
   }
+
+  /* ---------- video playback: the control bar, volume, speed, and a part that loops ---------- */
+  // A bar along the bottom of a video tile: play, time, a timeline that shows the looped part, mute, volume, speed.
+  function buildBar(it, el, media) {
+    var bar = document.createElement('div');
+    bar.className = 'vbar';
+    bar.innerHTML =
+      '<button class="hb" type="button" data-act="play" aria-label="Play or pause"></button>' +
+      '<span class="vtime">0:00</span>' +
+      '<span class="vtrack"><span class="vloop" hidden></span><input class="vseek" type="range" min="0" max="1000" step="1" value="0" aria-label="Position in the video"></span>' +
+      '<button class="hb" type="button" data-act="mute" aria-label="Sound on or off"></button>' +
+      '<input class="vvol" type="range" min="0" max="100" step="1" aria-label="Volume">' +
+      '<select class="vspeed" aria-label="Speed">' + P.SPEEDS.map(function (s) { return '<option value="' + s + '">' + s + '×</option>'; }).join('') + '</select>';
+    el.appendChild(bar);
+    el._playBtn = bar.querySelector('[data-act="play"]');
+    var seek = bar.querySelector('.vseek'), vol = bar.querySelector('.vvol'), speed = bar.querySelector('.vspeed');
+    var time = bar.querySelector('.vtime'), loopEl = bar.querySelector('.vloop'), dragging = false;
+    function dur() { return isFinite(media.duration) ? media.duration : 0; }
+    el._syncBar = function () {
+      var d = dur();
+      time.textContent = P.fmtTime(media.currentTime) + (d ? ' / ' + P.fmtTime(d) : '');
+      if (!dragging && d) seek.value = Math.round(media.currentTime / d * 1000);
+      var loop = d > 0 && !it.pl && P.hasLoop(it);
+      loopEl.hidden = !loop;
+      if (loop) {
+        var a = it.loopA || 0, b = it.loopB == null ? d : it.loopB;
+        loopEl.style.left = (a / d * 100) + '%'; loopEl.style.width = ((b - a) / d * 100) + '%';
+      }
+      if (document.activeElement !== vol) vol.value = Math.round((it.vol == null ? 1 : it.vol) * 100);
+      if (document.activeElement !== speed) speed.value = String(it.speed || 1);
+    };
+    ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked'].forEach(function (ev) { media.addEventListener(ev, el._syncBar); });
+    seek.addEventListener('pointerdown', function () { dragging = true; });
+    seek.addEventListener('input', function () { var d = dur(); if (d) media.currentTime = seek.value / 1000 * d; });
+    seek.addEventListener('change', function () { dragging = false; });
+    vol.addEventListener('input', function () { A.setVolume(it, vol.value / 100); });
+    speed.addEventListener('change', function () { A.setSpeed(it, parseFloat(speed.value)); });
+    // The bar is for playing, not for moving or selecting the tile.
+    bar.addEventListener('pointerdown', function (e) { e.stopPropagation(); el.draggable = false; });
+    bar.addEventListener('pointerup', function () { dragging = false; el.draggable = S.mode !== 'free' && A.reposId !== it.id; });
+    bar.addEventListener('click', function (e) { if (!e.target.closest('[data-act]')) e.stopPropagation(); });
+    bar.addEventListener('dblclick', function (e) { e.stopPropagation(); });
+  }
+  // Keeps a video inside its loop part, and starts it there.
+  function watchVideo(it, el, media) {
+    function check(t) {
+      if (it.pl) return;
+      var to = P.loopTarget(t, it.loopA, it.loopB);
+      if (to != null) media.currentTime = to;
+    }
+    media.addEventListener('timeupdate', function () { check(media.currentTime); });
+    // Frame by frame where the browser can, so the jump back lands on time.
+    if (media.requestVideoFrameCallback) media.requestVideoFrameCallback(function cb(now, meta) {
+      if (!media.isConnected) return;
+      check(meta.mediaTime);
+      media.requestVideoFrameCallback(cb);
+    });
+    media.addEventListener('ended', function () {
+      if (!it.pl && P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
+    });
+    media.addEventListener('loadedmetadata', function () {
+      if (!isFinite(media.duration)) {
+        // Some files (recorded in a browser, for one) only learn their length at the end: look there once, then come back.
+        var back = function () {
+          if (!isFinite(media.duration)) return;
+          media.removeEventListener('durationchange', back);
+          media.currentTime = it.pl ? 0 : (it.loopA || 0);
+        };
+        media.addEventListener('durationchange', back);
+        media.currentTime = 1e101;
+      } else if (!it.pl && it.loopA) media.currentTime = it.loopA;
+    });
+  }
+  A.videoOf = function (it) {
+    var el = A.tileEls.get(it.id), m = el && el._media;
+    return m && m.tagName === 'VIDEO' ? m : null;
+  };
+  // Volume, speed and the loop part belong to the tile: they stay when a playlist moves on (the loop part does not).
+  A.setVolume = function (it, v) {
+    it.vol = clamp(+v, 0, 1);
+    if (it.vol > 0 && it.muted) it.muted = false;   // turning the volume up means you want to hear it
+    A.render(); A.refreshInspector(); A.updateTransport();
+  };
+  A.setSpeed = function (it, s) {
+    it.speed = clamp(+s || 1, 0.25, 4);
+    A.render(); A.refreshInspector();
+  };
+  // a, b in seconds (b null: to the end); both null clears the part. False (and a message) when the part makes no sense.
+  A.setLoop = function (it, a, b) {
+    var media = A.videoOf(it);
+    if (a == null && b == null) { it.loopA = null; it.loopB = null; }
+    else {
+      var c = P.cleanLoop(a, b, media ? media.duration : NaN);
+      if (!c) {
+        if ((a || 0) === 0 && b == null) { it.loopA = null; it.loopB = null; }
+        else { A.toast('The loop needs its end at least a tenth of a second after its start.'); return false; }
+      } else {
+        it.loopA = c.a; it.loopB = c.b;
+        if (media && (media.currentTime < c.a || (c.b != null && media.currentTime >= c.b))) media.currentTime = c.a;
+      }
+    }
+    A.render(); A.refreshInspector();
+    return true;
+  };
 
   /* ---------- resizing and moving ---------- */
   /* Drag any border or corner: the edge you grab follows the pointer, snapped to cells; tiles in the way move aside,
@@ -416,7 +520,13 @@
       m.style.objectFit = it.fit;
       m.style.objectPosition = vc.objectPosition; m.style.transformOrigin = vc.transformOrigin; m.style.transform = vc.transform;
     }
-    if (m.tagName === 'VIDEO') { m.muted = it.muted; m.loop = it.loop; }
+    if (m.tagName === 'VIDEO') {
+      var rate = it.speed || 1;
+      m.muted = it.muted; m.volume = it.vol == null ? 1 : it.vol;
+      if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
+      m.loop = it.loop && (it.pl || !P.hasLoop(it));   // a loop part does its own looping
+      if (el._syncBar) el._syncBar();
+    }
     // The buttons only change when these do, so leave their markup alone otherwise (render runs on every drag step).
     var ui = [it.muted, it.fit, !!it.pinned, it.loop].join('|');
     if (el._ui !== ui) {

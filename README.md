@@ -36,14 +36,16 @@ Saved walls, frame layouts, settings and your last wall are JSON files in `%APPD
 
 ## Tiles
 - Empty tiles are frames without media: size and place them first, then drop media on them, click Choose…, or add a folder as a playlist (playlists fill empty tiles first, also in Free layout). On the grid they give way: when a tile grows or moves and there is no other room, it takes their cells and they go (before any tile is shrunk). In Free (pixels) they are pushed and squeezed like other tiles.
+- A video tile has a control bar along its bottom (it shows when the pointer is over the tile): play, time, a timeline you can drag, sound, volume and speed. Properties > Playback holds the same, plus **Loop a part**: type a start and end time (like 1:23.5) or play to a spot and press Now, and the video repeats just that part; the timeline shows it. Volume, speed and the looped part are saved with the wall.
 - Media inside a tile can be moved and zoomed: scroll the wheel over the selected tile to zoom (up to 8×) around the pointer; Reposition and zoom (right-click menu or Properties) lets you drag the media inside the tile. Reset puts it back. Each tile remembers this in saved walls.
 - Arrange > Rows and columns builds the wall from rows (or columns) with their own number of tiles, for example 3 in the first row and 4 in the second. When the rows share a grid of up to 12 cells (3 and 4 do: 12) the wall stays on the grid; otherwise it switches to Free (pixels). Tiles move into the new frames in reading order and leftover frames become empty tiles.
 
 ## Keys
 - F11 wall mode on or off, Esc leaves wall mode / fullscreen
-- Tab moves between tiles and selects them; Enter or Space selects or lets go
+- Tab moves between tiles and selects them; Enter selects or lets go
 - Arrows move the selected tile, Shift+arrows resize, Delete removes it
 - Alt+Enter opens Properties for the selected tile; Esc closes it (or the right-click menu, or Reposition), and a second Esc lets go of the tile
+- On a selected video: Space or K plays and pauses, J / L skip 5 seconds back / on, [ and ] set where the looped part starts and ends, \ stops looping it, < and > change the speed, M mutes
 - Ctrl+Z / Ctrl+Y undo / redo
 - Double-click a tile for single-tile fullscreen
 

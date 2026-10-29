@@ -43,11 +43,13 @@
     it.name = entry.name; it.path = entry.path; it.kind = entry.kind; it.url = U.fileUrl(entry.path);
     it.sample = false; it.missing = false; it.muted = true; it.loop = true; it.gifSecs = undefined;
     it.mx = 0.5; it.my = 0.5; it.zoom = 1;
+    it.loopA = null; it.loopB = null;   // a loop part belongs to one video; volume and speed stay with the tile
   };
   function relinkItem(it, entry) {
-    var mu = it.muted, lp = it.loop, ft = it.fit, v = MW.view.of(it);
+    var mu = it.muted, lp = it.loop, ft = it.fit, v = MW.view.of(it), la = it.loopA, lb = it.loopB;
     A.replaceMedia(it, entry);
     it.muted = mu; it.loop = lp; it.fit = ft; it.done = false; it.mx = v.mx; it.my = v.my; it.zoom = v.zoom;
+    it.loopA = la; it.loopB = lb;   // the same video found again
   }
   // Pick a file for this tile (or a new one in its place).
   A.chooseMedia = function (it) {
@@ -268,7 +270,7 @@
   };
   function copyOf(it, g) {
     var c = it.kind === 'empty' ? A.makeEmptyItem(g) : A.makeItem({ name: it.name, path: it.path, kind: it.kind }, g);
-    ['fit', 'fitSet', 'muted', 'loop', 'mx', 'my', 'zoom', 'missing', 'pl'].forEach(function (k) { if (it[k] !== undefined) c[k] = it[k]; });
+    ['fit', 'fitSet', 'muted', 'loop', 'mx', 'my', 'zoom', 'missing', 'pl', 'vol', 'speed', 'loopA', 'loopB'].forEach(function (k) { if (it[k] !== undefined) c[k] = it[k]; });
     if (c.missing) c.url = null;
     return c;
   }

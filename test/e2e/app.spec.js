@@ -389,6 +389,65 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await page.keyboard.press('Escape');
 });
 
+test('video controls: speed, volume, a looped part, and keys', async () => {
+  // Record a 3-second WebM right in the page (canvas + MediaRecorder), so the test needs no video file of its own.
+  const b64 = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+    const g = c.getContext('2d'), rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm;codecs=vp8' }), parts = [];
+    rec.ondataavailable = (e) => parts.push(e.data);
+    const stopped = new Promise((r) => { rec.onstop = r; });
+    rec.start();
+    const t0 = performance.now();
+    await new Promise((done) => (function draw() {
+      const t = performance.now() - t0;
+      g.fillStyle = 'hsl(' + Math.round(t / 10) % 360 + ',70%,50%)'; g.fillRect(0, 0, 160, 90);
+      if (t < 3000) requestAnimationFrame(draw); else done();
+    })());
+    rec.stop(); await stopped;
+    const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
+    let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  });
+  const clip = path.join(dir, 'clip.webm');
+  fs.writeFileSync(clip, Buffer.from(b64, 'base64'));
+  await answerDialogs(clip);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const tile = page.locator('#wall .tile.is-video').first(), video = tile.locator('video');
+  await expect(tile).toBeVisible();
+  // A recorded WebM doesn't say how long it is; the app finds out by itself.
+  await expect.poll(() => video.evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(2);
+  await expect(tile.locator('.vbar .vseek')).toBeAttached();
+  await tile.click({ position: { x: 20, y: 30 } });
+  await page.keyboard.press('Alt+Enter');
+  const card = page.locator('#inspector');
+  await card.locator('#insSpeed').selectOption('2');
+  await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(2);
+  await card.locator('#insVol').fill('50');
+  await expect.poll(() => video.evaluate((v) => v.volume)).toBeCloseTo(0.5, 2);
+  // Loop 0.5 s to 1.5 s: the video stays in that part.
+  await card.locator('#insLoopA').fill('0.5');
+  await card.locator('#insLoopA').press('Tab');
+  await card.locator('#insLoopB').fill('1.5');
+  await card.locator('#insLoopB').press('Tab');
+  await expect(tile.locator('.vloop')).toBeVisible();
+  await card.locator('#insSpeed').selectOption('1');
+  await video.evaluate((v) => v.play());
+  const times = [];
+  for (let i = 0; i < 12; i++) { await page.waitForTimeout(200); times.push(await video.evaluate((v) => v.currentTime)); }
+  expect(Math.min(...times)).toBeGreaterThanOrEqual(0.45);
+  expect(Math.max(...times)).toBeLessThan(1.7);
+  // Keys on the selected video: Space pauses, > speeds up, \ stops looping the part.
+  await page.keyboard.press('Escape');                       // close Properties, keep the tile selected
+  await page.locator('body').press('Space');
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  await page.locator('body').press('Shift+Period');
+  await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(1.25);
+  await page.locator('body').press('Backslash');
+  await expect(tile.locator('.vloop')).toBeHidden();
+  await page.keyboard.press('Escape');
+});
+
 test('no page errors along the way', async () => {
   expect(errors).toEqual([]);
 });

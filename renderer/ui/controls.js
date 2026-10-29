@@ -144,6 +144,22 @@
     var it = A.selected();
     if (!it || inField) return;
     if (e.key === 'Delete') { e.preventDefault(); A.removeItem(it.id); return; }
+    // A selected video: Space or K plays and pauses, J and L skip 5 s back and on, [ and ] set where the looped part
+    // starts and ends, \ stops looping it, < and > change the speed, M mutes.
+    var vid = A.videoOf(it), key = e.key;
+    if (vid && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if ((key === ' ' && t.tagName !== 'BUTTON') || key === 'k' || key === 'K') { e.preventDefault(); if (vid.paused) vid.play().catch(function () {}); else vid.pause(); return; }
+      if (/^[jJlL]$/.test(key)) {
+        e.preventDefault();
+        vid.currentTime = clamp(vid.currentTime + (key.toLowerCase() === 'j' ? -5 : 5), 0, isFinite(vid.duration) ? vid.duration : Infinity);
+        return;
+      }
+      if (!it.pl && key === '[') { e.preventDefault(); var at = vid.currentTime; A.setLoop(it, at, it.loopB != null && it.loopB > at ? it.loopB : null); return; }
+      if (!it.pl && key === ']') { e.preventDefault(); A.setLoop(it, it.loopA || 0, vid.currentTime); return; }
+      if (!it.pl && key === '\\') { e.preventDefault(); A.setLoop(it, null, null); return; }
+      if (key === '<' || key === '>') { e.preventDefault(); A.setSpeed(it, MW.play.stepSpeed(it.speed || 1, key === '>' ? 1 : -1)); A.toast('Speed ' + it.speed + '×'); return; }
+      if (key === 'm' || key === 'M') { e.preventDefault(); it.muted = !it.muted; A.render(); A.refreshInspector(); A.updateTransport(); return; }
+    }
     var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (!d) return;
     e.preventDefault();
