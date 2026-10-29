@@ -186,7 +186,7 @@
       </div>
 
       <div class="popwrap">
-        <button class="btn ib" id="helpBtn" type="button" aria-label="Help and keys" title="Help and keys" aria-expanded="false" aria-controls="popH"><span data-icon="help"></span></button>
+        <button class="btn ib" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="popH"><span data-icon="help"></span></button>
         <div class="pop" id="popH" hidden>
           <span class="lab">Getting started</span>
           <ul class="tips">
@@ -197,56 +197,109 @@
             <li>Scroll over the selected tile to zoom its media; Reposition and zoom lets you drag the media inside the tile.</li>
             <li>Wall mode shows only the wall, on the display you pick in Settings.</li>
           </ul>
-          <span class="lab">Keys</span>
-          <dl class="keys">
-            <dt><kbd>Tab</kbd> · <kbd>Enter</kbd></dt><dd>Select the next tile · select or let go</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move (Free: 1 px, with Ctrl 10)</dd>
-            <dt><kbd>Shift</kbd> + arrows</dt><dd>Resize</dd>
-            <dt><kbd>Alt</kbd> <kbd>Enter</kbd></dt><dd>Properties of the selected tile</dd>
-            <dt><kbd>Space</kbd> or <kbd>K</kbd></dt><dd>Play or pause the selected video</dd>
-            <dt><kbd>J</kbd> · <kbd>L</kbd></dt><dd>5 seconds back · on</dd>
-            <dt><kbd>[</kbd> · <kbd>]</kbd></dt><dd>Loop a part: start · end here (<kbd>\</kbd> stops)</dd>
-            <dt><kbd>&lt;</kbd> · <kbd>&gt;</kbd></dt><dd>Slower · faster</dd>
-            <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
-            <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
-            <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
-            <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
-            <dt id="helpHideKey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>H</kbd></dt><dd>Emergency hide, from any program; again to come back</dd>
-            <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
-            <dt>Double-click</dt><dd>One tile full screen</dd>
-          </dl>
           <p class="note">Sample tiles disappear when you add your own media. The wall you leave open comes back next time.</p>
-          <span class="lab">About</span>
-          <div class="about" id="aboutBox">
-            <p id="aboutLine">Wallpane</p>
-            <div class="row" id="aboutLinks"></div>
+          <div class="row">
+            <button class="btn" id="helpKeys" type="button"><span data-icon="keyboard"></span>All keys</button>
+            <button class="btn" id="helpAbout" type="button"><span data-icon="info"></span>About Wallpane</button>
           </div>
         </div>
       </div>
 
       <div class="popwrap">
         <button class="btn" id="settingsBtn" type="button" title="Settings" aria-expanded="false" aria-controls="popS"><span data-icon="gear"></span><span class="lbl">Settings</span></button>
-        <div class="pop" id="popS" hidden>
-          <span class="lab">Wall mode</span>
-          <div class="frow"><label for="display">Show on</label><select id="display"><option value="">This window's display</option></select></div>
-          <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
-          <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
-          <span class="lab">Startup</span>
-          <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
-          <p class="note" id="loginNote"></p>
-          <p class="note">For a wall that runs on its own, turn on both start options: the wall comes back full screen after a restart. Esc or F11 leaves wall mode.</p>
-          <span class="lab">Emergency hide</span>
-          <div class="frow"><span id="hideKeyLab">Key</span><button class="btn keycap" id="hideKey" type="button" aria-labelledby="hideKeyLab hideKey" title="Click, then press the new keys">Ctrl + Shift + H</button></div>
-          <div class="frow"><label for="hideCover">Windows show</label>
-            <select id="hideCover"><option value="sheet">A spreadsheet</option><option value="black">A black screen</option><option value="image">A picture…</option><option value="away">Nothing: they go away</option></select>
+        <!-- Settings: sections down the side, one shown at a time. -->
+        <div class="pop settings" id="popS" role="dialog" aria-label="Settings" hidden>
+          <nav class="snav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
+            <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
+            <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
+            <button type="button" role="tab" id="tabKeys" data-sec="keys" aria-controls="secKeys"><span data-icon="keyboard"></span>Keys</button>
+            <button type="button" role="tab" id="tabAbout" data-sec="about" aria-controls="secAbout"><span data-icon="info"></span>About</button>
+          </nav>
+          <div class="sbody">
+            <section class="ssec" id="secGeneral" data-sec="general" role="tabpanel" aria-labelledby="tabGeneral">
+              <h2>General</h2>
+              <span class="lab">Startup</span>
+              <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
+              <p class="note" id="loginNote"></p>
+              <span class="lab">Clock</span>
+              <div class="frow"><label for="setClock">Time format</label>
+                <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
+              </div>
+              <span class="lab">Windows</span>
+              <div class="row"><button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button></div>
+              <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
+              <span class="lab">This wall</span>
+              <div class="row"><button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button></div>
+              <p class="note">Takes every tile off this window's wall. Ctrl+Z brings them back.</p>
+            </section>
+
+            <section class="ssec" id="secWall" data-sec="wall" role="tabpanel" aria-labelledby="tabWall" hidden>
+              <h2>Wall mode</h2>
+              <p class="note">Wall mode (F11) hides the controls and fills a display with the wall. Esc or F11 leaves it.</p>
+              <div class="frow"><label for="display">Show on</label><select id="display"><option value="">This window's display</option></select></div>
+              <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
+              <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
+              <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
+            </section>
+
+            <section class="ssec" id="secHide" data-sec="hide" role="tabpanel" aria-labelledby="tabHide" hidden>
+              <h2>Emergency hide</h2>
+              <p class="note">One key or mouse button hides every wall window at once: the sound goes off, videos pause, and the windows show something else. The same again brings everything back as it was.</p>
+              <div class="frow"><span id="hideKeyLab">Key</span><button class="btn keycap" id="hideKey" type="button" aria-labelledby="hideKeyLab hideKey" title="Click, then press the new keys">Ctrl + Shift + H</button></div>
+              <div class="frow"><span>Or one press</span>
+                <div class="row quick" id="hideQuick">
+                  <button class="btn" type="button" data-key="F9" title="F9 alone">F9</button>
+                  <button class="btn" type="button" data-key="Scrolllock" title="Scroll Lock, which hardly anything uses">Scroll Lock</button>
+                  <button class="btn" type="button" data-key="VolumeMute" title="Your keyboard's mute key. While Wallpane runs it no longer mutes Windows.">Mute</button>
+                  <button class="btn" type="button" data-key="MediaPlayPause" title="Your keyboard's play/pause key. While Wallpane runs, music players no longer get it.">Play/Pause</button>
+                </div>
+              </div>
+              <div class="frow"><label for="hideMouse">Mouse button</label>
+                <select id="hideMouse"><option value="">None</option><option value="back">Back (side button)</option><option value="forward">Forward (side button)</option><option value="middle">Middle (wheel click)</option></select>
+              </div>
+              <p class="note" id="hideMouseNote" hidden>The mouse button works while the pointer is over a Wallpane window. To use it from any program, set the button to press the key above in your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control).</p>
+              <div class="frow"><label for="hideCover">Windows show</label>
+                <select id="hideCover"><option value="sheet">A spreadsheet</option><option value="black">A black screen</option><option value="image">A picture…</option><option value="away">Nothing: they go away</option></select>
+              </div>
+              <div class="row"><button class="btn" id="hideImageBtn" type="button" hidden>Choose picture…</button><button class="btn" id="hideTry" type="button">Hide now</button></div>
+              <p class="note" id="hideNote"></p>
+            </section>
+
+            <section class="ssec" id="secKeys" data-sec="keys" role="tabpanel" aria-labelledby="tabKeys" hidden>
+              <h2>Keys</h2>
+              <dl class="keys">
+                <dt><kbd>Tab</kbd> · <kbd>Enter</kbd></dt><dd>Select the next tile · select or let go</dd>
+                <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move (Free: 1 px, with Ctrl 10)</dd>
+                <dt><kbd>Shift</kbd> + arrows</dt><dd>Resize</dd>
+                <dt><kbd>Alt</kbd> <kbd>Enter</kbd></dt><dd>Properties of the selected tile</dd>
+                <dt><kbd>Space</kbd> or <kbd>K</kbd></dt><dd>Play or pause the selected video</dd>
+                <dt><kbd>J</kbd> · <kbd>L</kbd></dt><dd>5 seconds back · on</dd>
+                <dt><kbd>[</kbd> · <kbd>]</kbd></dt><dd>Loop a part: start · end here (<kbd>\</kbd> stops)</dd>
+                <dt><kbd>&lt;</kbd> · <kbd>&gt;</kbd></dt><dd>Slower · faster</dd>
+                <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
+                <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
+                <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
+                <dt id="keysHideKey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>H</kbd></dt><dd>Emergency hide, from any program; again to come back</dd>
+                <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
+                <dt>Double-click</dt><dd>One tile full screen</dd>
+              </dl>
+              <p class="note">The emergency hide key, and a mouse button for it, are set under Emergency hide.</p>
+            </section>
+
+            <section class="ssec" id="secAbout" data-sec="about" role="tabpanel" aria-labelledby="tabAbout" hidden>
+              <h2>About</h2>
+              <div class="about" id="aboutBox">
+                <p id="aboutLine">Wallpane</p>
+                <div class="row" id="aboutLinks"></div>
+              </div>
+              <span class="lab">Your data</span>
+              <p class="note path" id="dataDir"></p>
+              <div class="row"><button class="btn" id="dataDirBtn" type="button"><span data-icon="folder"></span>Show folder</button></div>
+              <p class="note">Saved walls, frame layouts, settings and the wall you leave open are small JSON files in this folder. Nothing leaves your computer.</p>
+            </section>
           </div>
-          <div class="row"><button class="btn" id="hideImageBtn" type="button" hidden>Choose picture…</button><button class="btn" id="hideTry" type="button">Hide now</button></div>
-          <p class="note" id="hideNote"></p>
-          <span class="lab">Windows</span>
-          <button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button>
-          <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
-          <hr class="div">
-          <button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button>
         </div>
       </div>
 

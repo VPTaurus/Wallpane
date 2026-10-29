@@ -25,11 +25,19 @@ Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows prote
 The GitHub workflow does the same with repository secrets of the same names.
 
 ## Data
-Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Saved walls > Show file opens the folder. Saved walls > Export/Import moves them between PCs.
+Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Settings › About shows the folder, and Saved walls > Show file opens it. Saved walls > Export/Import moves them between PCs.
 
 ## The window
-- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started and keys), **Settings** (gear) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
-- The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). While one is in use, a chip next to the clock shows it; both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. The clock follows Windows' 12 or 24-hour format unless you tick 24-hour.
+- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started), **Settings** (the cog) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
+- The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). While one is in use, a chip next to the clock shows it; both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. The clock follows Windows' 12 or 24-hour format unless you choose one (Settings › General, or the 24-hour box in the clock).
+- **Settings** opens a panel with its sections down the side (arrow keys move between them):
+  - **General**: start Wallpane with Windows, the clock's time format, open another wall window, clear this wall.
+  - **Wall mode**: which display, start this window in wall mode, keep the display awake.
+  - **Emergency hide**: the key, a mouse button, and what the windows show (see below).
+  - **Keys**: every keyboard shortcut.
+  - **About**: version, licence, source code, and the folder your data is in.
+
+  Help (**?**) has buttons that open Keys and About.
 - The wall has the whole window. The selected tile has an orange ring with round grips at its corners; drag a grip or any edge to resize. A pinned playlist tile shows a pin badge.
 - Right-click a tile for: reposition and zoom its media, fit, sound, replace, own folder, duplicate, split in two, Properties, remove. Right-click empty wall to add media or a folder right there, or to make a new empty tile.
 - **Properties** (right-click a tile, or Alt+Enter) opens a card next to the tile with its exact position and size (cells, or pixels in Free mode), how the media fits and its zoom, playback, playlist and file actions. Esc or × closes it; selecting another tile moves it there.
@@ -57,19 +65,19 @@ Playback uses Chromium's built-in codecs, so these work: MP4 (H.264, and HEVC wh
 AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files cannot play. The app tells you when it finds them; convert videos to MP4 (HandBrake does this for free) and images to JPEG or PNG. A file in a supported container with an unsupported codec shows a message on its tile.
 
 ## Wall mode and unattended walls
-- Wall mode (F11) hides the controls and fills the display picked under Settings > Show on.
-- Settings (the gear):
-  - Start this window in wall mode.
-  - Keep the display awake in wall mode (on by default).
-  - Start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
+- Wall mode (F11) hides the controls and fills the display picked under Settings › Wall mode › Show on.
+- Settings › Wall mode: start this window in wall mode; keep the display awake in wall mode (on by default).
+- Settings › General: start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
 
   Together these bring a wall back full screen after a restart.
 
 ## Emergency hide
 Press **Ctrl+Shift+H** in any program and every wall window hides at once: the sound goes off (the window is muted, not just the videos), videos and playlists pause, and the windows show something else. Press it again and everything comes back as it was, the videos playing on. Starting Wallpane again also brings it back, in case the key slips your mind.
 
-Settings > Emergency hide:
-- **Key**: click it and press the new keys. A key with letters or numbers needs two modifiers (like Ctrl+Shift or Ctrl+Alt), because the key is taken from every other program while Wallpane runs; F-keys also work alone. If another program already holds the key, Settings says so, and it then works only while Wallpane is the active window.
+Settings › Emergency hide:
+- **Key**: click it and press the new keys. A key with letters or numbers needs two modifiers (like Ctrl+Shift or Ctrl+Alt), because the key is taken from every other program while Wallpane runs; F-keys and Scroll Lock also work alone. If another program already holds the key, Settings says so, and it then works only while Wallpane is the active window.
+- **Or one press**: pick F9, Scroll Lock, or your keyboard's Mute or Play/Pause key with a click. A media key then stops doing its usual job while Wallpane runs.
+- **Mouse button**: back or forward (the side buttons) or middle. It works while the pointer is over a Wallpane window. To use a mouse button from any program, have your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control) press the hide key instead.
 - **Windows show**: a spreadsheet (a plain budget table; you can click cells and move with the arrow keys, and the window title changes to match), a black screen, a picture you choose, or nothing at all: the windows go away, off the taskbar too.
 - **Hide now** tries it.
 
@@ -82,8 +90,8 @@ While hidden, keys, drops and right-clicks don't reach the wall, so nothing on i
   - Moving: the tile follows the pointer and the others make room. Where they cannot, dropping on another tile swaps the two; anywhere else the tile goes back.
   - Resizing pushes the tiles in the way; once they reach the wall they get squeezed, down to a minimum size.
 - Fit to media: on the grid it resizes and rearranges tiles so each media fills its tile with as few bars as possible. In Free mode it shrinks every tile to its media's exact shape, so there are no bars and nothing is cropped; "Fit tile to media" in a tile's right-click menu does this for one tile (switching to Free if needed). All undoable.
-- Settings > Open another wall window: another wall (for a second monitor); each window has its own wall and settings, saved walls and frame layouts are shared; windows reopen on the next start.
-- Clear wall is in Settings and takes two clicks; Ctrl+Z brings the wall back.
+- Settings › General › Open another wall window: another wall (for a second monitor); each window has its own wall and settings, saved walls and frame layouts are shared; windows reopen on the next start.
+- Clear wall is in Settings › General and takes two clicks; Ctrl+Z brings the wall back.
 
 ## Development
 - `npm run lint`: ESLint
