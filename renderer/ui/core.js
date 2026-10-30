@@ -14,7 +14,8 @@
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
       playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even',
-      music: { root: null, shuffle: false, vol: 0.6, on: false }   // background music: its folder, and whether it plays
+      music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
+      timeBar: { clock: true, sw: false, tm: false }                // what the bar always shows of the clock popover
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),
@@ -76,6 +77,7 @@
     eyeoff: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM2.5 2.5l11 11"/>'),
     keyboard: svg('<path d="M1.5 4h13v8h-13zM4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4.6 9.5h6.8"/>'),
     info: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 7.3v4M8 4.7v.1"/>'),
+    clock: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 4.5V8l2.5 1.6"/>'),
     watch: svg('<path d="M8 4.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM6.5 1.5h3M8 1.5v3M8 9.5l2-2M12.3 4.6l1-1"/>'),
     timer: svg('<path d="M4 1.5h8M4 14.5h8M5 1.5v2.5l3 4 3-4V1.5M5 14.5V12l3-4 3 4v2.5"/>')
   };
@@ -92,7 +94,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, music: S.music });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, music: S.music, timeBar: S.timeBar });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -108,6 +110,8 @@
     if (typeof p.clock24 === 'boolean') S.clock24 = p.clock24;   // null: as Windows shows the time
     if (p.soloSound === false) S.soloSound = false;
     if (p.resizeMode === 'squeeze') S.resizeMode = 'squeeze';   // Free layout: how tiles in the way of a growing tile give way
+    var tb = p.timeBar;
+    if (tb && typeof tb === 'object') S.timeBar = { clock: tb.clock !== false, sw: tb.sw === true, tm: tb.tm === true };
     var m = p.music;
     if (m && typeof m === 'object') {
       S.music = {

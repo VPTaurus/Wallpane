@@ -668,6 +668,39 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await page.click('#tmReset');
   await expect(page.locator('#tmChip')).toBeHidden();
   await expect(page.locator('#tmTime')).toHaveText('0:02');
+  // "In the bar": the stopwatch and timer stay in the bar with a start/pause button; the clock can go (its icon stays).
+  await page.locator('#showSw').check();
+  await page.locator('#showTm').check();
+  await page.locator('#showClock').uncheck();
+  await expect(page.locator('#clock')).toBeHidden();
+  await expect(page.locator('#clockIcon')).toBeVisible();
+  await expect(page.locator('#swChip')).toBeVisible();
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).timeBar).toEqual({ clock: false, sw: true, tm: true });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Start the stopwatch');
+  await page.click('#swCtl');
+  await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Pause the stopwatch');
+  await expect(page.locator('#swChipT')).not.toHaveText('0:00', { timeout: 3000 });
+  await page.click('#swCtl');
+  await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Resume the stopwatch');
+  // The timer's button starts it (with the length set in the popover), and resets it once it has rung.
+  await page.click('#tmCtl');
+  await expect(page.locator('#tmCtl')).toHaveAttribute('aria-label', 'Pause the timer');
+  await expect(page.locator('#tmChip')).toHaveClass(/\bdone\b/, { timeout: 6000 });
+  await expect(page.locator('#tmCtl')).toHaveAttribute('aria-label', 'Reset the timer');
+  await page.click('#tmCtl');
+  await expect(page.locator('#tmChip')).not.toHaveClass(/\bdone\b/);
+  await expect(page.locator('#tmChipT')).toHaveText('0:02');
+  // A chip's time opens the popover; back to only the clock in the bar.
+  await page.click('#swOpen');
+  await expect(page.locator('#popT')).toBeVisible();
+  await page.click('#swReset');
+  await page.locator('#showSw').uncheck();
+  await page.locator('#showTm').uncheck();
+  await page.locator('#showClock').check();
+  await expect(page.locator('#swChip')).toBeHidden();
+  await expect(page.locator('#tmChip')).toBeHidden();
+  await expect(page.locator('#clock')).toBeVisible();
   await page.keyboard.press('Escape');
 });
 

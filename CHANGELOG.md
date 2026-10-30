@@ -8,6 +8,8 @@
 - **Free (pixels):** new tiles take their media's shape; dragged-into tiles no longer jump over to the other side (drop on one to swap); growing a tile makes the tiles beside it shrink evenly (Settings › General has the old way).
 - **Playlists** can play only videos, GIFs or images, any mix.
 - **Empty tiles** have File… and Folder… buttons.
+- **Clock, stopwatch and timer:** an "In the bar" box for each; a stopwatch or timer in the bar has its own start/pause button.
+- **The speaker** in the top bar shows whether the sound is on, like the speaker on each video.
 
 ## 1.2.0 — first public release
 
