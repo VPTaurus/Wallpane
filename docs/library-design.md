@@ -21,6 +21,7 @@ It is not a file manager. Wallpane never moves, renames or deletes your files; i
 The same in all three:
 - A **Library** button in the bar next to Add, and **Ctrl+L**, open and close it. Wall mode hides the drawer and the panel; a library window stays where it is.
 - Drag the edge of the drawer or panel to make it wider or narrower, up to the whole window. The width is remembered.
+- The drawer and the panel go on the left of the wall (the default) or on its right: the header's menu, or Settings › Library › On the side.
 - With several wall windows, each has its own drawer or panel, and the library window serves them all. Double-click and **Put on the wall** go to the wall window used last.
 
 ### One library, three hosts
@@ -98,11 +99,7 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 ┌ Library ──────────────────────────┐
 │ ⌕ Search names…                   │
 │ [Videos] [GIFs] [Images]  Filters▾ │
-│ ▾ Folders                          │
-│     Clips            1,204         │
-│     Loops              312         │
-│ ▾ Collections                      │
-│     Evening             24         │
+│ [ All folders           1,516  ▾ ] │  ← opens the list of folders
 │ ────────────────────────────────── │
 │ ▭▭▭  ▯  ▭▭▭▭  ▭▭                   │
 │ ▭▭  ▯ ▯  ▭▭▭  ▭▭▭                  │

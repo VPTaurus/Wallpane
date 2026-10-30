@@ -131,7 +131,9 @@
     placeMenu: function (x, y) {
       A.showMenu(x, y, Object.keys(PLACES).map(function (k) {
         return { label: PLACES[k][0], hint: S.lib.place === k ? 'Now · ' + PLACES[k][1] : PLACES[k][1], icon: PLACES[k][2], act: function () { A.setLibraryPlace(k); } };
-      }));
+      }).concat('-', ['left', 'right'].map(function (s) {
+        return { label: s === 'left' ? 'On the left' : 'On the right', hint: S.lib.side === s ? 'Now' : '', icon: s === 'left' ? 'prev' : 'next', act: function () { A.setLibrarySide(s); } };
+      })));
     }
   };
 
@@ -172,10 +174,19 @@
     A.savePrefs();
   };
   $('#setLibPlace').addEventListener('change', function () { A.setLibraryPlace(this.value); });
+  // The drawer or the panel on the left of the wall, or on its right.
+  A.setLibrarySide = function (side) {
+    S.lib.side = side === 'right' ? 'right' : 'left';
+    root.classList.toggle('right', S.lib.side === 'right');
+    $('#setLibSide').value = S.lib.side;
+    A.savePrefs();
+  };
+  $('#setLibSide').addEventListener('change', function () { A.setLibrarySide(this.value); });
 
   // After the saved settings are read: the library as it was left.
   A.initLibrary = function () {
     var open = S.lib.open;
+    A.setLibrarySide(S.lib.side);
     A.setLibraryPlace(S.lib.place);
     if (open && S.lib.place !== 'window') A.toggleLibrary(true);
   };

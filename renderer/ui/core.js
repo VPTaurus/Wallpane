@@ -17,9 +17,9 @@
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0,                                                    // the counter in the clock popover
-      // The library: how it shows (a drawer over the wall, a panel beside it, or a window of its own), open or not, its
-      // width, the thumbnail size, the order, and what it shows (ui/libview.js checks what was saved).
-      lib: { place: 'drawer', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
+      // The library: how it shows (a drawer over the wall, a panel beside it, or a window of its own) and on which side,
+      // open or not, its width, the thumbnail size, the order, and what it shows (ui/libview.js checks what was saved).
+      lib: { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),

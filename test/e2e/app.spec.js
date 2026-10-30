@@ -947,6 +947,24 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await page.click('#libEmpty button');
   await expect(thumbs).toHaveCount(4);
 
+  // One folder at a time, from the list that the folder row opens; Esc closes the list, not the drawer.
+  const folderList = page.locator('#libFolderList');
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+  await expect(folderList).toBeHidden();
+  await page.click('#libFolderBtn');
+  await expect(folderList).toBeVisible();
+  await folderList.locator('.lfolder', { hasText: 'Drawer media' }).click();
+  await expect(folderList).toBeHidden();
+  await expect(page.locator('#libFolderName')).toHaveText('Drawer media');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libFolderBtn');
+  await page.keyboard.press('Escape');
+  await expect(folderList).toBeHidden();
+  await expect(page.locator('#lib')).toBeVisible();
+  await page.click('#libFolderBtn');
+  await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+
   // Dragged onto an empty cell under the drawer itself: the drawer lets the drop through.
   const thumb = (name) => page.locator('#libGrid .lthumb', { hasText: '' }).and(page.locator('[title^="' + name + '"]'));
   async function dragTo(src, target, shift) {
@@ -1019,13 +1037,27 @@ test('the library as a panel beside the wall: the wall makes room, and drags sti
   await page.mouse.up();
   await expect(tiles()).toHaveCount(before + 1);
 
-  // The same choice in Settings › Library, and it is kept.
+  // On the right: the panel comes after the wall.
+  await page.click('#libPlace');
+  await menuItem('On the right').click();
+  await expect(page.locator('#lib')).toHaveClass(/right/);
+  await expect.poll(async () => (await page.locator('#lib').boundingBox()).x >= (await wallBox()).x + (await wallBox()).width).toBe(true);
+
+  // The same choices in Settings › Library, and they are kept. The drawer on the right lies over the wall's right part.
   await settingsAt('Library');
   await expect(page.locator('#setLibPlace')).toHaveValue('panel');
+  await expect(page.locator('#setLibSide')).toHaveValue('right');
   await page.selectOption('#setLibPlace', 'drawer');
   await page.keyboard.press('Escape');
   await expect(page.locator('#lib')).not.toHaveClass(/panel/);
   await expect.poll(async () => (await wallBox()).width).toBe(full);
+  const d = await page.locator('#lib').boundingBox(), w2 = await wallBox();
+  expect(d.x + d.width).toBeGreaterThan(w2.x + w2.width - 20);
+  expect(d.x).toBeGreaterThan(w2.x + 100);
+  await settingsAt('Library');
+  await page.selectOption('#setLibSide', 'left');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).not.toHaveClass(/right/);
   await page.click('#libClose');
 });
 

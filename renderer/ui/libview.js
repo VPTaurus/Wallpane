@@ -19,12 +19,12 @@
   function nameOf(p) { return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p; }
 
   // The view's settings, from what was saved (anything odd falls back to the default).
-  var DEFAULTS = { place: 'drawer', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null };
+  var DEFAULTS = { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null };
   function cleanPrefs(l) {
     var one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
     if (!l || typeof l !== 'object') return Object.assign({}, DEFAULTS);
     return {
-      place: one(l.place, ['panel', 'window']) || 'drawer', open: l.open === true,
+      place: one(l.place, ['panel', 'window']) || 'drawer', side: one(l.side, ['right']) || 'left', open: l.open === true,
       w: U.clamp(+l.w || 400, 260, 4000), size: U.clamp(+l.size || 110, 60, 240),
       sort: one(l.sort, ['added', 'changed', 'length', 'size', 'random']) || 'name', rev: l.rev === true,
       kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
@@ -52,7 +52,10 @@
       '<select id="libRes" aria-label="Resolution"><option value="">Any resolution</option><option value="sd">Below HD</option><option value="hd">HD</option><option value="fhd">Full HD</option><option value="4k">4K and up</option></select>' +
       '<label class="check"><input type="checkbox" id="libCopy"><span>Needs a playable copy</span></label>' +
       '<button class="btn" id="libFiltClear" type="button">Clear filters</button></div>' +
-    '<div class="lfolders" id="libFolderList" role="list" aria-label="Library folders"></div>' +
+    '<div class="lfolderpick" id="libFolderPick">' +
+      '<button type="button" class="lfolderbtn" id="libFolderBtn" aria-haspopup="true" aria-expanded="false" aria-controls="libFolderList" title="Show one library folder, or all of them">' +
+        '<span class="ic" id="libFolderIc"></span><span class="lfname" id="libFolderName"></span><span class="lnumr" id="libFolderNum"></span><span class="ic">' + ICON.chev + '</span></button>' +
+      '<div class="lfolders" id="libFolderList" role="list" aria-label="Library folders" hidden></div></div>' +
     '<div class="lgrid" id="libGrid" tabindex="0" role="listbox" aria-label="Files" aria-multiselectable="true"><div class="lspace" id="libSpace"></div><div class="lempty" id="libEmpty" hidden></div></div>' +
     '<div class="lfoot"><span class="lshown" id="libShown"></span><span class="sp"></span>' +
       '<select id="libSort" aria-label="Sort by"><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="random">Random</option></select>' +
@@ -61,7 +64,7 @@
       '<input type="range" id="libSize" min="60" max="240" step="10" aria-label="Thumbnail size" title="Thumbnail size"></div>' +
     '<div class="lresize" id="libResize" title="Drag to make the library wider or narrower"></div>';
 
-  var grid = $('#libGrid'), space = $('#libSpace'), emptyBox = $('#libEmpty'), folderBox = $('#libFolderList');
+  var grid = $('#libGrid'), space = $('#libSpace'), emptyBox = $('#libEmpty'), folderBox = $('#libFolderList'), folderPick = $('#libFolderPick');
   var GAP = 4;
   var results = [], index = new Map(), total = 0, folders = [], layout = { rows: [], boxes: [], height: 0 };
   var els = new Map();       // id -> thumbnail element on screen
@@ -177,26 +180,36 @@
     clearTimeout(sizeSave); sizeSave = setTimeout(A.savePrefs, 400);
   });
 
-  /* ---------- the folders ---------- */
+  /* ---------- the folders: one row that says which, and opens the list of them ---------- */
+  function folderLabel(f) { return f.path ? nameOf(f.path) + (f.available === false ? ' (not found)' : '') : 'All folders'; }
   function drawFolders() {
     folderBox.innerHTML = '';
-    folderBox.hidden = !folders.length;
-    if (!folders.length) return;
-    var all = folders.reduce(function (s, f) { return s + f.files; }, 0);
-    [{ path: null, files: all }].concat(folders).forEach(function (f) {
+    folderPick.hidden = !folders.length;
+    if (!folders.length) { openFolders(false); return; }
+    var all = [{ path: null, files: folders.reduce(function (s, f) { return s + f.files; }, 0) }].concat(folders);
+    var now = all.filter(function (f) { return f.path === S.lib.folder; })[0] || all[0];
+    $('#libFolderIc').innerHTML = now.path ? ICON.folder : ICON.library;
+    $('#libFolderName').textContent = folderLabel(now);
+    $('#libFolderNum').textContent = now.scanning ? '…' : now.files.toLocaleString('en');
+    $('#libFolderBtn').classList.toggle('off', now.available === false);
+    $('#libFolderBtn').classList.toggle('one', !!now.path);
+    all.forEach(function (f) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'lfolder' + (f.available === false ? ' off' : '');
       b.setAttribute('role', 'listitem');
       b.setAttribute('aria-current', String(S.lib.folder === f.path));
       b.innerHTML = '<span class="ic" aria-hidden="true">' + (f.path ? ICON.folder : ICON.library) + '</span><span class="lfname"></span><span class="lnumr"></span>';
-      b.querySelector('.lfname').textContent = f.path ? nameOf(f.path) + (f.available === false ? ' (not found)' : '') : 'All folders';
+      b.querySelector('.lfname').textContent = folderLabel(f);
       b.querySelector('.lnumr').textContent = f.scanning ? '…' : f.files.toLocaleString('en');
       if (f.path) {
         b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.';
         b.draggable = true;
         b.addEventListener('dragstart', function (e) { host.dragOut(e, [f.path]); });
+        b.addEventListener('dragend', function () { openFolders(false); });
       }
       b.addEventListener('click', function () {
+        openFolders(false);
+        $('#libFolderBtn').focus();
         if (S.lib.folder === f.path) return;
         S.lib.folder = f.path;
         drawFolders(); changed();
@@ -204,6 +217,21 @@
       folderBox.appendChild(b);
     });
   }
+  function openFolders(on) {
+    folderBox.hidden = !on;
+    $('#libFolderBtn').setAttribute('aria-expanded', String(on));
+    if (on) { var cur = folderBox.querySelector('[aria-current="true"]'); if (cur) { cur.scrollIntoView({ block: 'nearest' }); cur.focus(); } }
+  }
+  $('#libFolderBtn').addEventListener('click', function () { openFolders(folderBox.hidden); });
+  // Clicking anywhere else closes the list; Up and Down move through it.
+  document.addEventListener('pointerdown', function (e) { if (!folderBox.hidden && !folderPick.contains(e.target)) openFolders(false); }, true);
+  folderBox.addEventListener('keydown', function (e) {
+    var d = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    var list = Array.prototype.slice.call(folderBox.querySelectorAll('.lfolder')), i = list.indexOf(document.activeElement);
+    if (list.length) list[(i + d + list.length) % list.length].focus();
+  });
   function showCounts() {
     $('#libCount').textContent = total ? count(total, 'file', 'files') : '';
     $('#libShown').textContent = results.length === total ? count(total, 'file', 'files') : results.length.toLocaleString('en') + ' of ' + total.toLocaleString('en');
@@ -383,14 +411,15 @@
   root.addEventListener('dragend', function () { host.dragEnd(); });
 
   /* ---------- keys and width ---------- */
-  // Keys in the view stay there (Delete, arrows and Space must not reach the wall's selected tile). Esc clears the
-  // search, then the selection, then closes it; Ctrl+A selects everything shown; Enter puts the selection on the wall.
+  // Keys in the view stay there (Delete, arrows and Space must not reach the wall's selected tile). Esc closes the
+  // folder list, or clears the search, then the selection, then closes the view; Ctrl+A selects everything shown; Enter puts the selection on the wall.
   // Ctrl+L, Ctrl+Z, Ctrl+Y and F11 still work everywhere.
   root.addEventListener('keydown', function (e) {
     var k = String(e.key).toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
     if (e.key === 'F11' || (ctrl && (k === 'l' || k === 'z' || k === 'y'))) return;
     e.stopPropagation();
     if (e.key === 'Escape') {
+      if (!folderBox.hidden) { openFolders(false); $('#libFolderBtn').focus(); return; }
       if (e.target.id === 'libSearch' && e.target.value) return;   // the search box empties itself
       if (sel.size) { sel.clear(); anchor = -1; paintSel(); return; }
       host.close();
@@ -402,10 +431,11 @@
   });
   $('#libResize').addEventListener('pointerdown', function (e) {
     e.preventDefault();
-    var h = this, left = root.getBoundingClientRect().left, max = root.parentElement.clientWidth * (S.lib.place === 'panel' ? 0.6 : 1) - 40;
+    // Its free edge: the right one on the left side, the left one on the right side.
+    var h = this, r = root.getBoundingClientRect(), right = S.lib.side === 'right', max = root.parentElement.clientWidth * (S.lib.place === 'panel' ? 0.6 : 1) - 40;
     h.setPointerCapture(e.pointerId);
     function move(ev) {
-      S.lib.w = Math.round(U.clamp(ev.clientX - left, 260, Math.max(260, max)));
+      S.lib.w = Math.round(U.clamp(right ? r.right - ev.clientX : ev.clientX - r.left, 260, Math.max(260, max)));
       root.style.setProperty('--libw', S.lib.w + 'px');
     }
     function up() { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); A.savePrefs(); }

@@ -504,6 +504,10 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .lib.out { opacity: 0.15; pointer-events: none; }        /* while dragging out of it: the tiles under it take the drop */
 /* The panel: beside the wall, which gets narrower. */
 .lib.panel { position: relative; inset: auto; z-index: auto; flex: none; width: min(var(--libw, 400px), 60%); box-shadow: none; }
+/* On the right of the wall: the drawer from the right edge, the panel after the wall, the width handle on the left. */
+.lib.right:not(.panel) { left: auto; right: 0; }
+.lib.panel.right { order: 1; }
+.lib.right .lresize { right: auto; left: -6px; }
 /* The library window (library.html): the view fills it. */
 body.libwin { padding: 0; }
 body.libwin .lib { position: fixed; inset: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; padding: 12px 12px 10px; }
@@ -532,7 +536,20 @@ body.clean .lib { display: none !important; }
 .lfilt select { width: 100%; max-width: none; height: 30px; font-size: 13px; }
 .lfilt .check { font-size: 13px; }
 .lfilt .btn { height: 30px; justify-content: center; font-size: 13px; }
-.lfolders { display: flex; flex-direction: column; flex: none; max-height: 30%; overflow-y: auto; padding: 4px 0; border-block: 1px solid var(--line); }
+/* The folders: one row saying which (all, or one), opening the list of them over the thumbnails. */
+.lfolderpick { position: relative; flex: none; }
+.lfolderbtn { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: transparent; text-align: left; font-size: 13px; }
+.lfolderbtn:hover, .lfolderbtn[aria-expanded="true"] { background: var(--panel-2); }
+.lfolderbtn.one { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.lfolderbtn > .ic { color: var(--muted); }
+.lfolderbtn > .ic:last-child svg { width: 12px; height: 12px; }
+.lfolderbtn.off .lfname { color: var(--danger); }
+.lfolderbtn .lnumr { font: 400 11px var(--mono); color: var(--muted); }
+.lfolders {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5;
+  display: flex; flex-direction: column; max-height: min(55vh, 380px); overflow-y: auto; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow);
+}
 .lfolder { display: flex; align-items: center; gap: 8px; flex: none; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; text-align: left; font-size: 13px; }
 .lfolder:hover { background: var(--panel-2); }
 .lfolder[aria-current="true"] { background: var(--accent-soft); font-weight: 700; }
