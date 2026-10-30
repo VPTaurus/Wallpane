@@ -1029,6 +1029,47 @@ test('the library as a panel beside the wall: the wall makes room, and drags sti
   await page.click('#libClose');
 });
 
+test('the library in a window of its own: from the bar, double-click sends a file to the wall, Esc hides it', async () => {
+  const libShows = () => app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Wallpane · Library');
+    return !!w && w.isVisible();
+  });
+  await settingsAt('Library');
+  await page.selectOption('#setLibPlace', 'window');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).toBeHidden();
+
+  const opened = app.waitForEvent('window');
+  await page.click('#libBtn');
+  const lw = await opened;
+  lw.on('pageerror', (e) => errors.push('library window: ' + e.message));
+  await lw.waitForSelector('body[data-ready="1"]');
+  await expect(lw).toHaveTitle('Wallpane · Library');
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(lw.locator('#libGrid .lthumb')).toHaveCount(4);
+  await expect(lw.locator('#libPlace')).toHaveCount(0);   // switching happens in the wall's Settings
+
+  // Double-click: onto the wall window used last (no tile selected there: into a free cell).
+  await page.keyboard.press('Escape');
+  const before = await tiles().count();
+  await lw.locator('#libGrid .lthumb[title^="blue square.png"]').dblclick();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // Esc lets go of the selection, then hides it; Ctrl+L on the wall shows it again; back to the drawer, it goes.
+  await lw.locator('#libSearch').focus();
+  await lw.keyboard.press('Escape');
+  await expect(lw.locator('#libGrid .lthumb.sel')).toHaveCount(0);
+  await lw.keyboard.press('Escape');
+  await expect.poll(libShows).toBe(false);
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('Control+l');
+  await expect.poll(libShows).toBe(true);
+  await settingsAt('Library');
+  await page.selectOption('#setLibPlace', 'drawer');
+  await page.keyboard.press('Escape');
+  await expect.poll(libShows).toBe(false);
+});
+
 test('no page errors along the way', async () => {
   expect(errors).toEqual([]);
 });

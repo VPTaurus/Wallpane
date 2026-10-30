@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; media-src 'self' file: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Wallpane · Library</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="libwin">
+<!-- The library window: the same browsing view as the drawer (ui/libview.js builds it), on its own. -->
+<aside class="lib" id="lib" aria-label="Library"></aside>
+<div class="toast" id="toast" role="status"></div>
+<script src="lib/util.js"></script>
+<script src="lib/justify.js"></script>
+<script src="lib/icons.js"></script>
+<script src="libwin/libwin.js"></script>
+<script src="ui/libview.js"></script>
+<script src="libwin/start.js"></script>
+</body>
+</html>

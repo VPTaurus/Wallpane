@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -58,10 +58,11 @@ function idOf(e) {
 }
 
 /* ---------- only our own pages may call in ---------- */
-// The caller must be one of our wall windows, from its top frame, showing a page from the app folder.
+// The caller must be one of our wall windows (or the library window), from its top frame, showing a page from the app
+// folder.
 function trusted(e) {
   const w = winOf(e);
-  if (!w || ![...wins.values()].includes(w)) return false;
+  if (!w || !([...wins.values()].includes(w) || w === libWin)) return false;
   const f = e.senderFrame;
   return !!f && !f.parent && /^file:/i.test(f.url);
 }
@@ -73,7 +74,7 @@ function handle(channel, fn) {
 }
 
 /* ---------- stored data: small JSON files in the app's data folder ---------- */
-const STORES = new Set(['prefs', 'presets', 'layouts', 'session']);
+const STORES = new Set(['prefs', 'presets', 'layouts', 'session', 'libwin']);   // libwin: the library window's settings
 function dataDir() { return app.getPath('userData'); }
 // The wall itself (session) and its settings (prefs) belong to one window; presets and layouts are shared by all.
 function storeFile(name, id) {
@@ -222,6 +223,66 @@ handle('library:query', (_e, q) => { libFolders.ready(); return library.query(q 
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
 handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });
+
+/* ---------- the library window (Settings › Library › Show the library as: a window of its own) ---------- */
+// One for the whole app, made when first shown. Closing it only hides it; it goes with the last wall window. Its place
+// and size are kept in window.json like the wall windows'.
+let libWin = null, lastWall = 1, dragIcon = null;
+// The wall windows' Library buttons show whether the library window does.
+function tellLibraryShown(shown) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:window', shown);
+}
+function makeLibraryWindow() {
+  const st = state.libwin || {};
+  const opts = {
+    width: st.width >= 340 ? st.width : 520, height: st.height >= 420 ? st.height : 820, minWidth: 340, minHeight: 420,
+    show: false, backgroundColor: '#0e1218', title: 'Wallpane · Library', autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
+  };
+  if (Number.isFinite(st.x) && Number.isFinite(st.y) && boundsVisible({ x: st.x, y: st.y, width: opts.width, height: opts.height })) { opts.x = st.x; opts.y = st.y; }
+  const w = new BrowserWindow(opts);
+  const remember = () => { if (!w.isDestroyed() && !w.isMinimized() && !w.isMaximized()) state.libwin = w.getBounds(); };
+  w.on('resize', remember);
+  w.on('move', remember);
+  w.on('close', (e) => {
+    remember(); saveState();
+    if (!quitting && wins.size) { e.preventDefault(); w.hide(); }
+  });
+  w.on('show', () => tellLibraryShown(true));
+  w.on('hide', () => tellLibraryShown(false));
+  w.on('closed', () => { libWin = null; tellLibraryShown(false); });
+  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  w.webContents.on('will-navigate', (e) => e.preventDefault());
+  w.once('ready-to-show', () => { w.show(); w.focus(); });
+  w.loadFile(path.join(__dirname, 'renderer', 'library.html'));
+  return w;
+}
+// show: true, false, or null to turn it round. Returns whether it shows now.
+function showLibraryWindow(show) {
+  const there = libWin && !libWin.isDestroyed(), visible = there && libWin.isVisible();
+  if (show === null) show = !visible;
+  if (!show) { if (visible) libWin.hide(); return false; }
+  if (!there) libWin = makeLibraryWindow();   // it shows once its page is ready
+  else { if (libWin.isMinimized()) libWin.restore(); libWin.show(); libWin.focus(); }
+  return true;
+}
+handle('library:openWindow', (_e, show) => showLibraryWindow(typeof show === 'boolean' ? show : null));
+// From the library window: files for the wall window used last (double-click, Enter, Put on the wall).
+handle('library:toWall', (_e, paths) => {
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 5000);
+  const w = wins.get(lastWall) || [...wins.values()][0];
+  if (!w || w.isDestroyed() || !list.length) return false;
+  w.webContents.send('library:put', list);
+  return true;
+});
+// A real Windows file drag of these files out of the library window (Electron offers it for copying or linking, never
+// moving): a wall window takes it as it takes a drop from Explorer.
+ipcMain.on('library:drag', (e, paths) => {
+  if (!trusted(e)) return;
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p && fs.existsSync(p)).slice(0, 1000);
+  if (!list.length) return;
+  e.sender.startDrag({ file: list[0], files: list, icon: dragIcon || nativeImage.createEmpty() });
+});
 
 /* ---------- files and dialogs ---------- */
 // With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.
@@ -510,7 +571,7 @@ function loadState() {
     const j = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
     if (j && j.wins && typeof j.wins === 'object') {
       const open = Array.isArray(j.open) ? j.open.filter((n) => Number.isInteger(n) && n >= 1 && n <= 99).slice(0, MAX_WINS) : [1];
-      return { wins: j.wins, open: open.length ? open : [1] };
+      return { wins: j.wins, open: open.length ? open : [1], libwin: j.libwin && typeof j.libwin === 'object' ? j.libwin : null };
     }
     return { wins: { 1: j }, open: [1] };   // file from an earlier version: one window
   } catch { return { wins: {}, open: [1] }; }
@@ -563,8 +624,10 @@ function createWindow(id, given) {
     if (!quitting && wins.size > 1) state.open = state.open.filter((n) => n !== id);
     saveState();
   });
+  win.on('focus', () => { lastWall = id; });   // where the library window sends its files
   win.on('closed', () => {
     wins.delete(id);
+    if (!wins.size && libWin && !libWin.isDestroyed()) libWin.destroy();   // the library window goes with the last wall
     watchers.dropOwner(id);
     const a = awake.get(id);
     if (a && a.blocker !== null) powerSaveBlocker.stop(a.blocker);
@@ -606,6 +669,8 @@ if (!app.requestSingleInstanceLock()) {
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
     startBackground();
+    // The picture under the pointer while files are dragged out of the library window: Wallpane's own icon.
+    app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));

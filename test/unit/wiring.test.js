@@ -11,6 +11,8 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const all = (re, s) => [...s.matchAll(re)].map((m) => m[1]);
 const uiFiles = fs.readdirSync(path.join(root, 'renderer', 'ui')).map((f) => 'renderer/ui/' + f);
 const ui = uiFiles.map(read).join('\n');
+// The library window's own scripts (renderer/libwin), which load with ui/libview.js in library.html.
+const libwin = fs.readdirSync(path.join(root, 'renderer', 'libwin')).map((f) => read('renderer/libwin/' + f)).join('\n');
 
 test('index.html loads every page script, and only scripts that exist', () => {
   const srcs = all(/<script src="([^"]+)"><\/script>/g, read('renderer/index.html'));
@@ -19,6 +21,15 @@ test('index.html loads every page script, and only scripts that exist', () => {
   assert.deepEqual(onDisk.filter((f) => !srcs.includes(f)), [], 'scripts not loaded by index.html');
   assert.equal(srcs[srcs.length - 1], 'ui/boot.js', 'boot.js must load last');
   assert.ok(srcs.indexOf('ui/core.js') > srcs.indexOf('lib/records.js'), 'lib/ before ui/');
+  assert.ok(srcs.indexOf('ui/libview.js') > srcs.indexOf('ui/library.js'), 'the library view after its host');
+});
+
+test('library.html loads its scripts, which exist, the host before the view', () => {
+  const srcs = all(/<script src="([^"]+)"><\/script>/g, read('renderer/library.html'));
+  for (const s of srcs) assert.ok(fs.existsSync(path.join(root, 'renderer', s)), s + ' is missing');
+  const libwinFiles = fs.readdirSync(path.join(root, 'renderer', 'libwin')).map((f) => 'libwin/' + f);
+  assert.deepEqual(libwinFiles.filter((f) => !srcs.includes(f)), [], 'scripts not loaded by library.html');
+  assert.ok(srcs.indexOf('libwin/libwin.js') < srcs.indexOf('ui/libview.js') && srcs.indexOf('ui/libview.js') < srcs.indexOf('libwin/start.js'));
 });
 
 test('every A.something the ui/ files use is defined by one of them', () => {
@@ -31,7 +42,7 @@ test('every A.something the ui/ files use is defined by one of them', () => {
 test('every wall API the page calls is exposed by the preload, and every preload channel has a handler', () => {
   const preload = read('preload.js');
   const exposed = new Set(all(/^\s{2}(\w+): /gm, preload));
-  const called = new Set(all(/\b(?:A\.)?api\.(\w+)\(/g, ui));
+  const called = new Set(all(/\b(?:A\.)?api\.(\w+)\(/g, ui + '\n' + libwin));
   assert.deepEqual([...called].filter((n) => !exposed.has(n)), []);
   const channels = all(/ipcRenderer\.(?:invoke|sendSync)\('([^']+)'/g, preload);
   const main = read('main.js');

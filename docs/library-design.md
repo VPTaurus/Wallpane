@@ -24,9 +24,11 @@ The same in all three:
 - With several wall windows, each has its own drawer or panel, and the library window serves them all. Double-click and **Put on the wall** go to the wall window used last.
 
 ### One library, three hosts
-- **One piece of page code** (`renderer/ui/library.js` with its plain logic in `renderer/lib/`). It draws the whole library into whatever element it is given. The wall page mounts it in an `<aside>`, either as a drawer or as a panel. A small `library.html` mounts it as a whole window, with the same preload and the same security rules as the wall.
-- **Inside a wall window,** a drag is an ordinary page drag. It carries the file list (and, for a collection, the collection), and the wall's drop code handles it.
-- **From the library window,** a drag is a real Windows file drag (`webContents.startDrag`). The wall takes it exactly like a drop from Explorer. The main process remembers what the drag came from, so a dropped collection still becomes a collection playlist.
+- **One piece of page code**, `renderer/ui/libview.js` (with its row layout in `renderer/lib/justify.js`). It builds the whole view into the `<aside id="lib">` of the page it is in. Its host decides what its files do:
+  - In the wall page, `renderer/ui/library.js` shows it as a drawer or as a panel.
+  - In the small `renderer/library.html`, `renderer/libwin/` shows it as a whole window, with the same preload and the same security rules as the wall.
+- **Inside a wall window,** a drag is an ordinary page drag. It carries the file paths, and the wall's drop code handles them as a drop from Explorer; Shift makes a tile play several files in turn.
+- **From the library window,** a drag is a real Windows file drag (`webContents.startDrag`, offered for copying or linking, never moving). The wall takes it exactly like a drop from Explorer. Double-click, Enter and Put on the wall go to the wall window used last. When collections come (C5), the main process will remember what such a drag came from, so a dropped collection can still become a collection playlist.
 - **The data lives only in the main process.** Every host asks it for results and gets told about changes, so the drawer, the panel and the window always agree.
 
 ## What it holds (Decision 2: only the folders you add)

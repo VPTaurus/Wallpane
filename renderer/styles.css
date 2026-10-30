@@ -504,6 +504,10 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .lib.out { opacity: 0.15; pointer-events: none; }        /* while dragging out of it: the tiles under it take the drop */
 /* The panel: beside the wall, which gets narrower. */
 .lib.panel { position: relative; inset: auto; z-index: auto; flex: none; width: min(var(--libw, 400px), 60%); box-shadow: none; }
+/* The library window (library.html): the view fills it. */
+body.libwin { padding: 0; }
+body.libwin .lib { position: fixed; inset: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; padding: 12px 12px 10px; }
+body.libwin .lresize { display: none; }
 .lib.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
 body.clean .lib { display: none !important; }
 .lhead { display: flex; align-items: center; gap: 6px; padding-left: 2px; }
