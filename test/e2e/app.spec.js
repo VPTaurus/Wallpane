@@ -997,6 +997,38 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('the library as a panel beside the wall: the wall makes room, and drags still land', async () => {
+  const wallBox = () => page.locator('#wall').boundingBox();
+  const full = (await wallBox()).width;
+  await page.keyboard.press('Control+l');
+  await page.click('#libPlace');
+  await menuItem('A panel beside the wall').click();
+  await expect(page.locator('#lib')).toHaveClass(/panel/);
+  await expect.poll(async () => (await wallBox()).width).toBeLessThan(full - 200);
+  const wall = await wallBox(), lib = await page.locator('#lib').boundingBox();
+  expect(wall.x).toBeGreaterThanOrEqual(lib.x + lib.width);   // beside it, not under it
+
+  const before = await tiles().count();
+  const src = page.locator('#libGrid .lthumb[title^="red wide.png"]');
+  const empty = page.locator('#wall [aria-label^="Empty cell"]').first();
+  await expect(src).toBeVisible();
+  const a = await src.boundingBox(), b = await empty.boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // The same choice in Settings › Library, and it is kept.
+  await settingsAt('Library');
+  await expect(page.locator('#setLibPlace')).toHaveValue('panel');
+  await page.selectOption('#setLibPlace', 'drawer');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).not.toHaveClass(/panel/);
+  await expect.poll(async () => (await wallBox()).width).toBe(full);
+  await page.click('#libClose');
+});
+
 test('no page errors along the way', async () => {
   expect(errors).toEqual([]);
 });

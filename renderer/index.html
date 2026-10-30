@@ -345,6 +345,10 @@
             <section class="ssec" id="secLibrary" data-sec="library" role="tabpanel" aria-labelledby="tabLibrary" hidden>
               <h2>Library</h2>
               <p class="note">Wallpane keeps track of the videos, GIFs and pictures in these folders and their subfolders, and notices new ones by itself. Your files are only read, never changed.</p>
+              <div class="frow"><label for="setLibPlace">Show the library as</label>
+                <select id="setLibPlace"><option value="drawer">A drawer over the wall</option><option value="panel">A panel beside the wall</option></select>
+              </div>
+              <p class="note">The drawer leaves the wall as it is and fades while you drag from it. The panel makes the wall narrower while it is open. Library in the bar, or Ctrl+L, opens and closes it.</p>
               <div class="libfolders" id="libFolders"></div>
               <div class="row">
                 <button class="btn" id="libAdd" type="button"><span data-icon="plus"></span>Add folder…</button>
@@ -420,6 +424,7 @@
         <span data-icon="library"></span><h2>Library</h2><span class="lcount" id="libCount"></span>
         <span class="sp"></span>
         <button class="btn ib" id="libAddFolder" type="button" aria-label="Add a folder to the library" title="Add a folder to the library"><span data-icon="plus"></span></button>
+        <button class="btn ib" id="libPlace" type="button" aria-haspopup="menu" aria-label="Show the library as…" title="Show the library as a drawer over the wall or a panel beside it"><span data-icon="panel"></span></button>
         <button class="btn ib" id="libClose" type="button" aria-label="Close the library" title="Close the library (Ctrl+L)"><span data-icon="x"></span></button>
       </div>
       <label class="lsearch"><span data-icon="search"></span><input id="libSearch" type="search" placeholder="Search names" aria-label="Search names in the library" spellcheck="false" autocomplete="off"></label>

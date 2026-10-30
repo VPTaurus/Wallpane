@@ -17,8 +17,9 @@
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0,                                                    // the counter in the clock popover
-      // The library drawer: open or not, its width, the thumbnail size, the order, and what it shows.
-      lib: { open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
+      // The library: how it shows (a drawer over the wall, or a panel beside it), open or not, its width, the thumbnail
+      // size, the order, and what it shows.
+      lib: { place: 'drawer', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),
@@ -132,7 +133,7 @@
     var l = p.lib, one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
     if (l && typeof l === 'object') {
       S.lib = {
-        open: l.open === true, w: MW.util.clamp(+l.w || 400, 260, 4000), size: MW.util.clamp(+l.size || 110, 60, 240),
+        place: one(l.place, ['panel']) || 'drawer', open: l.open === true, w: MW.util.clamp(+l.w || 400, 260, 4000), size: MW.util.clamp(+l.size || 110, 60, 240),
         sort: one(l.sort, ['added', 'changed', 'length', 'size', 'random']) || 'name', rev: l.rev === true,
         kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
         shape: one(l.shape, ['landscape', 'portrait', 'square']), length: one(l.length, ['short', 'medium', 'long']),

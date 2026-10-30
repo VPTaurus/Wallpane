@@ -147,9 +147,27 @@
     }
     if (on) $('#libSearch').focus();
   };
-  // After the saved settings are read: the drawer as it was left.
+  // A drawer over the wall, or a panel beside it (which makes the wall narrower).
+  var PLACES = { drawer: ['A drawer over the wall', 'Leaves the wall as it is', 'library'], panel: ['A panel beside the wall', 'Makes the wall narrower while it is open', 'panel'] };
+  A.setLibraryPlace = function (place) {
+    if (!PLACES[place]) return;
+    S.lib.place = place;
+    drawer.classList.toggle('panel', place === 'panel');
+    $('#setLibPlace').value = place;
+    A.savePrefs();
+  };
+  $('#libPlace').addEventListener('click', function () {
+    var r = this.getBoundingClientRect();
+    A.showMenu(r.left, r.bottom + 4, Object.keys(PLACES).map(function (k) {
+      return { label: PLACES[k][0], hint: S.lib.place === k ? 'Now · ' + PLACES[k][1] : PLACES[k][1], icon: PLACES[k][2], act: function () { A.setLibraryPlace(k); } };
+    }));
+  });
+  $('#setLibPlace').addEventListener('change', function () { A.setLibraryPlace(this.value); });
+
+  // After the saved settings are read: the library as it was left.
   A.initLibrary = function () {
     var l = S.lib;
+    A.setLibraryPlace(l.place);
     Array.prototype.forEach.call(document.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', String(l.kinds.indexOf(b.dataset.kind) > -1)); });
     $('#libShape').value = l.shape; $('#libLength').value = l.length; $('#libRes').value = l.res; $('#libCopy').checked = l.copy;
     $('#libSort').value = l.sort; $('#libRev').setAttribute('aria-pressed', String(l.rev)); $('#libSize').value = l.size;
@@ -448,12 +466,13 @@
     });
   }
   // Dragging files or a folder out: the wall takes them as it takes a drop from Explorer (ui/media.js). The drawer
-  // fades and lets the drop through, so a tile under it can take it too.
+  // fades and lets the drop through, so a tile under it can take it too; the panel covers nothing, and a drop back on
+  // it does nothing.
   function dragOut(e, paths) {
     e.dataTransfer.setData(A.LIB_TYPE, JSON.stringify(paths));
     e.dataTransfer.effectAllowed = 'copy';
     A.libDrag = { n: paths.length };
-    setTimeout(function () { drawer.classList.add('out'); }, 0);
+    if (S.lib.place === 'drawer') setTimeout(function () { drawer.classList.add('out'); }, 0);
   }
   grid.addEventListener('dragstart', function (e) {
     var el = e.target.closest && e.target.closest('.lthumb');
@@ -466,6 +485,12 @@
   // Folders dropped from Explorer onto the drawer join the library.
   function filesDrag(e) { return !A.libDrag && Array.prototype.indexOf.call((e.dataTransfer && e.dataTransfer.types) || [], 'Files') > -1; }
   drawer.addEventListener('dragover', function (e) {
+    if (A.libDrag) {   // its own files, over the panel: nothing to drop here
+      e.preventDefault(); e.stopPropagation();
+      e.dataTransfer.dropEffect = 'none';
+      A.hideGhost(); A.wall.classList.remove('hot');
+      return;
+    }
     if (!filesDrag(e)) return;
     e.preventDefault(); e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
@@ -474,6 +499,7 @@
   });
   drawer.addEventListener('dragleave', function (e) { if (!drawer.contains(e.relatedTarget)) drawer.classList.remove('drop'); });
   drawer.addEventListener('drop', function (e) {
+    if (A.libDrag) { e.preventDefault(); e.stopPropagation(); return; }
     if (!filesDrag(e)) return;
     e.preventDefault(); e.stopPropagation();
     drawer.classList.remove('drop');
@@ -500,7 +526,7 @@
   });
   $('#libResize').addEventListener('pointerdown', function (e) {
     e.preventDefault();
-    var h = this, left = drawer.getBoundingClientRect().left, max = drawer.parentElement.clientWidth - 40;
+    var h = this, left = drawer.getBoundingClientRect().left, max = drawer.parentElement.clientWidth * (S.lib.place === 'panel' ? 0.6 : 1) - 40;
     h.setPointerCapture(e.pointerId);
     function move(ev) {
       S.lib.w = Math.round(U.clamp(ev.clientX - left, 260, Math.max(260, max)));
