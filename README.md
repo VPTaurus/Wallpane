@@ -33,7 +33,7 @@ The GitHub workflow does the same with repository secrets of the same names.
 Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Settings › About shows the folder, and Saved walls > Show file opens it. Saved walls > Export/Import moves them between PCs.
 
 ## The window
-- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video; undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started), **Settings** (the cog) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
+- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video, and **background music** (♪); undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started), **Settings** (the cog) and **Wall mode**. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
 - The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). While one is in use, a chip next to the clock shows it; both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. The clock follows Windows' 12 or 24-hour format unless you choose one (Settings › General, or the 24-hour box in the clock).
 - **Settings** opens a panel with its sections down the side (arrow keys move between them):
   - **General**: start Wallpane with Windows, the clock's time format, open another wall window, clear this wall.
@@ -77,6 +77,12 @@ AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files can
 
   Together these bring a wall back full screen after a restart.
 
+## Background music
+The ♪ button in the top bar plays a folder of your own music behind the wall: MP3, M4A, AAC, WAV, OGG, Opus and FLAC, from the folder and the folders in it, one track after another, in name order or shuffled, with its own volume, previous and next. It keeps playing in wall mode, pauses with the emergency hide, and starts again on the next start if it was playing. Each wall window has its own. Videos on the wall keep their own sound settings, so mute them for music only.
+
+## On a TV or projector
+Settings › Wall mode › **Connect a wireless display…** opens Windows' display settings, where "Connect to a wireless display" (or Win+K) casts to a TV, projector or stick that supports Miracast. Choose **Extend** so it becomes a display of its own; Wallpane notices and lists it under Show on, and wall mode then fills it. Chromecast is not supported.
+
 ## Emergency hide
 Press **Ctrl+Shift+H** in any program and every wall window hides at once: the sound goes off (the window is muted, not just the videos), videos and playlists pause, and the windows show something else. Press it again and everything comes back as it was, the videos playing on. Starting Wallpane again also brings it back, in case the key slips your mind.
 
@@ -113,4 +119,4 @@ GitHub Actions runs all three on every push to `main` or `Dev` and on every pull
 - `preload.js`: the small API the page gets (`window.wall`).
 - `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`).
 - `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process), the stopwatch and timer (`clock.js`) and Fill the wall (`collage.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), and `boot.js` last.
+- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), and `boot.js` last.

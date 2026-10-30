@@ -24,6 +24,18 @@ function png(w, h, rgb) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
+// A short mono sine tone as a WAV file, for the background music.
+function wav(secs, hz) {
+  const rate = 8000, n = Math.round(secs * rate), data = Buffer.alloc(n * 2);
+  for (let i = 0; i < n; i++) data.writeInt16LE(Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 8000), i * 2);
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8); h.write('fmt ', 12);
+  h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(rate, 24);
+  h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write('data', 36); h.writeUInt32LE(data.length, 40);
+  return Buffer.concat([h, data]);
+}
+
 test.describe.configure({ mode: 'serial' });
 
 let app, page, dir, media;
@@ -649,6 +661,52 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await page.click('#tmReset');
   await expect(page.locator('#tmChip')).toBeHidden();
   await expect(page.locator('#tmTime')).toHaveText('0:02');
+  await page.keyboard.press('Escape');
+});
+
+test('background music: a folder plays behind the wall, moves on by itself, pauses with the emergency hide', async () => {
+  const music = path.join(dir, 'Music');
+  fs.mkdirSync(music);
+  fs.writeFileSync(path.join(music, '01 First.wav'), wav(1.2, 440));
+  fs.writeFileSync(path.join(music, '02 Second.wav'), wav(1.2, 660));
+  fs.writeFileSync(path.join(music, 'cover.jpg'), 'not music');
+  const audio = () => page.evaluate(() => { const a = window.MW.app.musicEl; return { paused: a.paused, vol: a.volume }; });
+  const openMusic = async () => { if (await page.locator('#popM').isHidden()) await page.click('#musicBtn'); };
+  await answerDialogs(music);
+  await openMusic();
+  await page.click('#musicFolderBtn');
+  await expect(toast()).toContainText('Playing 2 tracks');
+  await expect.poll(async () => (await audio()).paused).toBe(false);
+  await expect(page.locator('#musicName')).toHaveText('01 First');
+  await expect(page.locator('#musicBtn')).toHaveClass(/\bon\b/);
+  await page.click('#musicNext');
+  await expect(page.locator('#musicName')).toHaveText('02 Second');
+  // At the end of the last track it starts over by itself.
+  await expect(page.locator('#musicName')).toHaveText('01 First', { timeout: 6000 });
+  await page.locator('#musicVol').fill('30');
+  await expect.poll(async () => (await audio()).vol).toBeCloseTo(0.3, 2);
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
+  // The emergency hide pauses it too, and it plays on afterwards.
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(async () => (await audio()).paused).toBe(true);
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(async () => (await audio()).paused).toBe(false);
+  await openMusic();
+  await page.click('#musicStop');
+  await expect.poll(async () => (await audio()).paused).toBe(true);
+  await expect(page.locator('#musicName')).toHaveText('No music yet');
+  await page.keyboard.press('Escape');
+});
+
+test('cast: Wall mode settings open Windows display settings; a display coming or going updates Show on', async () => {
+  await app.evaluate(({ shell }) => { globalThis.__opened = []; shell.openExternal = async (u) => { globalThis.__opened.push(u); }; });
+  await settingsAt('Wall');
+  await page.click('#castBtn');
+  await expect.poll(() => app.evaluate(() => globalThis.__opened)).toEqual(['ms-settings:display']);
+  const options = () => page.locator('#display option').count();
+  const before = await options();
+  await app.evaluate(({ screen }) => { screen.emit('display-added', {}, {}); });
+  await expect.poll(options).toBe(before);
   await page.keyboard.press('Escape');
 });
 

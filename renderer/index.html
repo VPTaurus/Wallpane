@@ -97,6 +97,25 @@
       <button class="btn ib" id="playAll" type="button" aria-label="Pause all"></button>
       <button class="btn ib" id="muteAll" type="button" aria-label="Unmute all"></button>
       <button class="btn ib" id="loopAll" type="button" aria-label="Loop all videos"></button>
+      <div class="popwrap">
+        <button class="btn ib" id="musicBtn" type="button" aria-label="Background music" title="Background music" aria-expanded="false" aria-controls="popM"><span data-icon="music"></span></button>
+        <div class="pop" id="popM" hidden>
+          <span class="lab">Background music</span>
+          <div class="nowplaying"><b id="musicName">No music yet</b><small id="musicInfo">Choose a folder of your own music to play behind the wall.</small></div>
+          <div class="row mctl">
+            <button class="btn ib" id="musicPrev" type="button" aria-label="Previous track" title="Previous track"><span data-icon="prev"></span></button>
+            <button class="btn ib pri" id="musicPlay" type="button" aria-label="Play" title="Play"><span data-icon="play"></span></button>
+            <button class="btn ib" id="musicNext" type="button" aria-label="Next track" title="Next track"><span data-icon="next"></span></button>
+            <input id="musicVol" type="range" min="0" max="100" step="1" aria-label="Music volume" title="Music volume">
+          </div>
+          <label class="check"><input type="checkbox" id="musicShuffle"> Shuffle</label>
+          <div class="row">
+            <button class="btn" id="musicFolderBtn" type="button"><span data-icon="folder"></span>Choose folder…</button>
+            <button class="btn" id="musicStop" type="button" disabled>Stop</button>
+          </div>
+          <p class="note">Plays MP3, M4A, AAC, WAV, OGG, Opus and FLAC files from the folder and the folders in it, one after another. It keeps playing in wall mode, and starts again on the next start if it was playing.</p>
+        </div>
+      </div>
     </div>
     <div class="grp">
       <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
@@ -255,6 +274,9 @@
               <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
               <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
               <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
+              <span class="lab">On a TV or projector</span>
+              <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button></div>
+              <p class="note">Shows the wall on a TV, projector or stick that Windows can cast to (Miracast). The button opens Windows' display settings: under Multiple displays, click Connect next to "Connect to a wireless display" (Win+K does the same), pick the TV, and choose Extend so it is a display of its own. Then pick it under Show on and start wall mode.</p>
             </section>
 
             <section class="ssec" id="secHide" data-sec="hide" role="tabpanel" aria-labelledby="tabHide" hidden>
@@ -354,6 +376,7 @@
 <script src="ui/builder.js"></script>
 <script src="ui/hide.js"></script>
 <script src="ui/clock.js"></script>
+<script src="ui/music.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

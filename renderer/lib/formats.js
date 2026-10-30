@@ -6,6 +6,7 @@
   'use strict';
   var VIDEO = ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'mkv'];
   var IMAGE = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'svg'];
+  var AUDIO = ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'oga', 'opus', 'flac'];   // background music
   // Common formats Chromium cannot play. Finding one earns a clear message instead of a silent skip.
   var UNPLAYABLE = {
     avi: ['AVI', 'video'], wmv: ['WMV', 'video'], asf: ['ASF', 'video'], flv: ['FLV', 'video'], mpg: ['MPEG', 'video'], mpeg: ['MPEG', 'video'],
@@ -20,6 +21,7 @@
     return VIDEO.indexOf(e) > -1 ? 'video' : (IMAGE.indexOf(e) > -1 ? 'image' : null);
   }
   function isUnplayable(name) { return Object.prototype.hasOwnProperty.call(UNPLAYABLE, extOf(name)); }
+  function isAudio(name) { return AUDIO.indexOf(extOf(name)) > -1; }
 
   // { avi: 3, heic: 1 } -> "3 AVI files and 1 HEIC file cannot play here. Convert videos to MP4 ... and images to JPEG or PNG."
   function describeUnsupported(counts) {
@@ -40,5 +42,5 @@
     return list + ' cannot play here. Convert ' + how.join(' and ') + ', then add ' + (total === 1 ? 'it' : 'them') + ' again.';
   }
 
-  return { VIDEO: VIDEO, IMAGE: IMAGE, UNPLAYABLE: UNPLAYABLE, extOf: extOf, kindOfName: kindOfName, isUnplayable: isUnplayable, describeUnsupported: describeUnsupported };
+  return { VIDEO: VIDEO, IMAGE: IMAGE, AUDIO: AUDIO, UNPLAYABLE: UNPLAYABLE, extOf: extOf, kindOfName: kindOfName, isUnplayable: isUnplayable, isAudio: isAudio, describeUnsupported: describeUnsupported };
 });

@@ -13,7 +13,8 @@
     api: api, $: $,
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
-      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even'
+      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even',
+      music: { root: null, shuffle: false, vol: 0.6, on: false }   // background music: its folder, and whether it plays
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),
@@ -68,6 +69,9 @@
     sliders: svg('<path d="M2.5 4.5h11M2.5 11.5h11M5.5 3v3M10.5 10v3"/>'),
     help: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4M8 11.4v.2"/>'),
     x: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+    music: svg('<path d="M6 12V3.2l7.5-1.7v9"/><circle cx="4.3" cy="12" r="1.8"/><circle cx="11.8" cy="10.5" r="1.8"/>'),
+    prev: svg('<path d="M13 2.5v11l-7-5.5zM3.5 2.5v11"/>'),
+    cast: svg('<path d="M1.5 6V3.5h13v9H9.5M1.5 8.6a4.4 4.4 0 0 1 4.4 4.4M1.5 11.2a1.8 1.8 0 0 1 1.8 1.8"/>'),
     collage: svg('<path d="M2.5 2.5h11v11h-11zM2.5 7.5h11M6.5 2.5v5M9.5 7.5v6"/>'),
     eyeoff: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM2.5 2.5l11 11"/>'),
     keyboard: svg('<path d="M1.5 4h13v8h-13zM4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4.6 9.5h6.8"/>'),
@@ -88,7 +92,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, music: S.music });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -104,6 +108,13 @@
     if (typeof p.clock24 === 'boolean') S.clock24 = p.clock24;   // null: as Windows shows the time
     if (p.soloSound === false) S.soloSound = false;
     if (p.resizeMode === 'squeeze') S.resizeMode = 'squeeze';   // Free layout: how tiles in the way of a growing tile give way
+    var m = p.music;
+    if (m && typeof m === 'object') {
+      S.music = {
+        root: typeof m.root === 'string' && m.root ? m.root : null, shuffle: m.shuffle === true,
+        vol: m.vol >= 0 && m.vol <= 1 ? +m.vol : 0.6, on: m.on === true
+      };
+    }
   };
 
   /* ---------- items ---------- */

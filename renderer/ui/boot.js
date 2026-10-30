@@ -2,7 +2,7 @@
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, S = A.S, $ = A.$, api = A.api;
+  var MW = window.MW, S = A.S, api = A.api;
 
   /* ---------- sample test cards, shown until real media is added ---------- */
   function sampleCard(n) {
@@ -53,12 +53,7 @@
     A.render();
     A.applyPrefs(got[0]);
     A.loadUserLayouts(got[2]);
-    var displays = Array.isArray(got[3]) ? got[3] : [];
-    var sel = $('#display');
-    displays.forEach(function (d) {
-      var o = document.createElement('option'); o.value = String(d.id); o.textContent = d.label; sel.appendChild(o);
-    });
-    if (S.display != null && !displays.some(function (d) { return d.id === S.display; })) S.display = null;
+    A.fillDisplays(Array.isArray(got[3]) ? got[3] : [], true);
     var rec = got[1] ? MW.rec.cleanRecord(got[1], false) : null;
     if (rec && (rec.items.length || (got[1] && Array.isArray(got[1].items)))) {
       var missing = await A.applyRecord(rec, rec.presetName);
@@ -67,6 +62,7 @@
       if (S.cols >= 4 && S.rows >= 2) addSamples();
       A.render(); A.refreshInspector();
     }
+    A.startMusic();
     if (S.startWall) A.setClean(true);
     document.body.dataset.ready = '1';   // for the end-to-end tests
   }

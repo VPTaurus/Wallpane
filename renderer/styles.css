@@ -459,6 +459,13 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .tmset { width: 92px; height: 34px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; font: 500 14px var(--mono); }
 @media (prefers-reduced-motion: reduce) { .tchip.done, .bigtime.done { animation: none; } }
 
+/* Background music */
+.nowplaying { display: flex; flex-direction: column; gap: 3px; }
+.nowplaying b { font-size: 15px; overflow-wrap: anywhere; }
+.nowplaying small { font: 400 11px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.mctl { flex-wrap: nowrap; }
+.mctl input[type="range"] { flex: 1; min-width: 0; width: auto; }
+
 /* Settings > Emergency hide: the key, recorded by pressing it */
 .btn.keycap { justify-content: center; font: 500 12px var(--mono); }
 .bar .pop .keycap.rec { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }

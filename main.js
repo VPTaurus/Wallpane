@@ -131,6 +131,13 @@ handle('dialog:folder', async (e) => {
   if (r.canceled || !r.filePaths[0]) return { entries: [], skipped: 0 };
   return Object.assign(await files.expand(r.filePaths), { root: r.filePaths[0] });
 });
+// Background music: a folder of the user's own music (and its folders), and the same folder read again on the next start.
+handle('dialog:musicFolder', async (e) => {
+  const r = await dialog.showOpenDialog(winOf(e), { title: 'Choose a folder of music', properties: ['openDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return Object.assign(await files.expand(r.filePaths, { audio: true }), { root: r.filePaths[0] });
+});
+handle('fs:music', (_e, dir) => (typeof dir === 'string' && dir ? files.expand([dir], { audio: true }) : { entries: [] }));
 handle('dialog:export', async (e, text) => {
   const r = await dialog.showSaveDialog(winOf(e), {
     title: 'Export presets and layouts',
@@ -177,6 +184,12 @@ handle('win:fullscreen', (e, on, displayId) => {
   return win.isFullScreen();
 });
 handle('win:isFullscreen', (e) => { const w = winOf(e); return w ? w.isFullScreen() : false; });
+// Casting to a TV goes through Windows: its Display settings connect a wireless display (as Win+K does), which then
+// is a display like any other. The windows hear when displays come and go, for Settings > Wall mode > Show on.
+handle('app:openDisplaySettings', () => { shell.openExternal('ms-settings:display'); return true; });
+function tellDisplays() {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('win:displays-changed');
+}
 handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
 handle('app:info', () => ({ name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS }));
 // Opens one of the app's own links (source code, support) in the browser; any other address is ignored.
@@ -433,6 +446,8 @@ if (!app.requestSingleInstanceLock()) {
     state = loadState();
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
+    screen.on('display-added', tellDisplays);
+    screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
   });
