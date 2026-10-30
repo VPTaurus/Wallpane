@@ -364,7 +364,7 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#cacheClear')).toBeDisabled();
   await page.locator('#cacheLimit').selectOption('5');
   await expect(page.locator('#cacheOf')).toHaveText('of 5 GB');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB).toBe(5);
+  await expect.poll(() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB; } catch { return null; } }).toBe(5);
   await page.keyboard.press('Escape');
 });
 
@@ -619,6 +619,21 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   await page.locator('#jobsList .jrow button').first().click();
   await expect(page.locator('#jobsWrap')).toBeHidden();
   await page.keyboard.press('Escape');
+  // GIF to video: with "All GIFs" chosen, a GIF tile plays from a video copy, silent and looping, and is still a GIF.
+  const gif = path.join(conv, 'dance.gif');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=240x180:rate=10:duration=2', gif], { timeoutMs: 60000 });
+  await settingsAt('General');
+  await page.locator('#setGifVideo').selectOption('all');
+  await page.keyboard.press('Escape');
+  await answerDialogs(gif);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const gt = page.locator('#wall .tile:not(.leaving)', { hasText: 'dance.gif' });
+  await expect(gt.locator('video')).toHaveCount(1, { timeout: 30000 });
+  expect(decodeURIComponent(await gt.locator('video').getAttribute('src'))).toContain('/cache/converted/');
+  await expect(gt).toHaveClass(/\bis-image\b/);
+  await expect(gt.locator('.vbar')).toHaveCount(0);
+  expect(await gt.locator('video').evaluate((v) => v.loop && v.muted)).toBe(true);
 });
 
 test('emergency hide: the key covers the wall with a spreadsheet, silences it, and brings it all back', async () => {

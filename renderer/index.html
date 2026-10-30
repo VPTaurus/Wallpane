@@ -289,6 +289,10 @@
               <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
               <label class="check"><input type="checkbox" id="setConvert"> Make a playable copy of videos that do not play as they are (AVI, WMV, AC3 or DTS sound, …)</label>
               <p class="note">The copy goes to Wallpane's cache (Storage); your own file is never changed. Without this, such a tile waits until you right-click it and choose Make playable.</p>
+              <div class="frow"><label for="setGifVideo">GIFs as videos</label>
+                <select id="setGifVideo"><option value="off">Off</option><option value="2">Larger than 2 MB</option><option value="10">Larger than 10 MB</option><option value="all">All GIFs</option></select>
+              </div>
+              <p class="note">A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>

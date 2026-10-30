@@ -73,6 +73,8 @@ Playback uses Chromium's built-in codecs, so these work: MP4 (H.264, and HEVC wh
 
 **Make playable.** Other videos play too: AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, RealMedia and DivX, and MKV or MP4 files whose sound Chromium cannot play (AC3, DTS, E-AC3) or whose picture it cannot (10-bit H.264, HEVC where Windows lacks it, MPEG-2, …). The bundled FFmpeg first reads what the file holds, then makes a playable copy the cheapest way that works: re-wrapped into MP4 in seconds when only the container is the problem, only the sound converted when only the sound is, or converted to H.264 (on the graphics card when it can: NVIDIA, Intel or AMD, else on the processor). The tile shows what it is doing and switches to the copy by itself; a playlist tile moves on meanwhile and plays the file once its copy is there. Copies go to the cache (Settings › Storage); your files are never changed, and saved walls keep pointing at them. A video that still fails to play is converted after all, and right-click › Make playable does that by hand. Settings › General can switch the automatic copies off. The bar shows a small indicator while this runs, with a list where each job can be stopped.
 
+**GIFs as videos.** A big GIF (by default over 2 MB; Settings › General: off, 2 MB, 10 MB or all GIFs) gets a small video copy in the background and then plays from it: far smoother and lighter, still silent and looping, and still a GIF everywhere else (playlists time it as a GIF). Transparent parts turn black, as they look on a tile anyway.
+
 HEIC, TIFF, PSD and camera RAW pictures cannot be shown. The app tells you when it finds them; convert them to JPEG or PNG.
 
 ## Wall mode and unattended walls

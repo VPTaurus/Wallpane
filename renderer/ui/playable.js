@@ -122,7 +122,49 @@
       else setBusy(it, { text: what(it._verdict, j.progress) + (j.state === 'queued' ? ' (waiting)' : ''), hint: it._verdict ? 'Because of ' + it._verdict.why + '. Your file stays as it is.' : '', progress: j.progress });
     });
   }
-  A.onJobsChanged = function (list) { jobsNow = list; follow(); };
+  A.onJobsChanged = function (list) { jobsNow = list; follow(); followGifs(); };
+
+  /* ---------- GIF to video ---------- */
+  // A GIF over the size chosen in Settings gets a video copy in the background, and plays from it once it is made.
+  var gifs = {}, gifJobs = {}, gifBad = {};   // GIF path -> its copy's url; job key -> GIF path; copies that failed
+  var GIF_MIN = { off: Infinity, '2': 2e6, '10': 10e6, all: 0 };
+  A.gifVideoUrl = function (it) { return (it.kind === 'image' && it.path && gifs[it.path]) || null; };
+  A.checkGif = function (it) {
+    if (it.kind !== 'image' || !it.path || !/\.gif$/i.test(it.path) || it.missing || it.sample || gifs[it.path] || gifBad[it.path]) return;
+    var min = GIF_MIN[S.gifVideo];
+    if (min === undefined || min === Infinity) return;
+    ready.then(function () {
+      if (!A.hasFfmpeg) return;
+      return api.gifVideo(it.path, min).then(function (r) {
+        if (r.status === 'ready') useGif(it.path, r.path);
+        else if (r.status === 'working') { gifJobs[r.key] = it.path; followGifs(); }
+      });
+    });
+  };
+  // Tiles showing this GIF are rebuilt to play the copy.
+  function useGif(p, copy) {
+    gifs[p] = U.fileUrl(copy);
+    S.items.forEach(function (it) {
+      var el = A.tileEls.get(it.id);
+      if (it.path === p && it.kind === 'image' && el && el._media && el._media.tagName === 'IMG') A.removeTileEl(it.id);
+    });
+    A.render();
+  }
+  // A copy that does not play: back to the GIF itself, for good.
+  A.gifVideoFailed = function (it) {
+    gifBad[it.path] = true; delete gifs[it.path];
+    A.removeTileEl(it.id); A.render();
+  };
+  function followGifs() {
+    Object.keys(gifJobs).forEach(function (key) {
+      var j = jobsNow.find(function (x) { return x.key === key; });
+      if (!j || j.state === 'queued' || j.state === 'running') return;
+      var p = gifJobs[key];
+      delete gifJobs[key];
+      if (j.state === 'done' && j.result) useGif(p, j.result.path);
+    });
+  }
+  $('#setGifVideo').addEventListener('change', function () { S.gifVideo = this.value; A.savePrefs(); });
 
   // Settings › General: convert on its own, or only when asked.
   $('#setConvert').addEventListener('change', function () { S.autoConvert = this.checked; A.savePrefs(); });

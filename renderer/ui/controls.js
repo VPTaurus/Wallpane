@@ -350,6 +350,7 @@
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
     $('#setConvert').checked = S.autoConvert;
+    $('#setGifVideo').value = S.gifVideo;
     $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');

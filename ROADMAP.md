@@ -29,7 +29,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
   - only the sound is the problem (AC3, DTS, E-AC3): the sound becomes AAC, the picture is copied;
   - otherwise (MPEG-2, WMV, DivX, HEVC without Windows' HEVC support): converted to H.264.
 - [x] **B3. How it feels.** An unplayable file on the wall shows "Making it playable… 45 %" and switches to the copy by itself. Settings: copies made automatically, or only on right-click › Make playable. Folder playlists include such files: the tile moves on after three seconds and plays the file once its copy is there.
-- [ ] **B4. GIF to video.** Big GIFs (setting: above a size) become small MP4s that play smoothly; the tile still says GIF.
+- [x] **B4. GIF to video.** Big GIFs (setting: off, over 2 MB, over 10 MB, all) become small MP4s that play smoothly, silent and looping; the tile still counts as a GIF.
 - [x] **B5. Saved walls** keep the original file. If the cache was cleared, the copy is simply made again.
 
 ## C. Library, part 1 (1.5.0)

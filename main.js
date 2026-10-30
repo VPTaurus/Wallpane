@@ -29,7 +29,7 @@ const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
 const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
-const { playableKind } = require('./lib/playable');
+const { playableKind, gifVideoKind } = require('./lib/playable');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -119,6 +119,7 @@ function startBackground() {
   try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
+  JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
   jobs = createJobs({
     kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
     load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
@@ -150,6 +151,18 @@ handle('media:ensurePlayable', async (_e, p, opts) => {
   if (!opts.auto && !opts.force) return { status: 'needed', verdict: v };
   const job = jobs.add({ kind: 'playable', key: 'playable:' + key, label: path.basename(p), input: { file: p, force: !!opts.force }, priority: opts.background ? 'background' : 'user' });
   return { status: 'working', key: job.key, verdict: v };
+});
+// GIF to video: for a GIF at least minBytes big, its video copy ({ status: 'ready', path }), or the background job
+// making one ('working', key), or 'no' (small, no FFmpeg, or gone). The GIF plays as it is meanwhile.
+handle('media:gifVideo', (_e, p, minBytes) => {
+  if (typeof p !== 'string' || !/\.gif$/i.test(p) || !ffmpeg.available() || !jobs) return { status: 'no' };
+  let st;
+  try { st = fs.statSync(p); } catch { return { status: 'no' }; }
+  if (!(st.size >= (+minBytes || 0))) return { status: 'no' };
+  const made = cache.find('converted', p, 'mp4');
+  if (made) return { status: 'ready', path: made };
+  const job = jobs.add({ kind: 'gifvideo', key: 'gifvideo:' + cache.keyOf(p), label: path.basename(p), input: { file: p }, priority: 'background' });
+  return { status: 'working', key: job.key };
 });
 handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {

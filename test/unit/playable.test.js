@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const MI = require('../../lib/mediainfo');
-const { argsFor, playableKind } = require('../../lib/playable');
+const { argsFor, playableKind, gifVideoKind } = require('../../lib/playable');
 const { createCache } = require('../../lib/cache');
 
 test('the arguments: copy, copy the picture, or convert, always into a .part file', () => {
@@ -61,6 +61,20 @@ test('each way makes a copy that plays, in the cache, and the original stays', {
   const ok = await clip('d.mp4', 'libx264', 'aac', 1, ['-pix_fmt', 'yuv420p']);
   assert.deepEqual(await kind.run({ input: { file: ok } }, ctx()), { path: ok, action: 'none' });
   assert.equal((await kind.run({ input: { file: ok, force: true } }, ctx())).action, 'convert', 'forced when it did not play');
+});
+
+test('a GIF becomes a small, silent video of the same length', { skip }, async () => {
+  const cache = createCache(path.join(dir, 'cache3')), kind = gifVideoKind({ ffmpeg: ff, cache });
+  const gif = path.join(dir, 'dance.gif');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=241x181:rate=10:duration=2', gif], { timeoutMs: 60000 });
+  const r = await kind.run({ input: { file: gif } }, { signal: new AbortController().signal, progress: () => {} });
+  assert.equal(path.dirname(r.path), path.join(dir, 'cache3', 'converted'));
+  const made = MI.describe(await ff.probeRaw(r.path));
+  assert.equal(made.video.codec, 'h264');
+  assert.deepEqual([made.video.width, made.video.height], [240, 180], 'even sizes for H.264');
+  assert.equal(made.audio, null);
+  assert.ok(made.duration > 1.7 && made.duration < 2.3);
+  assert.ok(fs.statSync(r.path).size < fs.statSync(gif).size, 'smaller than the GIF');
 });
 
 test('cancelling leaves no half-made file', { skip }, async () => {
