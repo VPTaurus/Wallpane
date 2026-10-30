@@ -58,6 +58,8 @@ async function answerDialogs(p, save) {
   }, { p, save });
 }
 const toast = () => page.locator('#toast');
+// A data file as the app saved it, or {} while it is not there yet (polls then simply try again).
+const saved = (name) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', name + '.json'), 'utf8')); } catch { return {}; } };
 // Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Library', 'Storage', 'Keys' or 'About'.
 async function settingsAt(sec) {
   if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
@@ -218,7 +220,7 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   // The clock's time format, for this window.
   await page.locator('#setClock').selectOption('12');
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(false);
+  await expect.poll(() => saved('prefs').clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
   // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
   await expect(page.locator('#setSoloSound')).toBeChecked();
@@ -229,7 +231,7 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#secWall')).toBeVisible();
   await expect(page.locator('#secGeneral')).toBeHidden();
   await page.click('#setStartWall');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).startWall).toBe(true);
+  await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('#popS')).toBeHidden();
 });
@@ -349,7 +351,7 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#cacheClear')).toBeDisabled();
   await page.locator('#cacheLimit').selectOption('5');
   await expect(page.locator('#cacheOf')).toHaveText('of 5 GB');
-  await expect.poll(() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB; } catch { return null; } }).toBe(5);
+  await expect.poll(() => saved('app').cacheLimitGB).toBe(5);
   await page.keyboard.press('Escape');
 });
 
@@ -663,7 +665,7 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await key.click();
   await page.keyboard.press('Control+Shift+J');
   await expect(key).toHaveText('Ctrl + Shift + J');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).key).toBe('Ctrl+Shift+J');
+  await expect.poll(() => saved('hide').key).toBe('Ctrl+Shift+J');
   await expect(page.locator('#keysHideKey')).toHaveText('Ctrl Shift J');   // Settings > Keys shows the new key
   // Black screen, from Hide now.
   await page.locator('#hideCover').selectOption('black');
@@ -697,7 +699,7 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await settingsAt('Hide');
   await page.locator('#hideMouse').selectOption('middle');
   await expect(page.locator('#hideMouseNote')).toBeVisible();
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).mouse).toBe('middle');
+  await expect.poll(() => saved('hide').mouse).toBe('middle');
   await page.keyboard.press('Escape');
   const w = await page.locator('#wall').boundingBox();
   await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });
@@ -716,7 +718,7 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await page.locator('#clock24').setChecked(true);
   await expect(page.locator('#clock')).not.toHaveText(/M$/);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(true);
+  await expect.poll(() => saved('prefs').clock24).toBe(true);
   // Stopwatch (not ticked for the bar, so it runs in the popover only)
   await page.click('#swGo');
   await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
@@ -744,7 +746,7 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#clock')).toBeHidden();
   await expect(page.locator('#clockIcon')).toBeVisible();
   await expect(page.locator('#swChip')).toBeVisible();
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).timeBar).toEqual({ clock: false, sw: true, tm: true, ct: false });
+  await expect.poll(() => saved('prefs').timeBar).toEqual({ clock: false, sw: true, tm: true, ct: false });
   await page.keyboard.press('Escape');
   await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Start the stopwatch');
   await page.click('#swCtl');
@@ -790,12 +792,12 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#ctChipT')).toHaveText('3');
   await page.click('#ctCtl', { button: 'right' });
   await expect(page.locator('#ctChipT')).toHaveText('2');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(2);
+  await expect.poll(() => saved('prefs').counter).toBe(2);
   await page.click('#ctOpen');
   await page.locator('#showCt').uncheck();
   await expect(page.locator('#ctChip')).toBeHidden();
   await expect(page.locator('#ctNum')).toHaveText('0');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(0);
+  await expect.poll(() => saved('prefs').counter).toBe(0);
   await page.keyboard.press('Escape');
 });
 
@@ -820,7 +822,7 @@ test('background music: a folder plays behind the wall, moves on by itself, paus
   await expect(page.locator('#musicName')).toHaveText('01 First', { timeout: 6000 });
   await page.locator('#musicVol').fill('30');
   await expect.poll(async () => (await audio()).vol).toBeCloseTo(0.3, 2);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
+  await expect.poll(() => saved('prefs').music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
   // The emergency hide pauses it too, and it plays on afterwards.
   await page.evaluate(() => window.wall.toggleHide());
   await expect.poll(async () => (await audio()).paused).toBe(true);

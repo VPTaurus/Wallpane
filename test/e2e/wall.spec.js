@@ -93,6 +93,74 @@ test('after Fill the wall, a tall tile of a playlist moves on to tall files, a w
   } finally { await app.close(); }
 });
 
+test('the top bar opens another wall window', async () => {
+  const { app, page, errors } = await start(dir);
+  try {
+    const opened = app.waitForEvent('window');
+    await page.click('#newWinBtn');
+    const w2 = await opened;
+    await w2.waitForSelector('body[data-ready="1"]');
+    await expect(w2).toHaveTitle('Wallpane · Wall 2');
+    await expect(w2.locator('#readout')).toContainText('Wall 2');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('the start: an empty wall offers the last one, which comes back, or stays in Saved walls', async () => {
+  const media = path.join(dir, 'pics');
+  fs.mkdirSync(media);
+  const files = ['one.png', 'two.png'].map((n, i) => { const p = path.join(media, n); fs.writeFileSync(p, png(160, 90, [120 * i, 80, 160])); return p; });
+  const apps = [];
+  const open = async () => { const s = await start(dir); apps.push(s.app); return s; };
+  const restart = async (s) => { await s.page.waitForTimeout(1000); expect(s.errors).toEqual([]); await s.app.close(); return open(); };
+  const addFiles = async (s, list) => { await s.answer(list); await s.page.click('#addBtn'); await s.page.click('#addFiles'); };
+  const startWith = async (s, v) => { await s.page.click('#settingsBtn'); await s.page.click('#tabGeneral'); await s.page.selectOption('#setStartWith', v); await s.page.keyboard.press('Escape'); };
+  try {
+    let s = await open();
+    await addFiles(s, files);
+    await expect(tiles(s.page)).toHaveCount(2);
+
+    // Offered, and restored.
+    s = await restart(s);
+    await expect(tiles(s.page)).toHaveCount(0);
+    await expect(s.page.locator('#lastWall')).toBeVisible();
+    await expect(s.page.locator('#lastWallInfo')).toContainText('2 files');
+    await expect(s.page.locator('#lastWallMap i.media')).toHaveCount(2);
+    await s.page.click('#lastWallRestore');
+    await expect(tiles(s.page)).toHaveCount(2);
+    await expect(s.page.locator('#lastWall')).toBeHidden();
+
+    // Offered, and something else put on the wall: the last wall goes to Saved walls.
+    s = await restart(s);
+    await expect(s.page.locator('#lastWall')).toBeVisible();
+    await addFiles(s, [files[0]]);
+    await expect(tiles(s.page)).toHaveCount(1);
+    await expect(s.page.locator('#lastWall')).toBeHidden();
+    await s.page.click('#presetBtn');
+    await expect(s.page.locator('#plist')).toContainText('Last wall');
+    await expect(s.page.locator('#plist')).toContainText('2 items');
+    await s.page.keyboard.press('Escape');
+
+    // "Open the last wall": no offer, the wall as it was.
+    await startWith(s, 'last');
+    s = await restart(s);
+    await expect(tiles(s.page)).toHaveCount(1);
+    await expect(s.page.locator('#lastWall')).toBeHidden();
+
+    // Back to offering; Start empty; then the empty wall is what comes back, without an offer.
+    await startWith(s, 'offer');
+    s = await restart(s);
+    await expect(s.page.locator('#lastWall')).toBeVisible();
+    await s.page.click('#lastWallEmpty');
+    await expect(toast(s.page)).toContainText('Your last wall is in Saved walls as "Last wall".');
+    await expect(tiles(s.page)).toHaveCount(0);
+    s = await restart(s);
+    await expect(s.page.locator('#lastWall')).toBeHidden();
+    await expect(tiles(s.page)).toHaveCount(0);
+    expect(s.errors).toEqual([]);
+  } finally { for (const a of apps) await a.close().catch(() => {}); }
+});
+
 test('minimized, the wall pauses, and plays on when the window is back', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4');

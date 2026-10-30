@@ -588,6 +588,18 @@ body.clean .lib { display: none !important; }
 .lresize::after { content: ""; position: absolute; top: 50%; left: 4px; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: var(--line); }
 .lresize:hover::after { background: var(--accent); }
 
+/* ---------- at the start: the last wall, offered ---------- */
+.lastwall {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25;
+  width: min(380px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; padding: 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.lastwall b { font-size: 15px; }
+.lwmap { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; background: var(--wall); overflow: hidden; }
+.lwmap i { position: absolute; border-radius: 2px; background: var(--slot-line); }
+.lwmap i.media { background: var(--accent); opacity: 0.75; }
+body.clean .lastwall { display: none !important; }
+
 /* Settings › Library: the library folders */
 .libfolders { display: flex; flex-direction: column; margin: 4px 0 10px; }
 .libfolders .lrow { grid-template-columns: auto minmax(0, 1fr) auto; }

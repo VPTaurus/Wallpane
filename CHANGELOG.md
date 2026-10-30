@@ -17,6 +17,8 @@ And on the wall:
 - **Files shaped like the tile:** after Fill the wall or Fit to media, a playlist tile moves on to a file shaped like it, so a tall tile keeps showing tall files. Each playlist has it under Shapes; Settings › General can leave playlists be.
 - **Growing a tile in Free (pixels)** first takes the empty space up to the next tile; only then do the tiles beside it shrink.
 - **Minimized, the wall rests:** videos pause and playlists wait until the window is back (Settings › General; background music keeps playing).
+- **A fresh start:** Wallpane starts with an empty wall and offers your last one (Restore it, or Start empty; starting empty keeps it in Saved walls as "Last wall"). Settings › General can open the last wall straight away instead. A wall that starts in wall mode still opens as it was.
+- **New wall window** is a button in the top bar now, beside Wall mode.
 
 ## 1.4.0: Play anything
 

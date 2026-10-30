@@ -353,6 +353,7 @@
     $('#setSoloSound').checked = S.soloSound;
     $('#setFillShapes').checked = S.fillShapes;
     $('#setPauseMin').checked = S.pauseMin;
+    $('#setStartWith').value = S.startWith;
     $('#setConvert').checked = S.autoConvert;
     $('#setGifVideo').value = S.gifVideo;
     $('#setResize').value = S.resizeMode;
@@ -372,6 +373,7 @@
   $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
   $('#setFillShapes').addEventListener('change', function () { S.fillShapes = this.checked; A.savePrefs(); });
   $('#setPauseMin').addEventListener('change', function () { S.pauseMin = this.checked; A.savePrefs(); });
+  $('#setStartWith').addEventListener('change', function () { S.startWith = this.value; A.savePrefs(); });
 
   // Minimized, the wall rests: its videos pause and image playlists stop moving on, until the window is back.
   var restWas = null;

@@ -302,9 +302,13 @@
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
               </div>
+              <span class="lab">Starting</span>
+              <div class="frow"><label for="setStartWith">When Wallpane starts</label>
+                <select id="setStartWith"><option value="offer">Offer the last wall</option><option value="last">Open the last wall</option><option value="empty">Start with an empty wall</option></select>
+              </div>
+              <p class="note">Starting empty keeps the last wall in Saved walls as "Last wall". A wall that starts in wall mode (Wall mode settings) always opens the last wall.</p>
               <span class="lab">Windows</span>
-              <div class="row"><button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button></div>
-              <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
+              <p class="note">The window button in the top bar, beside Wall mode, opens another wall window. Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
               <span class="lab">This wall</span>
               <div class="row"><button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button></div>
               <p class="note">Takes every tile off this window's wall. Ctrl+Z brings them back.</p>
@@ -419,6 +423,7 @@
         </div>
       </div>
 
+      <button class="btn ib" id="newWinBtn" type="button" aria-label="New wall window" title="Open another wall window: a wall of its own, for example on another monitor"><span data-icon="window"></span></button>
       <button class="btn wallbtn" id="cleanBtn" type="button" title="Hide the controls and fill the screen (F11)"><span data-icon="tv"></span>Wall mode</button>
     </div>
   </header>
@@ -427,6 +432,13 @@
     <!-- The library: a drawer over the wall or a panel beside it; ui/libview.js builds what is in it. -->
     <aside class="lib" id="lib" aria-label="Library" hidden></aside>
     <section class="stage" id="stage"><div class="wall" id="wall"></div></section>
+    <!-- At the start: the wall is empty and offers the last one (ui/presets.js). -->
+    <div class="lastwall" id="lastWall" role="dialog" aria-labelledby="lastWallTitle" hidden>
+      <div class="lwmap" id="lastWallMap" aria-hidden="true"></div>
+      <div><b id="lastWallTitle">Your last wall</b><p class="note" id="lastWallInfo"></p></div>
+      <div class="row"><button class="btn pri" id="lastWallRestore" type="button"><span data-icon="undo"></span>Restore it</button><button class="btn" id="lastWallEmpty" type="button">Start empty</button></div>
+      <p class="note">Starting empty, or putting something on the empty wall, keeps it in Saved walls as "Last wall".</p>
+    </div>
   </main>
 </div>
 

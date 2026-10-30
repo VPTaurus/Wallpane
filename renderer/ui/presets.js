@@ -229,10 +229,80 @@
     });
   });
 
+  /* ---------- the last wall, offered at the start ---------- */
+  // The wall starts empty and offers the last one (Settings › General › When Wallpane starts). While the offer stands
+  // and the wall is still empty, the last wall is not saved over. Starting empty, or putting something on the empty
+  // wall, keeps it in Saved walls as "Last wall".
+  var LAST = 'Last wall', offered = null;   // { rec (cleaned), raw (as it was saved) } while the offer stands
+  function realItems() { return S.items.some(function (i) { return !i.sample; }); }
+  function ago(t) {
+    var m = Math.round((Date.now() - (+t || 0)) / 60000);
+    if (!t || m < 0) return '';
+    if (m < 2) return 'just now';
+    if (m < 90) return m + ' minutes ago';
+    var h = Math.round(m / 60);
+    return h < 36 ? h + ' hours ago' : new Date(t).toLocaleDateString();
+  }
+  function describe(rec) {
+    var n = rec.items.filter(function (i) { return i.kind !== 'empty'; }).length, e = rec.items.length - n;
+    return [n + (n === 1 ? ' file' : ' files') + (e ? ' and ' + e + ' empty ' + (e === 1 ? 'tile' : 'tiles') : ''),
+      rec.mode === 'free' ? 'placed freely' : 'on a ' + rec.cols + ' × ' + rec.rows + ' grid', rec.presetName, ago(rec.savedAt)].filter(Boolean).join(' · ');
+  }
+  // A small map of its tiles: media in the accent colour, empty tiles grey.
+  function drawMap(rec) {
+    var box = $('#lastWallMap');
+    box.innerHTML = '';
+    rec.items.forEach(function (i) {
+      var free = rec.mode === 'free' && i.fw > 0, b = document.createElement('i');
+      b.className = i.kind === 'empty' ? '' : 'media';
+      var x = free ? i.fx : i.col / rec.cols, y = free ? i.fy : i.row / rec.rows, w = free ? i.fw : i.w / rec.cols, h = free ? i.fh : i.h / rec.rows;
+      b.style.cssText = 'left:calc(' + (x * 100) + '% + 2px);top:calc(' + (y * 100) + '% + 2px);width:calc(' + (w * 100) + '% - 4px);height:calc(' + (h * 100) + '% - 4px)';
+      box.appendChild(b);
+    });
+  }
+  A.offerLastWall = function (rec, raw) {
+    offered = { rec: rec, raw: raw };
+    $('#lastWallInfo').textContent = describe(rec);
+    drawMap(rec);
+    $('#lastWall').hidden = false;
+    $('#lastWallRestore').focus();
+  };
+  // The last wall into Saved walls, as "Last wall" (one of those, the newest).
+  A.keepLastWall = function (raw) {
+    var rec = REC.cleanRecord(Object.assign({}, raw, { name: LAST }), true);
+    if (!rec || !rec.items.length) return Promise.resolve(false);
+    return listPresets().then(function (list) {
+      return api.storeSet('presets', [rec].concat(list.filter(function (p) { return p.name !== LAST; })));
+    });
+  };
+  function closeOffer(keep) {
+    var o = offered;
+    offered = null;
+    $('#lastWall').hidden = true;
+    if (o && keep) A.keepLastWall(o.raw);
+    return o;
+  }
+  $('#lastWallRestore').addEventListener('click', function () {
+    var o = closeOffer(false);
+    if (!o) return;
+    A.applyRecord(o.rec, o.rec.presetName).then(function (missing) {
+      if (missing) A.toast(missing + (missing === 1 ? ' file from your last wall was' : ' files from your last wall were') + ' not found. Use Locate file on a tile.');
+    });
+  });
+  $('#lastWallEmpty').addEventListener('click', function () {
+    closeOffer(true);
+    A.scheduleSession();
+    A.toast('An empty wall. Your last wall is in Saved walls as "Last wall".');
+  });
+
   /* ---------- keeping the wall between runs ---------- */
   var sessionTimer = 0;
-  function sessionWorthSaving() { return !(S.items.length && S.items.every(function (i) { return i.sample; })); }
+  function sessionWorthSaving() {
+    if (offered && !realItems()) return false;   // the last wall is still on offer
+    return !(S.items.length && S.items.every(function (i) { return i.sample; }));
+  }
   A.scheduleSession = function () {
+    if (offered && realItems()) closeOffer(true);   // something went on the empty wall: a new one it is
     clearTimeout(sessionTimer);
     sessionTimer = setTimeout(function () { if (sessionWorthSaving()) api.storeSet('session', A.currentRecord('')); }, 700);
   };

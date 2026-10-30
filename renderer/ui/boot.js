@@ -56,7 +56,12 @@
     A.loadUserLayouts(got[2]);
     A.fillDisplays(Array.isArray(got[3]) ? got[3] : [], true);
     var rec = got[1] ? MW.rec.cleanRecord(got[1], false) : null;
-    if (rec && (rec.items.length || (got[1] && Array.isArray(got[1].items)))) {
+    // The last wall: offered on an empty wall, or kept in Saved walls (Settings › General). A wall that starts in wall
+    // mode, unattended, opens it as it was.
+    if (rec && rec.items.length && !S.startWall && S.startWith !== 'last') {
+      A.render(); A.refreshInspector();
+      if (S.startWith === 'empty') A.keepLastWall(got[1]); else A.offerLastWall(rec, got[1]);
+    } else if (rec && (rec.items.length || (got[1] && Array.isArray(got[1].items)))) {
       var missing = await A.applyRecord(rec, rec.presetName);
       if (missing) A.toast(missing + (missing === 1 ? ' file from your last wall was' : ' files from your last wall were') + ' not found. Use Locate file on a tile.');
     } else {
