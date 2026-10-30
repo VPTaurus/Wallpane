@@ -530,8 +530,15 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await page.locator('body').press('Backslash');
   await expect(tile.locator('.vloop')).toBeHidden();
   // Double-click: this tile full screen with its sound on; Esc ends it and the tile is quiet again, as it was.
+  // The speaker in the top bar shows the sound as it is, the same as the speaker on the video's own bar.
+  const speakers = () => page.evaluate(() => {
+    const top = document.querySelector('#muteAll svg'), own = document.querySelector('#wall .tile.is-video .vbar [data-act="mute"] svg');
+    return { same: top.outerHTML === own.outerHTML, title: document.querySelector('#muteAll').title };
+  });
+  await expect.poll(speakers).toEqual({ same: true, title: 'Sound is on. Click to mute every video' });
   await page.locator('body').press('m');                     // M mutes the selected video (the volume turned it on)
   await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await expect.poll(speakers).toEqual({ same: true, title: 'Every video is muted. Click to turn their sound on' });
   await tile.dblclick({ position: { x: 40, y: 50 } });
   await expect.poll(() => page.evaluate(() => document.fullscreenElement && document.fullscreenElement.id)).toBe('wall');
   await expect(tile).toHaveClass(/\bsolo\b/);

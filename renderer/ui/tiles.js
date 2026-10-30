@@ -673,7 +673,8 @@
     A.tileEls.forEach(function (el) { var v = el._media; if (v && v.tagName === 'VIDEO') vids.push(v); });
     return vids;
   };
-  // Icon buttons: the icon and label say what a click does; the loop button shows on / mixed / off as pressed.
+  // Icon buttons: the label says what a click does. The play icon shows that too (play or pause, as players do);
+  // the speaker shows how the sound is now, like the speaker on each video tile; loop shows on / mixed / off as pressed.
   function iconBtn(b, icon, label, title) {
     if (b._icon !== icon) { b._icon = icon; b.innerHTML = '<span class="ic" aria-hidden="true">' + ICON[icon] + '</span>'; }
     b.setAttribute('aria-label', label); b.title = title || label;
@@ -692,6 +693,7 @@
     var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
     iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
     var loud = vi.some(function (i) { return !i.muted; });
-    iconBtn($('#muteAll'), loud ? 'mute' : 'vol', loud ? 'Mute all' : 'Unmute all');
+    iconBtn($('#muteAll'), loud ? 'vol' : 'mute', loud ? 'Mute all' : 'Unmute all',
+      loud ? 'Sound is on. Click to mute every video' : 'Every video is muted. Click to turn their sound on');
   };
 })(window.MW.app);
