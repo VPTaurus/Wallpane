@@ -179,12 +179,12 @@ test('search: every word, in any order, in file and folder names, without accent
   assert.deepEqual(names({ folder: path.join(c, 'beach') }), ['Morning.mp4', 'Sunset Žagata.mp4']);
 });
 
-test('filters: kind, shape (turned videos too), length, resolution, and files that need a playable copy', () => {
+test('filters: kind, shape, length, resolution, and files that need a playable copy', () => {
   const { lib, root } = make();
   lib.addFolder(root);
   const info = {
     'land.mp4': { w: 1920, h: 1080, dur: 10, play: 'none' },
-    'tall.mp4': { w: 1920, h: 1080, rot: 90, dur: 100, play: 'none' },
+    'tall.mp4': { w: 1080, h: 1920, rot: 90, dur: 100, play: 'none' },   // a phone video: as it shows
     'sq.gif': { w: 500, h: 500, dur: 3 },
     'photo.jpg': { w: 4000, h: 3000 },
     'old.avi': null,
@@ -208,7 +208,22 @@ test('filters: kind, shape (turned videos too), length, resolution, and files th
   assert.deepEqual(names({ needsCopy: true }), ['mkv.mkv', 'old.avi'], 'an AVI not probed yet surely needs one');
   assert.deepEqual(names({ kinds: ['video'], shape: 'landscape', length: 'short' }), ['land.mp4']);
   const tall = lib.query({ shape: 'portrait' }).items[0];
-  assert.deepEqual([tall.w, tall.h, tall.dur], [1080, 1920, 100], 'the size as the picture shows');
+  assert.deepEqual([tall.w, tall.h, tall.dur], [1080, 1920, 100]);
+  assert.deepEqual(lib.folders().map((x) => [x.files, x.pending]), [[6, 1]], 'the AVI still waits for its details');
+});
+
+test('files in folders a scan could not read stay; without FFmpeg, AVI and the like are left out', () => {
+  const { lib, root } = make();
+  lib.addFolder(root);
+  const locked = path.join(root, 'locked');
+  lib.sync(root, [f(path.join(root, 'a.mp4')), f(path.join(locked, 'b.mp4')), f(path.join(root, 'c.avi'))]);
+  const r = lib.sync(root, [f(path.join(root, 'a.mp4'))], { keep: [locked] });
+  assert.equal(r.removed.length, 1, 'only the AVI left');
+  assert.ok(lib.find(path.join(locked, 'b.mp4')));
+
+  const { lib: lite, root: root2 } = make({ convertible: false });
+  lite.addFolder(root2);
+  assert.equal(lite.sync(root2, [f(path.join(root2, 'a.mp4')), f(path.join(root2, 'c.avi'))]).added.length, 1);
 });
 
 test('sorting: names by their numbers, the rest biggest or newest first, files without a value last, random by seed', () => {

@@ -76,9 +76,10 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 - **Searching:** the main process runs each search and sort, which takes 4 to 40 milliseconds for 50,000 files. The page gets back the whole result in a compact form (id, name, kind, width and height, length). That is all it needs to lay out the rows; names and details for the rows on screen follow as they scroll in.
 
 ## Scanning (C2)
-1. **Adding a folder** walks it straight away. The 3,000-file limit is only for playlists; this walk has none. Each file goes in with its name, size, time and kind (from its extension), so the grid fills at once.
-2. **Background jobs** then probe each file (light jobs) and make thumbnails (C3), using the job queue that exists today.
-3. **Starting the app** does a quick check of every folder for files that are new, gone or changed (by size and time). The same check runs when a watcher reports a change, and on the **Rescan** button.
+1. **Adding a folder** walks it straight away (`files.scan`). The 3,000-file limit is only for playlists; this walk stops at 200,000. Each file goes in with its name, size, time and kind (from its extension), so the grid fills at once. Hidden files, Windows' own folders and links are skipped.
+2. **One background job** ("Reading file details") then fills in the details, two files at a time. Pictures take their size from their first bytes (PNG, GIF, JPEG with its EXIF orientation, WebP, BMP), which is thousands of files a minute. Videos, and pictures in other formats, go through ffprobe. Thumbnails (C3) come after.
+3. **Starting the app** checks every folder for files that are new, gone or changed (by size and time). The same check runs when a watcher reports a change, and on the **Look again** button. Folders that could not be read keep their files, and so does a folder on a drive that is not connected; Wallpane looks for that drive again every minute.
+4. **Settings › Library** lists the folders with how many files each holds and how many still wait for their details, with **Add folder…**, **Look again** and **Remove**.
 
 ## Thumbnails (C3)
 - WebP files, 360 px on the long side, in `cache\thumbs`. They count toward the cache limit; one that was cleaned away is simply made again.

@@ -271,6 +271,7 @@
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
+            <button type="button" role="tab" id="tabLibrary" data-sec="library" aria-controls="secLibrary"><span data-icon="library"></span>Library</button>
             <button type="button" role="tab" id="tabStorage" data-sec="storage" aria-controls="secStorage"><span data-icon="disk"></span>Storage</button>
             <button type="button" role="tab" id="tabKeys" data-sec="keys" aria-controls="secKeys"><span data-icon="keyboard"></span>Keys</button>
             <button type="button" role="tab" id="tabAbout" data-sec="about" aria-controls="secAbout"><span data-icon="info"></span>About</button>
@@ -338,6 +339,17 @@
               </div>
               <div class="row"><button class="btn" id="hideImageBtn" type="button" hidden>Choose picture…</button><button class="btn" id="hideTry" type="button">Hide now</button></div>
               <p class="note" id="hideNote"></p>
+            </section>
+
+            <section class="ssec" id="secLibrary" data-sec="library" role="tabpanel" aria-labelledby="tabLibrary" hidden>
+              <h2>Library</h2>
+              <p class="note">Wallpane keeps track of the videos, GIFs and pictures in these folders and their subfolders, and notices new ones by itself. Your files are only read, never changed.</p>
+              <div class="libfolders" id="libFolders"></div>
+              <div class="row">
+                <button class="btn" id="libAdd" type="button"><span data-icon="plus"></span>Add folder…</button>
+                <button class="btn" id="libRescan" type="button"><span data-icon="reset"></span>Look again</button>
+              </div>
+              <p class="note">Removing a folder only takes it out of the library; its files stay where they are.</p>
             </section>
 
             <section class="ssec" id="secStorage" data-sec="storage" role="tabpanel" aria-labelledby="tabStorage" hidden>
@@ -435,6 +447,7 @@
 <script src="ui/music.js"></script>
 <script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
+<script src="ui/library.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

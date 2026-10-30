@@ -490,6 +490,12 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .jrow.failed small { color: var(--danger); }
 .jrow .btn.ib { width: 28px; height: 28px; }
 .jrow .bbar { grid-column: 1 / -1; }
+/* Settings › Library: the library folders */
+.libfolders { display: flex; flex-direction: column; margin: 4px 0 10px; }
+.libfolders .lrow { grid-template-columns: auto minmax(0, 1fr) auto; }
+.lrow > .ic { color: var(--muted); align-self: start; margin-top: 2px; }
+.lrow.busy > .ic { color: var(--accent); }
+.lrow.off .lstat { color: var(--danger); }
 .bbar { display: block; height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
 .bbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 .tile .busy {

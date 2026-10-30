@@ -30,6 +30,9 @@ const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind } = require('./lib/playable');
+const { createLibrary } = require('./lib/library');
+const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
+const { imageSize } = require('./lib/imagesize');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -103,11 +106,15 @@ const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
 const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
+let library = null, libFolders = null;   // the library and its folders on disk; loaded after the first window is up
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
 function tellJobs(list) {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('jobs:changed', list);
+}
+function tellLibrary() {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:changed');
 }
 // The list of unfinished jobs is written at most twice a second, the latest one last.
 function saveJobs(pending) {
@@ -118,8 +125,18 @@ function saveJobs(pending) {
 function startBackground() {
   try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
+  library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
+  libFolders = createLibraryFolders({
+    library, watchers, notify: tellLibrary,
+    jobs: { add: (spec) => jobs && jobs.add(spec) },
+    scan: (dir) => files.scan(dir, (p) => !!formats.kindOfName(p, ffmpeg.available())),
+    imageSize,
+    gifSeconds: async (p) => ((await fsp.stat(p)).size > 60 * 1024 * 1024 ? 0 : files.gifSeconds(await fsp.readFile(p))),
+    probeRaw: ffmpeg.probeRaw, canProbe: ffmpeg.available
+  });
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
+  JOB_KINDS.libinfo = libFolders.infoKind;
   jobs = createJobs({
     kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
     load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
@@ -176,6 +193,26 @@ handle('cache:setLimit', (_e, gb) => {
 handle('cache:clear', () => { cache.clear(); return cacheInfo(); });
 handle('cache:reveal', () => { fs.mkdirSync(cache.root, { recursive: true }); shell.openPath(cache.root); return true; });
 
+/* ---------- the library: folders of media and what is in them (lib/library.js, lib/libraryfolders.js) ---------- */
+handle('library:folders', () => libFolders.folders());
+// A folder from the page (dropped from Explorer), or else one chosen in a dialog. Answers once its files are in:
+// { status: 'added' | 'inside', path }, or 'missing' / 'notfolder', or null when the dialog was cancelled.
+handle('library:addFolder', async (e, p) => {
+  if (typeof p !== 'string' || !p) {
+    const r = await dialog.showOpenDialog(winOf(e), { title: 'Add a folder to the library', properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    p = r.filePaths[0];
+  }
+  try { if (!fs.statSync(p).isDirectory()) return { status: 'notfolder', path: p }; } catch { return { status: 'missing', path: p }; }
+  return libFolders.add(p);
+});
+handle('library:removeFolder', (_e, p) => (typeof p === 'string' ? libFolders.remove(p) : -1));
+handle('library:rescan', async (_e, p) => {
+  if (typeof p === 'string' && p) await libFolders.rescan(p); else await libFolders.rescanAll();
+  return libFolders.folders();
+});
+handle('library:query', (_e, q) => { libFolders.ready(); return library.query(q && typeof q === 'object' ? q : {}); });
+
 /* ---------- files and dialogs ---------- */
 // With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.
 function mediaOpts() { return { convertible: ffmpeg.available() }; }
@@ -212,9 +249,11 @@ handle('shell:reveal', (_e, p) => {
   return true;
 });
 
-// Playlist folders: each window says which ones it plays, and hears when one of them changes.
+// Playlist folders: each window says which ones it plays, and hears when one of them changes. The library's folders
+// are watched the same way, by the owner LIBRARY.
 const watchers = createWatchers({
   notify(owner, root) {
+    if (owner === LIBRARY) { if (libFolders) libFolders.onChanged(root); return; }
     const w = wins.get(owner);
     if (w && !w.isDestroyed()) w.webContents.send('fs:changed', root);
   }
@@ -561,8 +600,14 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
+    // The library loads and checks its folders once the wall is up, so a big one never slows the start.
+    setTimeout(() => { libFolders.start().catch(() => { /* tried again on Rescan */ }); }, 1500);
   });
-  app.on('before-quit', () => { quitting = true; watchers.closeAll(); });
+  app.on('before-quit', () => {
+    quitting = true;
+    watchers.closeAll();
+    if (library) library.flush();
+  });
   app.on('will-quit', () => { globalShortcut.unregisterAll(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

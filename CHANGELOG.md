@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- **Library folders** (Settings › Library): add the folders where you keep your media. Wallpane looks through them and their subfolders, notices new files by itself, and reads each file's details in the background (size, shape, length, whether it plays as it is). A folder on a drive that is not connected keeps its files until the drive is back. Browsing the library comes next.
+
 ## 1.4.0: Play anything
 
 Download **Wallpane Setup 1.4.0.exe** (installer) or **Wallpane 1.4.0.exe** (portable). Both are larger than before (about 178 and 162 MB) because FFmpeg now comes inside. Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

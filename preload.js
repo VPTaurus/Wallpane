@@ -39,6 +39,14 @@ contextBridge.exposeInMainWorld('wall', {
   clearCache: () => ipcRenderer.invoke('cache:clear'),
   revealCache: () => ipcRenderer.invoke('cache:reveal'),
 
+  // the library: folders of media and what is in them
+  libraryFolders: () => ipcRenderer.invoke('library:folders'),
+  addLibraryFolder: (p) => ipcRenderer.invoke('library:addFolder', p == null ? null : String(p)),
+  removeLibraryFolder: (p) => ipcRenderer.invoke('library:removeFolder', String(p)),
+  rescanLibrary: (p) => ipcRenderer.invoke('library:rescan', p == null ? null : String(p)),
+  queryLibrary: (q) => ipcRenderer.invoke('library:query', q || {}),
+  onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
+
   // window
   displays: () => ipcRenderer.invoke('win:displays'),
   setFullscreen: (on, displayId) => ipcRenderer.invoke('win:fullscreen', !!on, displayId == null ? null : displayId),

@@ -344,6 +344,7 @@
     showSec(secNow);
     A.refreshHideSettings();
     A.refreshStorage();
+    A.refreshLibrary();
     fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;

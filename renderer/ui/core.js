@@ -84,7 +84,9 @@
     minus: svg('<path d="M3 8h10"/>'),
     clock: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 4.5V8l2.5 1.6"/>'),
     watch: svg('<path d="M8 4.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM6.5 1.5h3M8 1.5v3M8 9.5l2-2M12.3 4.6l1-1"/>'),
-    timer: svg('<path d="M4 1.5h8M4 14.5h8M5 1.5v2.5l3 4 3-4V1.5M5 14.5V12l3-4 3 4v2.5"/>')
+    timer: svg('<path d="M4 1.5h8M4 14.5h8M5 1.5v2.5l3 4 3-4V1.5M5 14.5V12l3-4 3 4v2.5"/>'),
+    // Books on a shelf, the last one leaning.
+    library: svg('<path d="M1.5 14.5h13M2.5 3h2.5v11.5H2.5zM6 2h2.5v12.5H6zM10 3.6l2.4-.7 2.3 10.9-2.4.7z"/>')
   };
   // Buttons in the page name their icon with data-icon="..."; draw them once here.
   Array.prototype.forEach.call(document.querySelectorAll('[data-icon]'), function (el) {

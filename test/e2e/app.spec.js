@@ -74,7 +74,7 @@ async function answerDialogs(p, save) {
   }, { p, save });
 }
 const toast = () => page.locator('#toast');
-// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Keys' or 'About'.
+// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Library', 'Storage', 'Keys' or 'About'.
 async function settingsAt(sec) {
   if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
   await page.click('#tab' + sec);
@@ -858,6 +858,38 @@ test('cast: Wall mode settings open Windows display settings; a display coming o
   const before = await options();
   await app.evaluate(({ screen }) => { screen.emit('display-added', {}, {}); });
   await expect.poll(options).toBe(before);
+  await page.keyboard.press('Escape');
+});
+
+test('Settings › Library: a folder comes in with its files and their details, notices new ones, and goes out again', async () => {
+  const lib = path.join(dir, 'Library folder');
+  fs.mkdirSync(path.join(lib, 'sub'), { recursive: true });
+  fs.writeFileSync(path.join(lib, 'wide.png'), png(160, 90, [200, 80, 40]));
+  fs.writeFileSync(path.join(lib, 'sub', 'tall.png'), png(90, 160, [40, 80, 200]));
+  fs.writeFileSync(path.join(lib, 'readme.txt'), 'not media');
+  await settingsAt('Library');
+  await expect(page.locator('#libFolders')).toContainText('No folders yet');
+  await answerDialogs(lib);
+  await page.click('#libAdd');
+  const row = page.locator('#libFolders .lrow');
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('b')).toHaveText('Library folder');
+  await expect(toast()).toContainText('Added Library folder: 2 videos, GIFs and pictures.');
+  await expect(row.locator('.lstat')).toHaveText('2 files');   // the details are read, too
+  const tall = await page.evaluate(() => window.wall.queryLibrary({ shape: 'portrait' }));
+  expect(tall.items.map((i) => [i.name, i.w, i.h])).toEqual([['tall.png', 90, 160]]);
+
+  // A new file is noticed by itself.
+  fs.writeFileSync(path.join(lib, 'square.png'), png(100, 100, [90, 90, 90]));
+  await expect(row.locator('.lstat')).toHaveText('3 files', { timeout: 10000 });
+
+  // Remove takes two clicks, and leaves the files where they are.
+  await row.locator('button').click();
+  await expect(row.locator('button')).toHaveText('Click again to remove');
+  await row.locator('button').click();
+  await expect(page.locator('#libFolders')).toContainText('No folders yet');
+  await expect(toast()).toContainText('Library folder is out of the library (3 files)');
+  expect(fs.existsSync(path.join(lib, 'square.png'))).toBe(true);
   await page.keyboard.press('Escape');
 });
 
