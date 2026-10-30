@@ -27,6 +27,16 @@ contextBridge.exposeInMainWorld('wall', {
   musicFiles: (dir) => ipcRenderer.invoke('fs:music', dir),
   importData: () => ipcRenderer.invoke('dialog:import'),
 
+  // background work: jobs (making files playable, thumbnails, …) and the cache they fill
+  jobs: () => ipcRenderer.invoke('jobs:list'),
+  cancelJob: (id) => ipcRenderer.invoke('jobs:cancel', id),
+  clearJobs: () => ipcRenderer.invoke('jobs:clear'),
+  onJobs: (cb) => { ipcRenderer.on('jobs:changed', (_e, list) => cb(list)); },
+  cacheInfo: () => ipcRenderer.invoke('cache:info'),
+  setCacheLimit: (gb) => ipcRenderer.invoke('cache:setLimit', gb),
+  clearCache: () => ipcRenderer.invoke('cache:clear'),
+  revealCache: () => ipcRenderer.invoke('cache:reveal'),
+
   // window
   displays: () => ipcRenderer.invoke('win:displays'),
   setFullscreen: (on, displayId) => ipcRenderer.invoke('win:fullscreen', !!on, displayId == null ? null : displayId),

@@ -27,6 +27,8 @@ const ffmpegBuild = (() => {
 
 const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
 const mediainfo = require('./lib/mediainfo');
+const { createJobs } = require('./lib/jobs');
+const { createCache } = require('./lib/cache');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -92,6 +94,49 @@ handle('store:reveal', () => {
   if (fs.existsSync(f)) shell.showItemInFolder(f); else shell.openPath(dataDir());
   return true;
 });
+
+/* ---------- background work: the job queue and the cache it fills (lib/jobs.js, lib/cache.js) ---------- */
+// One of each for the whole app, made when it is ready (the data folder is known then). The kinds of job are added by
+// the features that use them (making files playable, thumbnails, …). Unfinished jobs are saved to jobs.json.
+const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
+const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
+const JOB_KINDS = {};
+let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
+function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
+function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
+function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
+function tellJobs(list) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('jobs:changed', list);
+}
+// The list of unfinished jobs is written at most twice a second, the latest one last.
+function saveJobs(pending) {
+  jobsPending = pending;
+  if (jobsSaveTimer) return;
+  jobsSaveTimer = setTimeout(() => { jobsSaveTimer = null; files.writeJsonAtomic(jobsFile(), jobsPending).catch(() => { /* not critical */ }); }, 500);
+}
+function startBackground() {
+  try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
+  cache = createCache(path.join(dataDir(), 'cache'));
+  jobs = createJobs({
+    kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
+    load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
+  });
+  setTimeout(() => cache.clean(appSettings.cacheLimitGB * 1e9), 30000);
+}
+handle('jobs:list', () => (jobs ? jobs.list() : []));
+handle('jobs:cancel', (_e, id) => (jobs ? jobs.cancel(id) : false));
+handle('jobs:clear', () => { if (jobs) jobs.clearFinished(); return true; });
+handle('cache:info', () => cacheInfo());
+handle('cache:setLimit', (_e, gb) => {
+  if (CACHE_LIMITS.includes(gb)) {
+    appSettings.cacheLimitGB = gb;
+    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+    cache.clean(gb * 1e9);
+  }
+  return cacheInfo();
+});
+handle('cache:clear', () => { cache.clear(); return cacheInfo(); });
+handle('cache:reveal', () => { fs.mkdirSync(cache.root, { recursive: true }); shell.openPath(cache.root); return true; });
 
 /* ---------- files and dialogs ---------- */
 handle('fs:expand', (_e, paths) => files.expand(paths));   // no options from the page
@@ -471,6 +516,7 @@ if (!app.requestSingleInstanceLock()) {
     state = loadState();
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
+    startBackground();
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));

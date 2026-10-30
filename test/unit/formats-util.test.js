@@ -32,6 +32,10 @@ test('fileUrl encodes each part of a Windows path', () => {
   assert.equal(U.fileUrl('/home/me/a b.png'), 'file:///home/me/a%20b.png');
 });
 
+test('bytes reads like a file size', () => {
+  assert.deepEqual([0, 999, 1500, 1234567, 10.5e9, 250e9, -5].map(U.bytes), ['0 B', '999 B', '1.5 KB', '1.2 MB', '10.5 GB', '250 GB', '0 B']);
+});
+
 test('small helpers', () => {
   assert.equal(U.clamp(5, 0, 3), 3);
   assert.equal(U.clamp(-1, 0, 3), 0);

@@ -434,6 +434,14 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .quick .btn { height: 30px; padding: 0 10px; font-size: 12.5px; }
 .bar .pop .quick .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
 .note.path { font-size: 12px; color: var(--fg); }
+/* Settings › Storage: how full the cache is, by kind */
+.usage b { font-size: 20px; }
+.usage span { color: var(--muted); }
+.ubar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.ubar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; }
+.ckinds { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin: 0; font-size: 13px; max-width: 320px; }
+.ckinds dt { color: var(--muted); }
+.ckinds dd { margin: 0; text-align: right; font: 500 12px var(--mono); }
 
 /* The time in the bar: the clock, and chips for a stopwatch or timer in use; a finished timer flashes. */
 .timewrap { display: flex; align-items: center; gap: 6px; }

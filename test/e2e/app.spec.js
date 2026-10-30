@@ -355,6 +355,15 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#aboutFfmpeg')).toContainText('Includes FFmpeg 9.0.2');
   await expect(page.locator('#aboutLinks')).toContainText('FFmpeg source');
   await expect(page.locator('#dataDir')).toHaveText(path.join(dir, 'data'));
+  // Storage: the cache that jobs fill, empty so far, with a size limit kept app-wide.
+  await page.click('#tabStorage');
+  await expect(page.locator('#cacheTotal')).toHaveText('0 B');
+  await expect(page.locator('#cacheDir')).toHaveText(path.join(dir, 'data', 'cache'));
+  await expect(page.locator('#cacheKinds')).toContainText('Playable copies');
+  await expect(page.locator('#cacheClear')).toBeDisabled();
+  await page.locator('#cacheLimit').selectOption('5');
+  await expect(page.locator('#cacheOf')).toHaveText('of 5 GB');
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB).toBe(5);
   await page.keyboard.press('Escape');
 });
 

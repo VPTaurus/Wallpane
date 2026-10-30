@@ -261,6 +261,7 @@
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
+            <button type="button" role="tab" id="tabStorage" data-sec="storage" aria-controls="secStorage"><span data-icon="disk"></span>Storage</button>
             <button type="button" role="tab" id="tabKeys" data-sec="keys" aria-controls="secKeys"><span data-icon="keyboard"></span>Keys</button>
             <button type="button" role="tab" id="tabAbout" data-sec="about" aria-controls="secAbout"><span data-icon="info"></span>About</button>
           </nav>
@@ -321,6 +322,23 @@
               </div>
               <div class="row"><button class="btn" id="hideImageBtn" type="button" hidden>Choose picture…</button><button class="btn" id="hideTry" type="button">Hide now</button></div>
               <p class="note" id="hideNote"></p>
+            </section>
+
+            <section class="ssec" id="secStorage" data-sec="storage" role="tabpanel" aria-labelledby="tabStorage" hidden>
+              <h2>Storage</h2>
+              <p class="note">Wallpane keeps what it makes from your files here: playable copies, thumbnails, previews and lighter copies. Your own files are never changed, and anything here can be made again.</p>
+              <div class="usage"><b id="cacheTotal">0 B</b> <span id="cacheOf">of 10 GB</span></div>
+              <div class="ubar" aria-hidden="true"><i id="cacheBar"></i></div>
+              <dl class="ckinds" id="cacheKinds"></dl>
+              <div class="frow"><label for="cacheLimit">Keep at most</label>
+                <select id="cacheLimit"><option value="2">2 GB</option><option value="5">5 GB</option><option value="10">10 GB</option><option value="20">20 GB</option><option value="50">50 GB</option><option value="100">100 GB</option></select>
+              </div>
+              <p class="note">When it is full, the files used longest ago go first.</p>
+              <p class="note path" id="cacheDir"></p>
+              <div class="row">
+                <button class="btn" id="cacheReveal" type="button"><span data-icon="folder"></span>Show folder</button>
+                <button class="btn warn" id="cacheClear" type="button"><span data-icon="trash"></span><span class="lbl">Clear</span></button>
+              </div>
             </section>
 
             <section class="ssec" id="secKeys" data-sec="keys" role="tabpanel" aria-labelledby="tabKeys" hidden>
@@ -399,6 +417,7 @@
 <script src="ui/hide.js"></script>
 <script src="ui/clock.js"></script>
 <script src="ui/music.js"></script>
+<script src="ui/jobs.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>
