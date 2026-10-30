@@ -675,7 +675,7 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#clock')).toBeHidden();
   await expect(page.locator('#clockIcon')).toBeVisible();
   await expect(page.locator('#swChip')).toBeVisible();
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).timeBar).toEqual({ clock: false, sw: true, tm: true });
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).timeBar).toEqual({ clock: false, sw: true, tm: true, ct: false });
   await page.keyboard.press('Escape');
   await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Start the stopwatch');
   await page.click('#swCtl');
@@ -701,6 +701,23 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#swChip')).toBeHidden();
   await expect(page.locator('#tmChip')).toBeHidden();
   await expect(page.locator('#clock')).toBeVisible();
+  // Counter: + and − in the popover; in the bar its + adds one and a right-click takes one away. Kept for next time.
+  await page.click('#ctPlus');
+  await page.click('#ctPlus');
+  await expect(page.locator('#ctNum')).toHaveText('2');
+  await page.click('#ctMinus');
+  await expect(page.locator('#ctNum')).toHaveText('1');
+  await expect(page.locator('#ctChip')).toBeVisible();          // not at 0, so it shows without the tick
+  await page.keyboard.press('Escape');
+  await page.click('#ctCtl');
+  await page.click('#ctCtl');
+  await expect(page.locator('#ctChipT')).toHaveText('3');
+  await page.click('#ctCtl', { button: 'right' });
+  await expect(page.locator('#ctChipT')).toHaveText('2');
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(2);
+  await page.click('#ctOpen');
+  await page.click('#ctReset');
+  await expect(page.locator('#ctChip')).toBeHidden();
   await page.keyboard.press('Escape');
 });
 

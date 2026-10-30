@@ -9,6 +9,7 @@
 - **Playlists** can play only videos, GIFs or images, any mix.
 - **Empty tiles** have File… and Folder… buttons.
 - **Clock, stopwatch and timer:** an "In the bar" box for each; a stopwatch or timer in the bar has its own start/pause button.
+- **Counter:** a simple tally next to them (−, +, Reset), kept for next time; in the bar, + adds one and a right-click takes one away.
 - **The speaker** in the top bar shows whether the sound is on, like the speaker on each video.
 
 ## 1.2.0 — first public release

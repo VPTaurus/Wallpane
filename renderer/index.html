@@ -139,6 +139,10 @@
           <button class="tchipt" id="tmOpen" type="button" title="Timer"><span data-icon="timer"></span><span id="tmChipT">5:00</span></button>
           <button class="tctl" id="tmCtl" type="button" aria-label="Start the timer" title="Start the timer"></button>
         </span>
+        <span class="tchip" id="ctChip" hidden>
+          <button class="tchipt" id="ctOpen" type="button" title="Counter"><span data-icon="hash"></span><span id="ctChipT">0</span></button>
+          <button class="tctl" id="ctCtl" type="button" aria-label="Add one to the counter" title="Add one (right-click: take one away)"><span data-icon="plus"></span></button>
+        </span>
         <div class="pop timepop" id="popT" hidden>
           <div class="thead"><span class="lab">Clock</span><label class="check"><input type="checkbox" id="showClock" checked> In the bar</label></div>
           <div class="bigtime" id="bigClock">--:--:--</div>
@@ -165,6 +169,15 @@
             <button class="btn" id="tmReset" type="button" disabled>Reset</button>
           </div>
           <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode. "In the bar" keeps one there with a start and pause button; without it, it shows only while in use.</p>
+          <hr class="div">
+          <div class="thead"><span class="lab">Counter</span><label class="check"><input type="checkbox" id="showCt"> In the bar</label></div>
+          <div class="bigtime" id="ctNum">0</div>
+          <div class="row">
+            <button class="btn ib" id="ctMinus" type="button" aria-label="Take one away" title="Take one away"><span data-icon="minus"></span></button>
+            <button class="btn pri" id="ctPlus" type="button"><span data-icon="plus"></span>Add one</button>
+            <button class="btn" id="ctReset" type="button" disabled>Reset</button>
+          </div>
+          <p class="note">Counts anything you like, and keeps the count for next time. In the bar, + adds one; right-click it to take one away.</p>
         </div>
       </div>
     </div>

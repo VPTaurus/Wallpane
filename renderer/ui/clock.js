@@ -1,7 +1,7 @@
-// The time in the bar: a clock, and a stopwatch and a countdown timer that keep running in the background (also in
-// wall mode). The popover's "In the bar" boxes choose what the bar always shows: the clock (else a small clock icon,
-// so the popover can still be opened), and chips for the stopwatch and timer with a start/pause button each. A
-// stopwatch or timer in use shows anyway, so a running one never disappears.
+// The time in the bar: a clock, a stopwatch and a countdown timer that keep running in the background (also in wall
+// mode), and a counter. The popover's "In the bar" boxes choose what the bar always shows: the clock (else a small
+// clock icon, so the popover can still be opened), and chips for the others with a button each (start/pause, or +1
+// for the counter). A stopwatch or timer in use, or a counter not at 0, shows anyway.
 (function (A) {
   'use strict';
   if (!A) return;
@@ -55,6 +55,9 @@
     setText('tmChipT', C.fmtLeft(left));
     setCtl('tmCtl', tmDone ? 'reset' : tmOn ? 'pause' : 'play',
       tmDone ? 'Reset the timer' : tmOn ? 'Pause the timer' : (tmUsed ? 'Resume the timer' : 'Start the timer'));
+    // The counter: when ticked, or while it is not at 0.
+    setFlags('ctChip', { hidden: !bar.ct && !S.counter });
+    setText('ctChipT', String(S.counter));
     if (popOpen()) {
       setText('bigClock', C.fmtClock(d, h24(), true));
       setText('dateLine', d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
@@ -66,6 +69,8 @@
       $('#swReset').disabled = !swMs;
       setText('tmGo', tmOn ? 'Pause' : (tmUsed && !tmDone ? 'Resume' : 'Start'));
       $('#tmReset').disabled = !tmOn && !tmDone && !tmUsed;
+      setText('ctNum', String(S.counter));
+      $('#ctReset').disabled = !S.counter;
     }
   }
   setInterval(tick, 100);
@@ -104,14 +109,15 @@
   A.refreshTime = function () {
     $('#clock24').checked = h24();
     $('#showClock').checked = S.timeBar.clock; $('#showSw').checked = S.timeBar.sw; $('#showTm').checked = S.timeBar.tm;
+    $('#showCt').checked = S.timeBar.ct;
     shown = {};
     renderLaps(); tick();
   };
-  [['showClock', 'clock'], ['showSw', 'sw'], ['showTm', 'tm']].forEach(function (p) {
+  [['showClock', 'clock'], ['showSw', 'sw'], ['showTm', 'tm'], ['showCt', 'ct']].forEach(function (p) {
     $('#' + p[0]).addEventListener('change', function () { S.timeBar[p[1]] = this.checked; A.savePrefs(); tick(); });
   });
   // A chip's time opens (or closes) the popover.
-  ['swOpen', 'tmOpen'].forEach(function (id) {
+  ['swOpen', 'tmOpen', 'ctOpen'].forEach(function (id) {
     $('#' + id).addEventListener('click', function () { if (popOpen()) A.closePops(); else A.openPop('time'); });
   });
 
@@ -154,6 +160,17 @@
   Array.prototype.forEach.call(document.querySelectorAll('#tmPresets [data-min]'), function (b) {
     b.addEventListener('click', function () { setTimer(+b.dataset.min * 60000); C.start(tm, Date.now()); tick(); });
   });
+
+  /* ---------- counter: kept with the window's settings ---------- */
+  function count(by) {
+    S.counter = by === null ? 0 : Math.max(-999999, Math.min(999999, S.counter + by));
+    A.savePrefs(); tick();
+  }
+  $('#ctPlus').addEventListener('click', function () { count(1); });
+  $('#ctMinus').addEventListener('click', function () { count(-1); });
+  $('#ctReset').addEventListener('click', function () { count(null); });
+  $('#ctCtl').addEventListener('click', function () { count(1); });
+  $('#ctCtl').addEventListener('contextmenu', function (e) { e.preventDefault(); count(-1); });
 
   $('#clock24').addEventListener('change', function () { S.clock24 = this.checked; A.savePrefs(); shown = {}; tick(); });
   tick();
