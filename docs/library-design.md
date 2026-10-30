@@ -82,12 +82,14 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 4. **Settings › Library** lists the folders with how many files each holds and how many still wait for their details, with **Add folder…**, **Look again** and **Remove**.
 
 ## Thumbnails (C3)
-- WebP files, 360 px on the long side, in `cache\thumbs`. They count toward the cache limit; one that was cleaned away is simply made again.
-- **Videos:** FFmpeg picks a typical frame from about 10 % in, so never a black one.
-- **Images:** a small copy, so a folder of 6,000-pixel photos still scrolls smoothly.
+- WebP files, at most 360 px on the long side (never larger than the original), in `cache\thumbs`. They count toward the cache limit; one that was cleaned away is simply made again. A changed file gets a new one.
+- **Videos:** FFmpeg's thumbnail filter picks the most typical of 40 frames from about 10 % in, which skips a black or blank one. Phone videos come out upright, and stretched pixels (anamorphic video) are made square.
+- **Images:** a small copy, turned the way the camera says, so a folder of 6,000-pixel photos still scrolls smoothly.
 - **GIFs:** the first frame. Hover previews for videos and GIFs come in D1.
-- **Order:** the thumbnails on screen are made first, the rest in the background at low priority.
-- **Without FFmpeg (Lite):** images show from the file itself, and videos show a plain card with name and length.
+- **Order:** one background job ("Making thumbnails"), two at a time. The thumbnails a window asks for (`library:thumbs`, the ones on screen) come first and are checked again before every file. Then every other file that has its details. Each one asked for arrives through `library:thumbsMade` as soon as it is made.
+- **Speed:** about a tenth of a second each, for a 12-megapixel photo or a 1080p video, so about ten a second: a thousand files in under two minutes, 50,000 in about an hour and a half.
+- **A file FFmpeg cannot make one of** is marked (`terr`) and not tried again until it changes.
+- **Without FFmpeg (Lite):** there are no thumbnails. Images show from the file itself, and videos show a plain card with name and length.
 
 ## Browsing (C4)
 ```

@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- **Library folders** (Settings › Library): add the folders where you keep your media. Wallpane looks through them and their subfolders, notices new files by itself, and reads each file's details in the background (size, shape, length, whether it plays as it is). A folder on a drive that is not connected keeps its files until the drive is back. Browsing the library comes next.
+- **Library folders** (Settings › Library): add the folders where you keep your media. Wallpane looks through them and their subfolders, notices new files by itself, and reads each file's details in the background (size, shape, length, whether it plays as it is). A folder on a drive that is not connected keeps its files until the drive is back. Then it makes a thumbnail of every file: a typical frame of each video (not a black one), a small copy of each picture, upright as it should be. Browsing the library comes next.
 
 ## 1.4.0: Play anything
 

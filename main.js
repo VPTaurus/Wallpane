@@ -33,6 +33,7 @@ const { playableKind, gifVideoKind } = require('./lib/playable');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
 const { imageSize } = require('./lib/imagesize');
+const { createThumbs } = require('./lib/thumbs');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -106,7 +107,7 @@ const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
 const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
-let library = null, libFolders = null;   // the library and its folders on disk; loaded after the first window is up
+let library = null, libFolders = null, thumbs = null;   // the library, its folders on disk and its thumbnails
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
@@ -115,6 +116,9 @@ function tellJobs(list) {
 }
 function tellLibrary() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:changed');
+}
+function tellThumbs(made) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:thumbsMade', made);
 }
 // The list of unfinished jobs is written at most twice a second, the latest one last.
 function saveJobs(pending) {
@@ -126,9 +130,11 @@ function startBackground() {
   try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
   library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
+  const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
+  thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
   libFolders = createLibraryFolders({
-    library, watchers, notify: tellLibrary,
-    jobs: { add: (spec) => jobs && jobs.add(spec) },
+    library, watchers, notify: tellLibrary, onUpdated: thumbs.queue,
+    jobs: jobsLater,
     scan: (dir) => files.scan(dir, (p) => !!formats.kindOfName(p, ffmpeg.available())),
     imageSize,
     gifSeconds: async (p) => ((await fsp.stat(p)).size > 60 * 1024 * 1024 ? 0 : files.gifSeconds(await fsp.readFile(p))),
@@ -137,6 +143,7 @@ function startBackground() {
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
   JOB_KINDS.libinfo = libFolders.infoKind;
+  JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
     kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
     load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
@@ -212,6 +219,9 @@ handle('library:rescan', async (_e, p) => {
   return libFolders.folders();
 });
 handle('library:query', (_e, q) => { libFolders.ready(); return library.query(q && typeof q === 'object' ? q : {}); });
+// The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
+// 'library:thumbsMade'.
+handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });
 
 /* ---------- files and dialogs ---------- */
 // With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.

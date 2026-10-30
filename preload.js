@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('wall', {
   rescanLibrary: (p) => ipcRenderer.invoke('library:rescan', p == null ? null : String(p)),
   queryLibrary: (q) => ipcRenderer.invoke('library:query', q || {}),
   onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
+  libraryThumbs: (ids) => ipcRenderer.invoke('library:thumbs', Array.isArray(ids) ? ids.map(String) : []),
+  onLibraryThumbs: (cb) => { ipcRenderer.on('library:thumbsMade', (_e, made) => cb(made)); },
 
   // window
   displays: () => ipcRenderer.invoke('win:displays'),

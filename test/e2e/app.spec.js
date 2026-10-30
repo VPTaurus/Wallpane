@@ -879,6 +879,20 @@ test('Settings › Library: a folder comes in with its files and their details, 
   const tall = await page.evaluate(() => window.wall.queryLibrary({ shape: 'portrait' }));
   expect(tall.items.map((i) => [i.name, i.w, i.h])).toEqual([['tall.png', 90, 160]]);
 
+  // Thumbnails: asked for, made in the background, and shown by the page from the cache.
+  const ids = (await page.evaluate(() => window.wall.queryLibrary({}))).items.map((i) => i.id);
+  await expect.poll(async () => Object.keys(await page.evaluate((x) => window.wall.libraryThumbs(x), ids)).length, { timeout: 15000 }).toBe(2);
+  const shown = await page.evaluate(async (x) => {
+    const made = await window.wall.libraryThumbs(x);
+    return Promise.all(Object.values(made).map((p) => new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res(img.naturalWidth + '×' + img.naturalHeight);
+      img.onerror = () => res('did not load');
+      img.src = window.MW.util.fileUrl(p);
+    })));
+  }, ids);
+  expect(shown.sort()).toEqual(['160×90', '90×160']);
+
   // A new file is noticed by itself.
   fs.writeFileSync(path.join(lib, 'square.png'), png(100, 100, [90, 90, 90]));
   await expect(row.locator('.lstat')).toHaveText('3 files', { timeout: 10000 });
