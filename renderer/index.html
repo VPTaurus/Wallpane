@@ -124,20 +124,32 @@
 
     <span class="sp"></span>
 
-    <!-- The time: the clock, and chips for the stopwatch and timer while they are in use. -->
+    <!-- The time: the clock, and chips for the stopwatch and timer, each with a start/pause button. Which of them the
+         bar shows is ticked in the popover ("In the bar"); a stopwatch or timer in use shows anyway. -->
     <div class="grp">
-      <div class="popwrap">
+      <div class="popwrap timewrap">
         <button class="btn timebtn" id="timeBtn" type="button" aria-expanded="false" aria-controls="popT" title="Clock, stopwatch and timer">
-          <span class="clk" id="clock">--:--</span>
-          <span class="tchip" id="swChip" title="Stopwatch" hidden><span data-icon="watch"></span><span id="swChipT">0:00</span></span>
-          <span class="tchip" id="tmChip" title="Timer" hidden><span data-icon="timer"></span><span id="tmChipT">5:00</span></span>
+          <span class="clk" id="clock">--:--</span><span class="clkicon" id="clockIcon" data-icon="clock" hidden></span>
         </button>
+        <span class="tchip" id="swChip" hidden>
+          <button class="tchipt" id="swOpen" type="button" title="Stopwatch"><span data-icon="watch"></span><span id="swChipT">0:00</span></button>
+          <button class="tctl" id="swCtl" type="button" aria-label="Start the stopwatch" title="Start the stopwatch"></button>
+        </span>
+        <span class="tchip" id="tmChip" hidden>
+          <button class="tchipt" id="tmOpen" type="button" title="Timer"><span data-icon="timer"></span><span id="tmChipT">5:00</span></button>
+          <button class="tctl" id="tmCtl" type="button" aria-label="Start the timer" title="Start the timer"></button>
+        </span>
+        <span class="tchip" id="ctChip" hidden>
+          <button class="tchipt" id="ctOpen" type="button" title="Counter"><span data-icon="hash"></span><span id="ctChipT">0</span></button>
+          <button class="tctl" id="ctCtl" type="button" aria-label="Add one to the counter" title="Add one (right-click: take one away)"><span data-icon="plus"></span></button>
+        </span>
         <div class="pop timepop" id="popT" hidden>
-          <div class="thead"><span class="lab">Clock</span><label class="check"><input type="checkbox" id="clock24"> 24-hour</label></div>
+          <div class="thead"><span class="lab">Clock</span><label class="check"><input type="checkbox" id="showClock" checked> In the bar</label></div>
           <div class="bigtime" id="bigClock">--:--:--</div>
           <p class="note" id="dateLine"></p>
+          <label class="check"><input type="checkbox" id="clock24"> 24-hour</label>
           <hr class="div">
-          <span class="lab">Stopwatch</span>
+          <div class="thead"><span class="lab">Stopwatch</span><label class="check"><input type="checkbox" id="showSw"> In the bar</label></div>
           <div class="bigtime" id="swTime">0:00.0</div>
           <div class="row">
             <button class="btn pri" id="swGo" type="button">Start</button>
@@ -146,7 +158,7 @@
           </div>
           <ol class="laps" id="swLaps" hidden></ol>
           <hr class="div">
-          <span class="lab">Timer</span>
+          <div class="thead"><span class="lab">Timer</span><label class="check"><input type="checkbox" id="showTm"> In the bar</label></div>
           <div class="bigtime" id="tmTime">5:00</div>
           <div class="row tpresets" id="tmPresets">
             <button class="btn" type="button" data-min="1">1 min</button><button class="btn" type="button" data-min="5">5</button><button class="btn" type="button" data-min="10">10</button><button class="btn" type="button" data-min="15">15</button><button class="btn" type="button" data-min="30">30</button><button class="btn" type="button" data-min="60">60</button>
@@ -156,7 +168,16 @@
             <button class="btn pri" id="tmGo" type="button">Start</button>
             <button class="btn" id="tmReset" type="button" disabled>Reset</button>
           </div>
-          <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode.</p>
+          <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode. "In the bar" puts one in the bar with a start and pause button; unticking it takes it off and resets it.</p>
+          <hr class="div">
+          <div class="thead"><span class="lab">Counter</span><label class="check"><input type="checkbox" id="showCt"> In the bar</label></div>
+          <div class="bigtime" id="ctNum">0</div>
+          <div class="row">
+            <button class="btn ib" id="ctMinus" type="button" aria-label="Take one away" title="Take one away"><span data-icon="minus"></span></button>
+            <button class="btn pri" id="ctPlus" type="button"><span data-icon="plus"></span>Add one</button>
+            <button class="btn" id="ctReset" type="button" disabled>Reset</button>
+          </div>
+          <p class="note">Counts anything you like, and keeps the count for next time. In the bar, + adds one; right-click it to take one away. Unticking "In the bar" resets it to 0.</p>
         </div>
       </div>
     </div>

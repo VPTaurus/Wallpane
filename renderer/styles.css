@@ -114,7 +114,7 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 /* When the bar does not fit on one line (controls.js measures it, since the clock's chips come and go): first the
    right-hand buttons keep only their icons (c1), then Arrange too, and the tile modes get short names (c2), and
    last the tile count under the name and the chips' icons go (c3). */
-.bar.c3 .readout, .bar.c3 .tchip .ic { display: none; }
+.bar.c3 .readout, .bar.c3 .tchipt .ic { display: none; }
 .bar .short { display: none; }
 .bar.c1 .grp > .popwrap > .btn > .lbl { display: none; }
 .bar.c1 .grp > .popwrap > .btn:has(> .lbl) { width: 34px; padding: 0; justify-content: center; }
@@ -436,13 +436,22 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .note.path { font-size: 12px; color: var(--fg); }
 
 /* The time in the bar: the clock, and chips for a stopwatch or timer in use; a finished timer flashes. */
+.timewrap { display: flex; align-items: center; gap: 6px; }
 .timebtn { gap: 8px; }
 .clk { font: 500 15px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.tchip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); font: 500 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.clkicon svg { width: 16px; height: 16px; }
+/* A chip: its time (opens the popover) and its start/pause button. */
+.tchip { display: inline-flex; align-items: stretch; height: 26px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; }
+.tchip button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: inherit; font: 500 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.tchip button:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.tchipt { padding: 0 5px 0 9px; }
+.tctl { width: 26px; padding: 0; justify-content: center; border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent) !important; }
 .tchip .ic { color: var(--accent); }
 .tchip .ic svg { width: 13px; height: 13px; }
-.tchip.dim { opacity: 0.6; }
-.tchip.done { background: var(--accent); color: var(--accent-ink); animation: tflash 1s steps(1) infinite; }
+.tctl .ic svg { width: 11px; height: 11px; }
+.tchip.dim .tchipt { opacity: 0.6; }
+.tchip.done { background: var(--accent); color: var(--accent-ink); }
+.tchip.done .tchipt { animation: tflash 1s steps(1) infinite; }
 .tchip.done .ic { color: inherit; }
 @keyframes tflash { 50% { opacity: 0.35; } }
 .thead { display: flex; align-items: center; justify-content: space-between; }
@@ -457,7 +466,7 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .tpresets { gap: 6px; }
 .tpresets .btn { height: 30px; padding: 0 10px; }
 .tmset { width: 92px; height: 34px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; font: 500 14px var(--mono); }
-@media (prefers-reduced-motion: reduce) { .tchip.done, .bigtime.done { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tchip.done .tchipt, .bigtime.done { animation: none; } }
 
 /* Background music */
 .nowplaying { display: flex; flex-direction: column; gap: 3px; }
