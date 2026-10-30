@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.5.0: The library
+
+Download **Wallpane Setup 1.5.0.exe** (installer) or **Wallpane 1.5.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Wallpane now keeps a library of your own videos, GIFs and pictures, so you can find what you want and put it on the wall in a moment. Nothing leaves your computer, and your files are only ever read.
+
 - **Library folders** (Settings › Library): add the folders where you keep your media. Wallpane looks through them and their subfolders, notices new files by itself, and reads each file's details in the background (size, shape, length, whether it plays as it is). A folder on a drive that is not connected keeps its files until the drive is back. Then it makes a thumbnail of every file: a typical frame of each video (not a black one), a small copy of each picture, upright as it should be.
-- **The library drawer** (Library in the bar, Ctrl+L): every file as a thumbnail in its own shape, in even rows; search, Videos / GIFs / Pictures, filters by shape, length and resolution, one folder at a time, and sorting. Drag thumbnails or a folder onto the wall or a tile (Shift: a tile plays several in turn), or double-click one to put it on the selected tile. Drop folders on it to add them. It can also be a panel beside the wall, or a window of its own for a second screen, whose files drag onto any wall window (its header, or Settings › Library). The drawer and the panel go on the left or the right. The folders sit in one row that opens their list, so many folders never squeeze the thumbnails.
+- **The library drawer** (Library in the bar, Ctrl+L): every file as a thumbnail in its own shape, in even rows, fast with tens of thousands of files; search, Videos / GIFs / Pictures, filters by shape, length and resolution, one folder at a time, and sorting. Drag thumbnails or a folder onto the wall or a tile (Shift: a tile plays several in turn), or double-click one to put it on the selected tile. Drop folders on it to add them.
+- **Where it shows:** a drawer over the wall, a panel beside it (left or right), or a window of its own for a second screen, whose files drag onto any wall window. Choose in its header or in Settings › Library.
 - **Collections:** your own lists of library files. Add files from the right-click menu or by dragging them onto a collection; change the order by dragging; take files out with Delete. A collection dropped on a tile plays there and follows the collection as it changes.
 
 ## 1.4.0: Play anything
