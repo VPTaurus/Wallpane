@@ -22,7 +22,7 @@ test('index.html loads every page script, and only scripts that exist', () => {
 });
 
 test('every A.something the ui/ files use is defined by one of them', () => {
-  const builtIn = ['api', '$', 'S', 'wall', 'inspector', 'tileEls', 'drag', 'winId', 'wallPaused', 'isFs', 'userLayouts'];
+  const builtIn = ['api', '$', 'S', 'wall', 'inspector', 'tileEls', 'drag', 'LIB_TYPE', 'libDrag', 'winId', 'wallPaused', 'isFs', 'userLayouts'];
   const defined = new Set(builtIn.concat(all(/\bA\.(\w+)\s*=(?!=)/g, ui)));
   const used = new Set(all(/\bA\.(\w+)/g, ui));
   assert.deepEqual([...used].filter((n) => !defined.has(n)), []);

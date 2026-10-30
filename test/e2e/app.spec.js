@@ -907,6 +907,96 @@ test('Settings › Library: a folder comes in with its files and their details, 
   await page.keyboard.press('Escape');
 });
 
+test('the library drawer: search, kinds, and files dragged or double-clicked onto the wall', async () => {
+  const lib = path.join(dir, 'Drawer media');
+  fs.mkdirSync(path.join(lib, 'more'), { recursive: true });
+  fs.writeFileSync(path.join(lib, 'red wide.png'), png(160, 90, [220, 40, 40]));
+  fs.writeFileSync(path.join(lib, 'green tall.png'), png(90, 160, [40, 200, 60]));
+  fs.writeFileSync(path.join(lib, 'blue square.png'), png(100, 100, [40, 60, 220]));
+  fs.writeFileSync(path.join(lib, 'more', 'grey extra.png'), png(120, 90, [128, 128, 128]));
+  await page.evaluate((p) => window.wall.addLibraryFolder(p), lib);
+  // A fresh grid wall.
+  await settingsAt('General');
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await page.keyboard.press('Escape');
+  await page.click('#modeSeg [data-mode="grid"]');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('#gridBtn');   // 4 × 3, so the tiles below land beside the drawer, where they can be clicked
+  await page.fill('#cols', '4'); await page.press('#cols', 'Tab');
+  await page.fill('#rows', '3'); await page.press('#rows', 'Tab');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+
+  await page.keyboard.press('Control+l');
+  await expect(page.locator('#lib')).toBeVisible();
+  await expect(page.locator('#libSearch')).toBeFocused();
+  const thumbs = page.locator('#libGrid .lthumb');
+  await expect(thumbs).toHaveCount(4);
+  await expect(page.locator('#libShown')).toHaveText('4 files');
+  await expect(page.locator('#libGrid .lthumb img')).toHaveCount(4, { timeout: 15000 });   // the thumbnails came
+
+  await page.fill('#libSearch', 'tall');
+  await expect(thumbs).toHaveCount(1);
+  await expect(page.locator('#libShown')).toHaveText('1 of 4');
+  await page.fill('#libSearch', 'more');
+  await expect(thumbs).toHaveCount(1, { timeout: 3000 });   // the subfolder's name finds its file
+  await page.fill('#libSearch', '');
+  await page.click('.lkinds [data-kind="video"]');
+  await expect(page.locator('#libEmpty')).toContainText('Nothing matches.');
+  await page.click('#libEmpty button');
+  await expect(thumbs).toHaveCount(4);
+
+  // Dragged onto an empty cell under the drawer itself: the drawer lets the drop through.
+  const thumb = (name) => page.locator('#libGrid .lthumb', { hasText: '' }).and(page.locator('[title^="' + name + '"]'));
+  async function dragTo(src, target, shift) {
+    await expect(src).toBeVisible();
+    const a = await src.boundingBox(), b = await target.boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    if (shift) await page.keyboard.down('Shift');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+    await page.mouse.up();
+    if (shift) await page.keyboard.up('Shift');
+  }
+  await dragTo(thumb('red wide.png'), page.locator('[aria-label^="Empty cell, column 1 row 1"]'));
+  await expect(tiles()).toHaveCount(1);
+  await expect(page.locator('#wall .tile[aria-label^="red wide.png"]')).toHaveCount(1);
+  await expect(page.locator('#lib')).not.toHaveClass(/out/);
+
+  // Two picked with Ctrl, dragged together.
+  await thumb('blue square.png').click();
+  await thumb('green tall.png').click({ modifiers: ['Control'] });
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(2);
+  await dragTo(thumb('green tall.png'), page.locator('[aria-label^="Empty cell, column 3 row 2"]'));
+  await expect(tiles()).toHaveCount(3);
+
+  // With Shift, the two play in turn on the tile they land on.
+  await dragTo(thumb('green tall.png'), page.locator('#wall .tile[aria-label^="red wide.png"]'), true);
+  await expect(toast()).toContainText('This tile now plays "2 files from the library"');
+  await expect(tiles()).toHaveCount(3);
+
+  // Double-click: onto the selected tile (not the one now playing the two, which shows blue square.png first).
+  await page.locator('#wall .tile[aria-label^="green tall.png"]').click();
+  await thumb('grey extra.png').dblclick();
+  await expect(page.locator('#wall .tile[aria-label^="grey extra.png"]')).toHaveCount(1);
+  await expect(toast()).toContainText('grey extra.png is on the selected tile now');
+  await expect(tiles()).toHaveCount(3);
+
+  // Esc first lets go of the selection, then closes it; Ctrl+L brings it back as it was.
+  await page.locator('#libSearch').focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(0);
+  await expect(page.locator('#lib')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).toBeHidden();
+  await page.keyboard.press('Control+l');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libClose');
+  await expect(page.locator('#lib')).toBeHidden();
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('no page errors along the way', async () => {
   expect(errors).toEqual([]);
 });

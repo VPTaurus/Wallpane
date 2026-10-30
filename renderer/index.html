@@ -28,6 +28,7 @@
           <p class="note">You can also drop files and folders from Explorer onto the wall.</p>
         </div>
       </div>
+      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
     </div>
 
     <div class="grp">
@@ -384,6 +385,7 @@
                 <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
                 <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>L</kbd></dt><dd>Library open or closed</dd>
                 <dt id="keysHideKey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>H</kbd></dt><dd>Emergency hide, from any program; again to come back</dd>
                 <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
                 <dt>Double-click</dt><dd>One tile full screen</dd>
@@ -412,6 +414,46 @@
   </header>
 
   <main class="work">
+    <!-- The library: a drawer over the wall (ui/library.js). -->
+    <aside class="lib" id="lib" aria-label="Library" hidden>
+      <div class="lhead">
+        <span data-icon="library"></span><h2>Library</h2><span class="lcount" id="libCount"></span>
+        <span class="sp"></span>
+        <button class="btn ib" id="libAddFolder" type="button" aria-label="Add a folder to the library" title="Add a folder to the library"><span data-icon="plus"></span></button>
+        <button class="btn ib" id="libClose" type="button" aria-label="Close the library" title="Close the library (Ctrl+L)"><span data-icon="x"></span></button>
+      </div>
+      <label class="lsearch"><span data-icon="search"></span><input id="libSearch" type="search" placeholder="Search names" aria-label="Search names in the library" spellcheck="false" autocomplete="off"></label>
+      <div class="lchips">
+        <div class="lkinds" role="group" aria-label="Show only">
+          <button type="button" class="chip" data-kind="video" aria-pressed="false">Videos</button>
+          <button type="button" class="chip" data-kind="gif" aria-pressed="false">GIFs</button>
+          <button type="button" class="chip" data-kind="image" aria-pressed="false">Pictures</button>
+        </div>
+        <span class="sp"></span>
+        <button type="button" class="chip" id="libFiltBtn" aria-expanded="false" aria-controls="libFilt">Filters<span class="lnum" id="libFiltN" hidden></span><span data-icon="chev"></span></button>
+      </div>
+      <div class="lfilt" id="libFilt" hidden>
+        <select id="libShape" aria-label="Shape"><option value="">Any shape</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option><option value="square">Square</option></select>
+        <select id="libLength" aria-label="Length"><option value="">Any length</option><option value="short">Under 30 s</option><option value="medium">30 s to 5 min</option><option value="long">Over 5 min</option></select>
+        <select id="libRes" aria-label="Resolution"><option value="">Any resolution</option><option value="sd">Below HD</option><option value="hd">HD</option><option value="fhd">Full HD</option><option value="4k">4K and up</option></select>
+        <label class="check"><input type="checkbox" id="libCopy"><span>Needs a playable copy</span></label>
+        <button class="btn" id="libFiltClear" type="button">Clear filters</button>
+      </div>
+      <div class="lfolders" id="libFolderList" role="list" aria-label="Library folders"></div>
+      <div class="lgrid" id="libGrid" tabindex="0" role="listbox" aria-label="Files" aria-multiselectable="true">
+        <div class="lspace" id="libSpace"></div>
+        <div class="lempty" id="libEmpty" hidden></div>
+      </div>
+      <div class="lfoot">
+        <span class="lshown" id="libShown"></span>
+        <span class="sp"></span>
+        <select id="libSort" aria-label="Sort by"><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="random">Random</option></select>
+        <button class="btn ib" id="libRev" type="button" aria-pressed="false" aria-label="Reverse the order" title="Reverse the order"><span data-icon="sortdir"></span></button>
+        <button class="btn ib" id="libShuffle" type="button" aria-label="Shuffle again" title="Shuffle again" hidden><span data-icon="shuffle"></span></button>
+        <input type="range" id="libSize" min="60" max="240" step="10" aria-label="Thumbnail size" title="Thumbnail size">
+      </div>
+      <div class="lresize" id="libResize" title="Drag to make the library wider or narrower"></div>
+    </aside>
     <section class="stage" id="stage"><div class="wall" id="wall"></div></section>
   </main>
 </div>
@@ -433,6 +475,7 @@
 <script src="lib/hotkey.js"></script>
 <script src="lib/clock.js"></script>
 <script src="lib/collage.js"></script>
+<script src="lib/justify.js"></script>
 <script src="ui/core.js"></script>
 <script src="ui/tiles.js"></script>
 <script src="ui/inspector.js"></script>

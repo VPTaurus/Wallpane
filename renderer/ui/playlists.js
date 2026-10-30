@@ -288,6 +288,7 @@
     var id = newId(), p = PL.make(files, base, PL.rootFor(res, files));
     if (!PL.playable(p)) { nothingPlays(p); return; }
     p.truncated = !!res.truncated;
+    if (res.title) p.name = String(res.title).slice(0, 60);   // files picked in the library, not one folder
     A.pushHistory();
     S.playlists[id] = p;
     var mu = it.muted, ft = it.fit, f = PL.nextFile(p);

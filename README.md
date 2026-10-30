@@ -62,6 +62,7 @@ Saved walls, frame layouts, settings and your last wall are JSON files in `%APPD
 
 ## Keys
 - F11 wall mode on or off, Esc leaves wall mode / fullscreen
+- Ctrl+L opens or closes the library; in it, Ctrl+A selects everything shown, Enter puts the selection on the wall, Esc clears the search, then the selection, then closes it
 - Ctrl+Shift+H emergency hide, from any program (see below); press again to come back
 - Tab moves between tiles and selects them; Enter selects or lets go
 - Arrows move the selected tile, Shift+arrows resize, Delete removes it
@@ -91,6 +92,13 @@ The ♪ button in the top bar plays a folder of your own music behind the wall: 
 
 ## Library
 Settings › Library holds the folders where you keep your videos, GIFs and pictures. Wallpane looks through each folder and its subfolders when you add it, on every start and whenever something in it changes, and reads every file's details in the background: the size and shape of its picture, how long it runs, and whether it plays as it is. A portrait phone photo or video counts as portrait. Then it makes a small thumbnail of each file (for a video, a typical frame, not a black one), kept in the cache (Settings › Storage). A folder on a drive that is not connected keeps its files in the library until the drive is back. Removing a folder only takes it out of the library; Wallpane never changes, moves or deletes your files.
+
+**Library** in the bar (Ctrl+L) opens it as a drawer over the wall; the wall keeps playing behind it.
+- **Finding files:** search by name (file and folder names, every word, without accents or case), Videos / GIFs / Pictures, Filters (shape, length, resolution, files that need a playable copy), or one library folder from the list. Sort by name, date added, date changed, length, file size or at random (shuffle again with its button); the slider sets the thumbnail size, and the drawer's right edge its width.
+- **Onto the wall:** drag thumbnails onto the wall or onto a tile: it works as a drop from Explorer does. While you drag, the drawer fades, so a tile under it can take the drop too. Hold Shift while dropping several on a tile to make that tile play them in turn. Drag a folder from the list to make a tile (or the empty tiles) play it.
+- **Without dragging:** double-click a thumbnail (or select and press Enter) to put it on the selected tile, or else into the empty tiles. Right-click for the same, and for Show in Explorer.
+- **Selecting:** click, Ctrl+click, Shift+click, and Ctrl+A for everything shown.
+- **Adding folders:** drop folders from Explorer onto the drawer, or use its + button.
 
 ## On a TV or projector
 Settings › Wall mode › **Connect a wireless display…** opens Windows' display settings, where "Connect to a wireless display" (or Win+K) casts to a TV, projector or stick that supports Miracast. Choose **Extend** so it becomes a display of its own; Wallpane notices and lists it under Show on, and wall mode then fills it. Chromecast is not supported.
@@ -131,5 +139,5 @@ GitHub Actions runs all three on every push to `main` or `Dev` and on every pull
 - `preload.js`: the small API the page gets (`window.wall`).
 - `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`), running FFmpeg (`ffmpeg.js`), what a file holds and what it needs (`mediainfo.js`), making a playable copy (`playable.js`), the background job queue (`jobs.js`), the cache (`cache.js`) and the library: its folders, files, search and filters, kept in `library.json` (`library.js`, designed in `docs/library-design.md`), kept in step with the folders on disk (`libraryfolders.js`), with picture sizes read from the files' first bytes (`imagesize.js`) and thumbnails in the cache (`thumbs.js`).
 - `scripts/fetch-ffmpeg.js`: the pinned FFmpeg build, fetched into `vendor/ffmpeg`.
-- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process), the stopwatch and timer (`clock.js`) and Fill the wall (`collage.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), `playable.js` (tiles waiting for a playable copy), `jobs.js` (background work in the bar, Settings › Storage), `library.js` (Settings › Library), and `boot.js` last.
+- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process), the stopwatch and timer (`clock.js`) and Fill the wall (`collage.js`), and the library's thumbnails in even rows (`justify.js`).
+- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), `playable.js` (tiles waiting for a playable copy), `jobs.js` (background work in the bar, Settings › Storage), `library.js` (the library drawer, Settings › Library), and `boot.js` last.

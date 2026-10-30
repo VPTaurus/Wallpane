@@ -355,15 +355,22 @@
     if (!isFiles) return null;
     if (!inside) return { ok: true, target: null, ghost: null };
     var cc = A.cellAt(e.clientX, e.clientY), oc = G.itemAt(S.items, cc.col, cc.row);
-    var n = (e.dataTransfer && e.dataTransfer.items) ? e.dataTransfer.items.length : 1;
-    if (oc) return { ok: true, target: cc, ghost: { col: oc.col, row: oc.row, w: oc.w, h: oc.h }, label: oc.missing ? 'Reconnect' : (oc.sample ? 'Replace sample' : 'Replace') };
+    var n = A.libDrag ? A.libDrag.n : (e.dataTransfer && e.dataTransfer.items) ? e.dataTransfer.items.length : 1;
+    if (oc) return { ok: true, target: cc, ghost: { col: oc.col, row: oc.row, w: oc.w, h: oc.h }, label: oc.missing ? 'Reconnect' : (oc.sample ? 'Replace sample' : (A.libDrag && e.shiftKey && n > 1 ? 'Play these ' + n + ' in turn' : 'Replace')) };
     return { ok: true, target: cc, ghost: { col: cc.col, row: cc.row, w: 1, h: 1 }, label: n > 1 ? 'Add ' + n : 'Add' };
   }
 
+  // Files from Explorer, or from the library (A.LIB_TYPE: their paths).
+  function filesIn(dt) {
+    var types = Array.prototype.slice.call((dt && dt.types) || []);
+    return types.indexOf('Files') > -1 || types.indexOf(A.LIB_TYPE) > -1;
+  }
+  function libPaths(dt) {
+    try { var v = JSON.parse(dt.getData(A.LIB_TYPE) || '[]'); return Array.isArray(v) ? v.filter(function (p) { return typeof p === 'string' && p; }) : []; } catch (err) { return []; }
+  }
   window.addEventListener('dragover', function (e) {
     e.preventDefault();
-    var types = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.types) || []);
-    var isFiles = types.indexOf('Files') > -1;
+    var isFiles = filesIn(e.dataTransfer);
     if (A.drag.id == null && !isFiles) return;
     if (S.mode === 'free') { A.hideGhost(); wall.classList.toggle('hot', isFiles && A.inWall(e.clientX, e.clientY)); e.dataTransfer.dropEffect = 'copy'; return; }
     var plan = planDrop(e, isFiles);
@@ -383,12 +390,19 @@
       return;
     }
     var dt = e.dataTransfer;
-    if (!dt || Array.prototype.slice.call(dt.types || []).indexOf('Files') < 0) return;
+    if (!dt || !filesIn(dt)) return;
+    var fromLib = Array.prototype.indexOf.call(dt.types || [], A.LIB_TYPE) > -1;
     var plan2 = planDrop(e, true);
-    var paths = Array.prototype.slice.call(dt.files || []).map(function (f) { return A.api.pathOf(f); }).filter(Boolean);
+    var paths = fromLib ? libPaths(dt) : Array.prototype.slice.call(dt.files || []).map(function (f) { return A.api.pathOf(f); }).filter(Boolean);
     if (!paths.length) { A.toast('Could not read those files. Drop files or folders from Explorer.'); return; }
     var tgt = S.mode === 'free' ? { x: e.clientX, y: e.clientY, free: true } : (plan2 && plan2.target);
-    A.api.expand(paths).then(function (res) { A.addFiles(res, tgt, true); });
+    // Shift while dropping several files from the library on a tile: that tile plays them in turn.
+    var inTurn = fromLib && e.shiftKey && paths.length > 1;
+    A.api.expand(paths).then(function (res) {
+      var on = inTurn && tgt ? (tgt.free ? itemUnderPoint(tgt) : G.itemAt(S.items, tgt.col, tgt.row)) : null;
+      if (on && !on.sample && res.entries.length > 1) { res.title = res.entries.length + ' files from the library'; A.assignFolder(on, res); return; }
+      A.addFiles(res, tgt, true);
+    });
   });
 
   /* ---------- Grid or Free layout ---------- */

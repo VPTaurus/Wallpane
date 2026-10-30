@@ -145,6 +145,7 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target, inField = t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
     if (e.key === 'F11') { e.preventDefault(); A.setClean(!document.body.classList.contains('clean')); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'l') { e.preventDefault(); A.toggleLibrary(); return; }
     if (e.key === 'Escape' && A.soloId != null) { A.setSolo(null); return; }   // only the tile's full screen ends
     // Escape (or Enter) first closes the right-click menu, or finishes repositioning media, or closes Properties.
     if (e.key === 'Escape' && A.menuOpen()) { A.hideMenu(); return; }

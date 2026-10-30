@@ -16,11 +16,15 @@
       playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even', autoConvert: true, gifVideo: '2',
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
-      counter: 0                                                     // the counter in the clock popover
+      counter: 0,                                                    // the counter in the clock popover
+      // The library drawer: open or not, its width, the thumbnail size, the order, and what it shows.
+      lib: { open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),
     drag: { id: null, dx: 0, dy: 0 },   // the tile being dragged on the grid, and where in it the pointer holds it
+    // Files dragged out of the library carry their paths under this type; libDrag { n } while one is under way.
+    LIB_TYPE: 'application/x-wallpane-files', libDrag: null,
     winId: 1, wallPaused: false, isFs: false, userLayouts: []
   };
   var S = A.S, wall = A.wall, toastEl = $('#toast'), toastTimer = 0;
@@ -86,7 +90,10 @@
     watch: svg('<path d="M8 4.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM6.5 1.5h3M8 1.5v3M8 9.5l2-2M12.3 4.6l1-1"/>'),
     timer: svg('<path d="M4 1.5h8M4 14.5h8M5 1.5v2.5l3 4 3-4V1.5M5 14.5V12l3-4 3 4v2.5"/>'),
     // Books on a shelf, the last one leaning.
-    library: svg('<path d="M1.5 14.5h13M2.5 3h2.5v11.5H2.5zM6 2h2.5v12.5H6zM10 3.6l2.4-.7 2.3 10.9-2.4.7z"/>')
+    library: svg('<path d="M1.5 14.5h13M2.5 3h2.5v11.5H2.5zM6 2h2.5v12.5H6zM10 3.6l2.4-.7 2.3 10.9-2.4.7z"/>'),
+    search: svg('<circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4l3.6 3.6"/>'),
+    sortdir: svg('<path d="M5 2.5v11M2.5 11l2.5 2.5 2.5-2.5M11 13.5v-11M8.5 5l2.5-2.5 2.5 2.5"/>'),
+    shuffle: svg('<path d="M1.5 4.5h2.5c3.5 0 4.5 7 8 7h2.5M12.5 9.5l2 2-2 2M1.5 11.5h2.5c1.2 0 2-.8 2.7-2M9.3 6.5c.7-1.2 1.5-2 2.7-2h2.5M12.5 2.5l2 2-2 2"/>')
   };
   // Buttons in the page name their icon with data-icon="..."; draw them once here.
   Array.prototype.forEach.call(document.querySelectorAll('[data-icon]'), function (el) {
@@ -101,7 +108,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, autoConvert: S.autoConvert, gifVideo: S.gifVideo, music: S.music, timeBar: S.timeBar, counter: S.counter });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, autoConvert: S.autoConvert, gifVideo: S.gifVideo, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -122,6 +129,16 @@
     var tb = p.timeBar;
     if (tb && typeof tb === 'object') S.timeBar = { clock: tb.clock !== false, sw: tb.sw === true, tm: tb.tm === true, ct: tb.ct === true };
     if (Number.isFinite(p.counter)) S.counter = MW.util.clamp(Math.round(p.counter), -999999, 999999);
+    var l = p.lib, one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
+    if (l && typeof l === 'object') {
+      S.lib = {
+        open: l.open === true, w: MW.util.clamp(+l.w || 400, 260, 4000), size: MW.util.clamp(+l.size || 110, 60, 240),
+        sort: one(l.sort, ['added', 'changed', 'length', 'size', 'random']) || 'name', rev: l.rev === true,
+        kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
+        shape: one(l.shape, ['landscape', 'portrait', 'square']), length: one(l.length, ['short', 'medium', 'long']),
+        res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, folder: typeof l.folder === 'string' && l.folder ? l.folder : null
+      };
+    }
     var m = p.music;
     if (m && typeof m === 'object') {
       S.music = {

@@ -52,6 +52,7 @@
     if (A.winId > 1) document.title = 'Wallpane · Wall ' + A.winId;
     A.render();
     A.applyPrefs(got[0]);
+    A.initLibrary();
     A.loadUserLayouts(got[2]);
     A.fillDisplays(Array.isArray(got[3]) ? got[3] : [], true);
     var rec = got[1] ? MW.rec.cleanRecord(got[1], false) : null;
