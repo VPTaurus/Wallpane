@@ -18,9 +18,10 @@
   function hide() {
     if (hidden) return;
     hidden = true;
-    was = { playing: A.videos().filter(function (v) { return !v.paused; }), paused: A.wallPaused };
+    var players = A.videos().concat(A.musicEl ? [A.musicEl] : []);   // the background music too
+    was = { playing: players.filter(function (v) { return !v.paused; }), paused: A.wallPaused };
     A.wallPaused = true;   // image playlists stop moving on too
-    A.videos().forEach(function (v) { v.pause(); });
+    players.forEach(function (v) { v.pause(); });
     A.hideMenu();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     cover.className = 'cover ' + cfg.cover;

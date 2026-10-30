@@ -23,8 +23,9 @@
       // A frame without media yet: drop media on it, or choose some.
       media = document.createElement('div');
       media.className = 'media empty-ph';
-      media.innerHTML = '<span class="ic" aria-hidden="true">' + ICON.tile + '</span><span>Empty tile</span><span class="sub">Drop media here, or</span>' +
-        '<button class="btn" type="button" data-act="choose">Choose…</button>';
+      media.innerHTML = '<span class="ic" aria-hidden="true">' + ICON.tile + '</span><span>Empty tile</span><span class="sub">Drop media here, or choose</span>' +
+        '<span class="phbtns"><button class="btn" type="button" data-act="choose" title="One file for this tile">File…</button>' +
+        '<button class="btn" type="button" data-act="chooseFolder" title="A folder whose files this tile plays in turn">Folder…</button></span>';
     } else if (it.missing) {
       media = document.createElement('div');
       media.className = 'media offline-ph';
@@ -55,6 +56,7 @@
       media.src = it.url;
     }
     media.draggable = false;
+    if (it._fitOnLoad && A.hasMedia(it)) media.addEventListener(media.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', function () { A.fitNewTile(it); }, { once: true });
     if (it.pl && !it.missing) {
       media.addEventListener('error', function () { if (!el._dead) A.failAdvance(it); });
       media.addEventListener('load', function () { var pp = S.playlists[it.pl]; if (pp) pp.bad = 0; });
@@ -134,6 +136,7 @@
       var act = b.dataset.act;
       if (act === 'remove') { A.removeItem(it.id); return; }
       if (act === 'choose') { A.select(it.id); A.chooseMedia(it); return; }
+      if (act === 'chooseFolder') { A.select(it.id); A.ownFolder(it); return; }
       if (act === 'reposDone') { A.endRepos(); return; }
       if (act === 'viewReset') { A.resetView(it); return; }
       if (act === 'next') { if (it.pinned) A.toast('This tile is pinned. Unpin it to skip.'); else A.advance(it); return; }
@@ -147,13 +150,10 @@
       }
       else if (act === 'play') { if (media.paused) media.play().catch(function () {}); else media.pause(); }
     });
+    // Double-click toggles: this tile full screen, and back.
     el.addEventListener('dblclick', function (e) {
       if (e.target.closest('[data-act]') || e.target.closest('.rz')) return;
-      try {
-        // Double-click toggles: into fullscreen for this tile, and back out when it is already fullscreen.
-        var pr = document.fullscreenElement ? document.exitFullscreen() : (el.requestFullscreen && el.requestFullscreen());
-        if (pr && pr.catch) pr.catch(function () {});
-      } catch (err) { /* ignore */ }
+      A.setSolo(A.soloId == null ? it.id : null);
     });
     el.addEventListener('dragstart', function (e) {
       if (A.reposId === it.id) { e.preventDefault(); return; }
@@ -324,8 +324,9 @@
   }
 
   /* Free layout, moving: the tile always follows the pointer (snapping to the wall's and other tiles' edges; Alt turns
-     that off) and the other tiles show where they will go. Where they cannot make room, dropping on another tile swaps
-     the two; anywhere else the tile goes back to where it was. */
+     that off) and the other tiles show where they will go. They only move away on their own side, never jumping over
+     the tile. Where they cannot make room, they stay, and dropping on one swaps the two; anywhere else the tile goes
+     back to where it was. */
   function startMoveFree(e, it, el) {
     var d = A.wallPx(), base = A.freeGeoPx(), g0 = base[it.id];
     if (!g0) return;
@@ -351,7 +352,7 @@
         y = clamp(y + F.snapAxis(y, g0.h, lines.Y), 0, d.H - g0.h);
       }
       var want = { x: x, y: y, w: g0.w, h: g0.h };
-      var res = F.resolve(idsNow(), it.id, want, base, d), land = 'move', other;
+      var res = F.resolve(idsNow(), it.id, want, base, d, { keepSide: true }), land = 'move', other;
       if (!res && (other = tileUnder(ev))) {
         res = Object.assign({}, base); res[other] = base[it.id]; res[it.id] = base[other]; land = 'swap';
       }
@@ -373,8 +374,9 @@
     }
     el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   }
-  /* Free layout, resizing: the sides that move out push the tiles in their way, which are squeezed once they reach the
-     wall. When even that is not enough, the side stops as far as it can go. */
+  /* Free layout, resizing: the sides that move out push the tiles in their way. Those tiles shrink evenly, or (Settings
+     › General) only the ones that reach the wall get squeezed. When even that is not enough, the side stops as far as
+     it can go. */
   function startResizeFree(e, it, el, hd, edge) {
     e.preventDefault(); e.stopPropagation();
     A.select(it.id); hd.classList.add('active');
@@ -390,11 +392,11 @@
       if (edge.indexOf('s') > -1) { p = g0.y + g0.h + dy; if (snap) p = F.snapPos(p, lines.Y); p = clamp(p, g0.y + MIN, d.H); g.h = p - g0.y; }
       if (edge.indexOf('n') > -1) { p = g0.y + dy; if (snap) p = F.snapPos(p, lines.Y); p = clamp(p, 0, g0.y + g0.h - MIN); g.y = p; g.h = g0.y + g0.h - p; }
       if (ev.shiftKey) g = F.keepRatio(g0, g, edge, S.gap);   // Shift keeps the tile's proportions
-      var ids = idsNow(), res = F.pushResize(ids, it.id, g0, g, base, d);
+      var ids = idsNow(), res = F.pushResize(ids, it.id, g0, g, base, d, S.resizeMode);
       if (!res) {                                    // as far towards the pointer as it goes
         var lo = 0, hi = 1;
         for (var i = 0; i < 10; i++) {
-          var mid = (lo + hi) / 2, r = F.pushResize(ids, it.id, g0, lerp(mid, g), base, d);
+          var mid = (lo + hi) / 2, r = F.pushResize(ids, it.id, g0, lerp(mid, g), base, d, S.resizeMode);
           if (r) { lo = mid; res = r; } else hi = mid;
         }
       }
@@ -414,7 +416,7 @@
     var g = { x: g0.x, y: g0.y, w: g0.w, h: g0.h };
     if (e.shiftKey) { g.w = clamp(g.w + dir[0] * step, F.MIN, d.W - g.x); g.h = clamp(g.h + dir[1] * step, F.MIN, d.H - g.y); }
     else { g.x = clamp(g.x + dir[0] * step, 0, d.W - g.w); g.y = clamp(g.y + dir[1] * step, 0, d.H - g.h); }
-    var res = F.resolve(idsNow(), it.id, g, base, d);
+    var res = F.resolve(idsNow(), it.id, g, base, d, { keepSide: true });
     if (!res) return;
     var now = Date.now();
     if (lastNudge.id !== it.id || now - lastNudge.t > 700) A.pushHistory();
@@ -514,6 +516,7 @@
     el.classList.toggle('pinned', !!it.pinned);
     el.classList.toggle('repos', A.reposId === it.id);
     el.classList.toggle('gone', !!it._gone);
+    el.classList.toggle('solo', A.soloId === it.id);
     var m = el._media;
     if (A.hasMedia(it)) {
       var vc = V.css(it);
@@ -522,7 +525,9 @@
     }
     if (m.tagName === 'VIDEO') {
       var rate = it.speed || 1;
-      m.muted = it.muted; m.volume = it.vol == null ? 1 : it.vol;
+      // One tile full screen: it is heard and the others are quiet (Settings › General), until full screen ends.
+      m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
+      m.volume = it.vol == null ? 1 : it.vol;
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
       m.loop = it.loop && (it.pl || !P.hasLoop(it));   // a loop part does its own looping
       if (el._syncBar) el._syncBar();
@@ -576,6 +581,23 @@
   };
   A.hideGhost = function () { ghost.hidden = true; };
 
+  /* ---------- one tile full screen ---------- */
+  // The wall itself goes full screen and shows only that tile (CSS: .wall:fullscreen), so a playlist tile can move on
+  // to its next file, which is a new element, without leaving full screen. id null ends it.
+  A.soloId = null;
+  A.setSolo = function (id) {
+    if (id == null) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+      return;
+    }
+    A.soloId = id; A.render();
+    var pr = wall.requestFullscreen();
+    if (pr && pr.catch) pr.catch(function () { A.soloId = null; A.render(); });
+  };
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement && A.soloId != null) { A.soloId = null; A.render(); }
+  });
+
   /* ---------- render ---------- */
   // Empty cells get a button each. They are only rebuilt when the free cells change, not on every render.
   var slotSig = '';
@@ -609,6 +631,7 @@
     var ids = {};
     S.items.forEach(function (i) { ids[i.id] = 1; });
     A.tileEls.forEach(function (el, id) { if (!ids[id]) { el.remove(); A.tileEls.delete(id); } });
+    if (A.soloId != null && !ids[A.soloId]) A.setSolo(null);   // the full-screen tile was removed
     S.items.forEach(function (it) {
       var el = A.tileEls.get(it.id);
       if (!el) { el = createTile(it); A.tileEls.set(it.id, el); }
@@ -650,7 +673,8 @@
     A.tileEls.forEach(function (el) { var v = el._media; if (v && v.tagName === 'VIDEO') vids.push(v); });
     return vids;
   };
-  // Icon buttons: the icon and label say what a click does; the loop button shows on / mixed / off as pressed.
+  // Icon buttons: the label says what a click does. The play icon shows that too (play or pause, as players do);
+  // the speaker shows how the sound is now, like the speaker on each video tile; loop shows on / mixed / off as pressed.
   function iconBtn(b, icon, label, title) {
     if (b._icon !== icon) { b._icon = icon; b.innerHTML = '<span class="ic" aria-hidden="true">' + ICON[icon] + '</span>'; }
     b.setAttribute('aria-label', label); b.title = title || label;
@@ -669,6 +693,7 @@
     var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
     iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
     var loud = vi.some(function (i) { return !i.muted; });
-    iconBtn($('#muteAll'), loud ? 'mute' : 'vol', loud ? 'Mute all' : 'Unmute all');
+    iconBtn($('#muteAll'), loud ? 'vol' : 'mute', loud ? 'Mute all' : 'Unmute all',
+      loud ? 'Sound is on. Click to mute every video' : 'Every video is muted. Click to turn their sound on');
   };
 })(window.MW.app);

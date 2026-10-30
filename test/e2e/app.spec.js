@@ -24,6 +24,18 @@ function png(w, h, rgb) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
+// A short mono sine tone as a WAV file, for the background music.
+function wav(secs, hz) {
+  const rate = 8000, n = Math.round(secs * rate), data = Buffer.alloc(n * 2);
+  for (let i = 0; i < n; i++) data.writeInt16LE(Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 8000), i * 2);
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8); h.write('fmt ', 12);
+  h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(rate, 24);
+  h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write('data', 36); h.writeUInt32LE(data.length, 40);
+  return Buffer.concat([h, data]);
+}
+
 test.describe.configure({ mode: 'serial' });
 
 let app, page, dir, media;
@@ -133,6 +145,23 @@ test('Free layout: a folder added one tile per file', async () => {
   expect(overlaps).toBe(0);
 });
 
+test("Free layout: new tiles take their media's shape; Fill the wall fills it edge to edge", async () => {
+  // Each tile added in Free (pixels) has its image's exact shape once the image has loaded.
+  const misfit = () => page.evaluate(() => Math.max(...[...document.querySelectorAll('#wall .tile')].map((t) => {
+    const r = t.getBoundingClientRect(), img = t.querySelector('img');
+    return Math.abs(Math.log((r.width / r.height) / (img.naturalWidth / img.naturalHeight)));
+  })));
+  await expect.poll(misfit).toBeLessThan(0.02);
+  await page.click('#arrangeMenuBtn');
+  await page.click('#fillWallBtn');
+  await expect(toast()).toContainText('fill the wall');
+  const { tiles: t, overlaps } = await layout();
+  expect(overlaps).toBe(0);
+  const w = await page.evaluate(() => ({ W: document.querySelector('#wall').clientWidth, H: document.querySelector('#wall').clientHeight, gap: window.MW.app.S.gap }));
+  const covered = t.reduce((s, b) => s + (b.w + w.gap) * (b.h + w.gap), 0);
+  expect(Math.abs(covered / (w.W * w.H) - 1)).toBeLessThan(0.01);
+});
+
 test('Fit tile to media gives a tile the exact shape of its image', async () => {
   const tall = page.locator('#wall .tile', { hasText: 'img2.png' });   // 90 x 160
   await tall.click({ button: 'right' });
@@ -206,6 +235,9 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
+  // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
+  await expect(page.locator('#setSoloSound')).toBeChecked();
+  await expect(page.locator('#setResize')).toHaveValue('even');
   // Arrow keys move between the sections.
   await page.focus('#tabGeneral');
   await page.keyboard.press('ArrowDown');
@@ -236,6 +268,14 @@ test('right-click on empty wall makes an empty tile, which then takes media', as
   await expect(page.locator('#ctxMenu')).toBeVisible();
   await menuItem('New empty tile').click();
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
+  // Its Folder… button gives it a folder to play (undone again: the next tests expect one image on it).
+  await answerDialogs(media);
+  await page.click('#wall .tile.is-empty [data-act="chooseFolder"]');
+  await expect(toast()).toContainText('This tile now plays');
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
+  // Its File… button gives it one file.
   await answerDialogs(path.join(media, 'img1.png'));
   await page.click('#wall .tile.is-empty [data-act="choose"]');
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(0);
@@ -387,6 +427,10 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await menuItem('Playlist settings').click();
   const card = page.locator('#inspector');
   await expect(card.locator('#plSec')).toContainText('6 files');
+  // Plays: the folder has only images, so videos and GIFs only is refused and Images stays ticked.
+  await card.locator('#pTypes input[value="image"]').click();
+  await expect(toast()).toContainText('has none of those');
+  await expect(card.locator('#pTypes input[value="image"]')).toBeChecked();
   await card.locator('#pSecs').fill('3');
   await card.locator('#pSecs').press('Enter');
   await card.locator('#pOrder').selectOption('shuffle');
@@ -485,6 +529,24 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(1.25);
   await page.locator('body').press('Backslash');
   await expect(tile.locator('.vloop')).toBeHidden();
+  // Double-click: this tile full screen with its sound on; Esc ends it and the tile is quiet again, as it was.
+  // The speaker in the top bar shows the sound as it is, the same as the speaker on the video's own bar.
+  const speakers = () => page.evaluate(() => {
+    const top = document.querySelector('#muteAll svg'), own = document.querySelector('#wall .tile.is-video .vbar [data-act="mute"] svg');
+    return { same: top.outerHTML === own.outerHTML, title: document.querySelector('#muteAll').title };
+  });
+  await expect.poll(speakers).toEqual({ same: true, title: 'Sound is on. Click to mute every video' });
+  await page.locator('body').press('m');                     // M mutes the selected video (the volume turned it on)
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await expect.poll(speakers).toEqual({ same: true, title: 'Every video is muted. Click to turn their sound on' });
+  await tile.dblclick({ position: { x: 40, y: 50 } });
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement && document.fullscreenElement.id)).toBe('wall');
+  await expect(tile).toHaveClass(/\bsolo\b/);
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+  await expect(tile).not.toHaveClass(/\bsolo\b/);
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
   await page.keyboard.press('Escape');
 });
 
@@ -606,6 +668,52 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await page.click('#tmReset');
   await expect(page.locator('#tmChip')).toBeHidden();
   await expect(page.locator('#tmTime')).toHaveText('0:02');
+  await page.keyboard.press('Escape');
+});
+
+test('background music: a folder plays behind the wall, moves on by itself, pauses with the emergency hide', async () => {
+  const music = path.join(dir, 'Music');
+  fs.mkdirSync(music);
+  fs.writeFileSync(path.join(music, '01 First.wav'), wav(1.2, 440));
+  fs.writeFileSync(path.join(music, '02 Second.wav'), wav(1.2, 660));
+  fs.writeFileSync(path.join(music, 'cover.jpg'), 'not music');
+  const audio = () => page.evaluate(() => { const a = window.MW.app.musicEl; return { paused: a.paused, vol: a.volume }; });
+  const openMusic = async () => { if (await page.locator('#popM').isHidden()) await page.click('#musicBtn'); };
+  await answerDialogs(music);
+  await openMusic();
+  await page.click('#musicFolderBtn');
+  await expect(toast()).toContainText('Playing 2 tracks');
+  await expect.poll(async () => (await audio()).paused).toBe(false);
+  await expect(page.locator('#musicName')).toHaveText('01 First');
+  await expect(page.locator('#musicBtn')).toHaveClass(/\bon\b/);
+  await page.click('#musicNext');
+  await expect(page.locator('#musicName')).toHaveText('02 Second');
+  // At the end of the last track it starts over by itself.
+  await expect(page.locator('#musicName')).toHaveText('01 First', { timeout: 6000 });
+  await page.locator('#musicVol').fill('30');
+  await expect.poll(async () => (await audio()).vol).toBeCloseTo(0.3, 2);
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
+  // The emergency hide pauses it too, and it plays on afterwards.
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(async () => (await audio()).paused).toBe(true);
+  await page.evaluate(() => window.wall.toggleHide());
+  await expect.poll(async () => (await audio()).paused).toBe(false);
+  await openMusic();
+  await page.click('#musicStop');
+  await expect.poll(async () => (await audio()).paused).toBe(true);
+  await expect(page.locator('#musicName')).toHaveText('No music yet');
+  await page.keyboard.press('Escape');
+});
+
+test('cast: Wall mode settings open Windows display settings; a display coming or going updates Show on', async () => {
+  await app.evaluate(({ shell }) => { globalThis.__opened = []; shell.openExternal = async (u) => { globalThis.__opened.push(u); }; });
+  await settingsAt('Wall');
+  await page.click('#castBtn');
+  await expect.poll(() => app.evaluate(() => globalThis.__opened)).toEqual(['ms-settings:display']);
+  const options = () => page.locator('#display option').count();
+  const before = await options();
+  await app.evaluate(({ screen }) => { screen.emit('display-added', {}, {}); });
+  await expect.poll(options).toBe(before);
   await page.keyboard.press('Escape');
 });
 

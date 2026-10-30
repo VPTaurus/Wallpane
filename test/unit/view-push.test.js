@@ -47,6 +47,34 @@ test('moving with shrink allowed squeezes a tile against the wall instead of fai
   assert.deepEqual([r.B.x, r.B.w], [350, 250]);
 });
 
+test('growing a tile with "even": the tiles beside it shrink in proportion', () => {
+  const base = row(), ids = ['A', 'B', 'C'];
+  const r = F.pushResize(ids, 'A', base.A, { x: 0, y: 0, w: 300, h: 200 }, base, d, 'even');
+  assert.ok(F.valid(r, d));
+  assert.deepEqual([r.A.w, r.B.x, r.B.w, r.C.x, r.C.w], [300, 300, 150, 450, 150], 'B and C both give up 50 px');
+  // Free space before the wall is used first: B only moves.
+  const gap = { A: { x: 0, y: 0, w: 200, h: 200 }, B: { x: 200, y: 0, w: 200, h: 200 } };
+  const g = F.pushResize(['A', 'B'], 'A', gap.A, { x: 0, y: 0, w: 300, h: 200 }, gap, d, 'even');
+  assert.deepEqual([g.B.x, g.B.w], [300, 200]);
+  const g2 = F.pushResize(['A', 'B'], 'A', gap.A, { x: 0, y: 0, w: 500, h: 200 }, gap, d, 'even');
+  assert.deepEqual([g2.B.x, g2.B.w], [500, 100], 'then it shrinks');
+  // To the left, too; and it stops before a tile would get smaller than the minimum.
+  const left = F.pushResize(ids, 'C', base.C, { x: 100, y: 0, w: 500, h: 200 }, base, d, 'even');
+  assert.deepEqual([left.A.x, left.A.w, left.B.x, left.B.w], [0, 50, 50, 50]);
+  assert.equal(F.pushResize(ids, 'A', base.A, { x: 0, y: 0, w: 580, h: 200 }, base, d, 'even'), null);
+});
+
+test('moving with keepSide: a tile against the wall stays rather than jumping over', () => {
+  const base = { A: { x: 0, y: 0, w: 200, h: 200 }, B: { x: 400, y: 0, w: 200, h: 200 } };
+  const want = { x: 300, y: 0, w: 200, h: 200 };   // A's middle (400) still left of B's (500)
+  const jump = F.resolve(['A', 'B'], 'A', want, base, d);
+  assert.deepEqual([jump.B.x], [100], 'without it, B hops over A to the other side');
+  assert.equal(F.resolve(['A', 'B'], 'A', want, base, d, { keepSide: true }), null, 'with it, B stays (a drop swaps)');
+  // Past B's middle, B may go to the other side.
+  const past = F.resolve(['A', 'B'], 'A', { x: 400, y: 0, w: 200, h: 200 }, base, d, { keepSide: true });
+  assert.deepEqual([past.B.x], [200]);
+});
+
 test('rows with their own number of tiles', () => {
   const g = G.linesLayout([3, 4], 'rows');
   assert.equal(g.grid, true);

@@ -142,6 +142,12 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 }
 .wall.ratio { width: min(100cqw, calc(100cqh * var(--ratio, 1.78))); height: auto; aspect-ratio: var(--ratio, 1.78); }
 .wall.hot { outline: 2px dashed var(--accent); outline-offset: -3px; }
+/* One tile full screen (double-click): the wall goes full screen and shows only that tile (and, during a playlist's
+   crossfade, the file it leaves). */
+.wall:fullscreen { display: block; padding: 0; border-radius: 0; background: #000; outline: none; }
+.wall:fullscreen > :not(.solo) { display: none !important; }
+.wall:fullscreen > .tile.solo { position: absolute; inset: 0 !important; width: auto !important; height: auto !important; border-radius: 0; outline: none; box-shadow: none; }
+.wall:fullscreen .tile.solo .rz { display: none; }
 /* Free layout: tiles are placed by the pixel instead of on the grid. */
 .wall.free { display: block; position: relative; padding: 0; }
 .wall.free .tile { position: absolute; cursor: grab; touch-action: none; }
@@ -189,7 +195,8 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 }
 .empty-ph > span:nth-child(2) { color: var(--fg); font-weight: 700; font-size: 13px; }
 .empty-ph .ic svg { width: 22px; height: 22px; color: var(--accent); }
-.empty-ph .btn { pointer-events: auto; height: 28px; margin-top: 4px; font-size: 12px; }
+.empty-ph .btn { pointer-events: auto; height: 28px; padding: 0 10px; font-size: 12px; }
+.empty-ph .phbtns { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
 .tile.is-empty:hover .empty-ph { border-color: var(--accent); }
 .tile.is-empty [data-act="play"], .tile.is-empty [data-act="mute"], .tile.is-empty [data-act="loop"], .tile.is-empty [data-act="fit"] { display: none; }
 /* Repositioning the media: drag it inside the tile, scroll to zoom. */
@@ -382,6 +389,9 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .lthumb i { background: var(--accent); opacity: 0.85; border-radius: 2px; }
 .lname { font: 500 11px/1.2 var(--mono); overflow-wrap: anywhere; }
 .plgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; min-height: 30px; }
+.kinds .check { gap: 6px; font-size: 13px; }
+.fld .kinds input { width: 16px; height: 16px; min-width: 0; padding: 0; border: 0; }   /* not the fields' text-box look */
 /* Right-click menu */
 .pop.ctx { width: 268px; max-height: none; padding: 5px; }
 .ctx .mi { padding: 6px 10px; }
@@ -448,6 +458,13 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .tpresets .btn { height: 30px; padding: 0 10px; }
 .tmset { width: 92px; height: 34px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; font: 500 14px var(--mono); }
 @media (prefers-reduced-motion: reduce) { .tchip.done, .bigtime.done { animation: none; } }
+
+/* Background music */
+.nowplaying { display: flex; flex-direction: column; gap: 3px; }
+.nowplaying b { font-size: 15px; overflow-wrap: anywhere; }
+.nowplaying small { font: 400 11px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.mctl { flex-wrap: nowrap; }
+.mctl input[type="range"] { flex: 1; min-width: 0; width: auto; }
 
 /* Settings > Emergency hide: the key, recorded by pressing it */
 .btn.keycap { justify-content: center; font: 500 12px var(--mono); }

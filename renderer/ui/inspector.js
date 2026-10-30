@@ -63,7 +63,7 @@
     var p = S.playlists[it.pl], users = playersOf(it);
     return '<div class="sec" id="plSec"><span class="lab">Playlist</span>' +
       '<div class="plhead"><span class="ic" aria-hidden="true">' + A.ICON.folder + '</span><div><b>' + esc(p.name) + '</b><small>' +
-      p.files.length + (p.files.length === 1 ? ' file' : ' files') + (p.truncated ? ', the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder' : '') + '</small></div></div>' +
+      esc(A.plCount(p)) + (p.truncated ? ', the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder' : '') + '</small></div></div>' +
       (users > 1 ? '<p class="note">' + users + ' tiles play this folder. Changes here apply to all of them.</p>' : '') +
       seg('sPin', 'Rotating', 'Pinned', !it.pinned) +
       '<div class="plgrid" id="plOpts">' +
@@ -74,6 +74,10 @@
       selectFld('pFade', 'Crossfade', [['0', 'Cut'], ['0.5', '0.5 s'], ['1', '1 s'], ['2', '2 s']], String(p.fade || 0)) +
       numFld('pMax', 'Max clip seconds', p.maxClip, 0, 3600, '0 plays each clip to the end') +
       selectFld('pView', 'Zoom and position', [['reset', 'New for each file'], ['keep', 'Keep for every file']], p.keepView ? 'keep' : 'reset').replace('class="fld"', 'class="fld wide"') +
+      '<div class="fld wide"><span>Plays</span><div class="kinds" id="pTypes" role="group" aria-label="Kinds of file this playlist plays">' +
+      [['video', 'Videos'], ['gif', 'GIFs'], ['image', 'Images']].map(function (k) {
+        return '<label class="check"><input type="checkbox" value="' + k[0] + '"' + (PL.cleanTypes(p.types).indexOf(k[0]) > -1 ? ' checked' : '') + '> ' + k[1] + '</label>';
+      }).join('') + '</div></div>' +
       '</div>' +
       '<div class="acts"><button class="btn" id="plNext"' + (it.pinned ? ' disabled title="Pinned: unpin to move on"' : '') + '>Next file</button>' +
       '<button class="btn" id="plChange" title="Play a different folder on this tile">Change folder…</button></div>' +
@@ -81,7 +85,7 @@
   }
   function playlistSig(it) {
     var p = it.pl && S.playlists[it.pl];
-    return p ? [p.name, p.files.length, !!p.truncated, p.shuffle, p.secs, p.gifOnce, p.randomStart, p.fade, p.maxClip, !!p.keepView, playersOf(it)].join(',') : '';
+    return p ? [p.name, p.files.length, !!p.truncated, p.shuffle, p.secs, p.gifOnce, p.randomStart, p.fade, p.maxClip, !!p.keepView, PL.cleanTypes(p.types), playersOf(it)].join(',') : '';
   }
 
   // What the card shows. When only the tile's place changed (every step of a drag) or a playlist moved on to the next
@@ -219,15 +223,28 @@
         randomStart: $('#pFrom').value === 'random',
         fade: clamp(parseFloat($('#pFade').value) || 0, 0, 5),
         maxClip: clamp(parseInt($('#pMax').value, 10) || 0, 0, 3600),
-        keepView: $('#pView').value === 'keep'
+        keepView: $('#pView').value === 'keep',
+        types: PL.cleanTypes(A.readTypes($('#pTypes')))
       };
+      var typesChanged = next.types.join() !== PL.cleanTypes(p.types).join();
+      if (typesChanged && !PL.playable(Object.assign({}, p, { types: next.types }))) {
+        A.toast('"' + p.name + '" has none of those. It keeps playing ' + (PL.typesLabel(p) || 'everything') + '.');
+        shownKey = null; A.refreshInspector();
+        return;
+      }
       A.pushHistory();
       if (next.shuffle !== p.shuffle) { p.order = null; p.pos = 0; }   // a new round, in the new order
       Object.assign(p, next);
       $('#pSecs').value = p.secs; $('#pMax').value = p.maxClip;
       shownKey = keyOf(it);   // the card already shows these values
+      // Tiles showing a kind of file this playlist no longer plays move on now.
+      if (typesChanged) {
+        S.items.filter(function (i) { return i.pl === it.pl && !i.pinned && !PL.plays(p, i); }).forEach(A.advance);
+        shownKey = null; A.refreshInspector();
+      }
       A.scheduleSession();
     });
+    if ($('#pTypes')) A.guardTypes($('#pTypes'));
     if ($('#plNext')) $('#plNext').addEventListener('click', function () { A.advance(it); });
     if ($('#plChange')) $('#plChange').addEventListener('click', function () { A.ownFolder(it); });
     if ($('#plLeave')) $('#plLeave').addEventListener('click', function () { A.leavePlaylist(it); });

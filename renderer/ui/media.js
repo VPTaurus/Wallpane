@@ -222,6 +222,12 @@
     S.items.pop();
     return placeFreeNew(it);
   }
+  // A new tile in free layout, which takes its media's shape once the media has loaded (A.fitNewTile).
+  function newFreeItem(f) {
+    var it = A.makeItem(f, { col: 0, row: 0, w: 1, h: 1 });
+    it._fitOnLoad = true;
+    return it;
+  }
   function addFilesFree(res, target) {
     var media = U.sortEntries(res.entries || []);
     if (!media.length) { A.toast(A.noMediaMessage(res)); return; }
@@ -233,11 +239,11 @@
       if (under.missing) relinkItem(under, f1); else A.replaceMedia(under, f1);
       if (under.pl) { under.pinned = true; under.loop = true; }
     } else if (target && target.free) {
-      if (!placeFreeAt(A.makeItem(media.shift(), { col: 0, row: 0, w: 1, h: 1 }), target)) media.unshift(null);
+      if (!placeFreeAt(newFreeItem(media.shift()), target)) media.unshift(null);
     } else fillEmpties(media);
     var failed = 0;
     media.forEach(function (f) {
-      if (!f || !placeFreeNew(A.makeItem(f, { col: 0, row: 0, w: 1, h: 1 }))) failed++;
+      if (!f || !placeFreeNew(newFreeItem(f))) failed++;
     });
     A.render(); A.refreshInspector();
     var msg = [];
@@ -422,6 +428,18 @@
     if (w > 0 && h > 0) { it.ar = w / h; return { a: it.ar, known: true }; }
     return { a: it.ar || 16 / 9, known: !!it.ar };
   }
+  // A tile just added in free layout takes the exact shape of its media as soon as the media has loaded, inside the
+  // space it was given (top left corner kept). Part of the same undo step as adding it.
+  A.fitNewTile = function (it) {
+    if (!it._fitOnLoad) return;
+    it._fitOnLoad = false;
+    if (S.mode !== 'free' || S.items.indexOf(it) < 0) return;
+    var r = mediaAspect(it), geo = A.freeGeoPx();
+    if (!r.known || !geo[it.id]) return;
+    geo[it.id] = F.fitBox(geo[it.id], r.a, S.gap);
+    it.fit = 'contain'; it.fitSet = true;
+    A.applyFreePx(geo); A.render(); A.refreshInspector();
+  };
   // Free layout: shrink tiles to the exact shape of their media, so there are no bars and nothing is cropped.
   // On the grid this first switches to Free layout (tiles stay where they are on screen); one Ctrl+Z undoes both.
   A.fitTilesToMedia = function (list) {
@@ -469,4 +487,45 @@
     A.toast(msg);
   }
   $('#fitMediaBtn').addEventListener('click', function () { A.closePops(); fitToMedia(); });
+
+  /* ---------- Fill the wall ---------- */
+  // Tiles in reading order by their place on screen: rows from the top (a tile whose middle lies within the first
+  // tile of a row belongs to that row), each row from the left.
+  function readingOrderPx(list, geo) {
+    var left = list.filter(function (i) { return geo[i.id]; }).sort(function (a, b) {
+      var ga = geo[a.id], gb = geo[b.id];
+      return (ga.y + ga.h / 2) - (gb.y + gb.h / 2);
+    }), out = [];
+    while (left.length) {
+      var top = geo[left[0].id], row = left.filter(function (i) { var g = geo[i.id], c = g.y + g.h / 2; return c >= top.y && c <= top.y + top.h; });
+      row.sort(function (a, b) { return geo[a.id].x - geo[b.id].x; });
+      out = out.concat(row);
+      left = left.filter(function (i) { return row.indexOf(i) < 0; });
+    }
+    return out;
+  }
+  // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
+  // reading order unless regrouping them crops clearly less. On the grid this first switches to Free layout; one
+  // Ctrl+Z undoes both.
+  function fillWall() {
+    if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
+    A.pushHistory();
+    var switched = S.mode !== 'free';
+    if (switched) { F.toFree(S.items, S.cols, S.rows, S.gap, A.wallPx(), false); S.mode = 'free'; A.savePrefs(); }
+    var d = A.wallPx(), geo = A.freeGeoPx(), list = readingOrderPx(S.items, geo), waiting = 0;
+    var asp = list.map(function (it) { var r = mediaAspect(it); if (!r.known && A.hasMedia(it)) waiting++; return r.a; });
+    var plan = MW.collage.fill(asp, d.W, d.H, S.gap);
+    list.forEach(function (it, i) {
+      geo[it.id] = plan.boxes[i];
+      if (A.hasMedia(it)) { it.fit = 'cover'; it.fitSet = true; }
+    });
+    A.applyFreePx(geo); A.render(); A.refreshInspector();
+    var n = list.length, msg = n + (n === 1 ? ' tile fills' : ' tiles fill') + ' the wall in ' + plan.rows + (plan.cols ? (plan.rows === 1 ? ' column' : ' columns') : (plan.rows === 1 ? ' row' : ' rows')) + '.';
+    if (plan.reordered) msg += ' Some tiles changed places so they fit.';
+    if (plan.crop >= 0.01) msg += ' Each is cropped by about ' + Math.round(plan.crop * 100) + '% to close the last gap.';
+    if (switched) msg += ' Tiles are now placed freely, by the pixel. Ctrl+Z undoes this.';
+    if (waiting) msg += ' ' + waiting + (waiting === 1 ? ' tile has' : ' tiles have') + ' not loaded yet; run it again in a moment.';
+    A.toast(msg);
+  }
+  $('#fillWallBtn').addEventListener('click', function () { A.closePops(); fillWall(); });
 })(window.MW.app);

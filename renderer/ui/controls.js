@@ -40,6 +40,27 @@
   $('#aspect').addEventListener('change', function () { S.aspect = $('#aspect').value; A.savePrefs(); A.render(); });
   $('#fit').addEventListener('change', function () { S.fit = $('#fit').value; S.items.forEach(function (i) { if (!i.fitSet) i.fit = S.fit; }); A.savePrefs(); A.render(); A.refreshInspector(); });
   $('#display').addEventListener('change', function () { var v = $('#display').value; S.display = v === '' ? null : Number(v); A.savePrefs(); });
+  // The displays under Settings › Wall mode › Show on. At start a chosen display that is gone is forgotten; later (a
+  // TV switched off) the choice stays, marked as not connected, and wall mode goes back to it when it returns.
+  // Returns true when there are more displays than before (one was just connected).
+  var displaysShown = null;
+  A.fillDisplays = function (displays, atStart) {
+    var sel = $('#display'), more = displaysShown != null && displays.length > displaysShown;
+    displaysShown = displays.length;
+    while (sel.options.length > 1) sel.remove(1);
+    displays.forEach(function (d) { var o = document.createElement('option'); o.value = String(d.id); o.textContent = d.label; sel.appendChild(o); });
+    if (S.display != null && !displays.some(function (d) { return d.id === S.display; })) {
+      if (atStart) S.display = null;
+      else { var o = document.createElement('option'); o.value = String(S.display); o.textContent = 'The chosen display (not connected now)'; sel.appendChild(o); }
+    }
+    sel.value = S.display == null ? '' : String(S.display);
+    return more;
+  };
+  api.onDisplaysChanged(function () {
+    api.displays().then(function (list) {
+      if (A.fillDisplays(list, false)) A.toast('A display was connected. Settings › Wall mode › Show on can put the wall on it.');
+    });
+  });
 
   /* ---------- adding media ---------- */
   $('#addFiles').addEventListener('click', function () {
@@ -124,6 +145,7 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target, inField = t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
     if (e.key === 'F11') { e.preventDefault(); A.setClean(!document.body.classList.contains('clean')); return; }
+    if (e.key === 'Escape' && A.soloId != null) { A.setSolo(null); return; }   // only the tile's full screen ends
     // Escape (or Enter) first closes the right-click menu, or finishes repositioning media, or closes Properties.
     if (e.key === 'Escape' && A.menuOpen()) { A.hideMenu(); return; }
     if ((e.key === 'Escape' || (e.key === 'Enter' && !inField)) && A.reposId != null) { e.preventDefault(); A.endRepos(); return; }
@@ -212,7 +234,7 @@
   var POPS = {
     add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
     presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn'],
-    time: ['#popT', '#timeBtn']
+    time: ['#popT', '#timeBtn'], music: ['#popM', '#musicBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
@@ -251,6 +273,7 @@
     else if (which === 'playlist') A.refreshPlaylistStatus();
     else if (which === 'settings') refreshSettings();
     else if (which === 'time') A.refreshTime();
+    else if (which === 'music') A.refreshMusic();
     placeOpen();
   }
   // About, in Settings: version and licence, the source code, and support links when package.json lists any.
@@ -318,6 +341,8 @@
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
+    $('#setSoloSound').checked = S.soloSound;
+    $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');
       cb.disabled = !r.supported; cb.checked = !!r.on;
@@ -330,6 +355,9 @@
     A.savePrefs();
   });
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
+  $('#castBtn').addEventListener('click', function () { api.openDisplaySettings(); });
+  $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
+  $('#setResize').addEventListener('change', function () { S.resizeMode = this.value === 'squeeze' ? 'squeeze' : 'even'; A.savePrefs(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
   $('#setAwake').addEventListener('change', function () {
     S.awake = this.checked; A.savePrefs();

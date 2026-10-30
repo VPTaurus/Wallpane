@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+- **Background music:** the ♪ button plays a folder of your own music behind the wall (MP3, M4A, AAC, WAV, OGG, Opus, FLAC), with previous, next, volume and shuffle. It keeps playing in wall mode, pauses with the emergency hide, and starts again on the next start.
+- **On a TV or projector:** Settings › Wall mode › Connect a wireless display… opens Windows' Cast settings; a connected display appears under Show on straight away.
+- **Arrange › Fill the wall:** every tile keeps its media's shape, and together they fill the wall edge to edge in rows or columns.
+- **Full screen with sound:** double-clicking a tile shows it full screen with its sound on while the others go quiet (Settings › General). A tile playing a folder keeps moving on in full screen.
+- **Free (pixels):** new tiles take their media's shape; dragged-into tiles no longer jump over to the other side (drop on one to swap); growing a tile makes the tiles beside it shrink evenly (Settings › General has the old way).
+- **Playlists** can play only videos, GIFs or images, any mix.
+- **Empty tiles** have File… and Folder… buttons.
+
 ## 1.2.0 — first public release
 
 Wallpane is a video wall for Windows: your own videos, images and GIFs, many at once, on a grid or placed freely by the pixel, on one screen or several. It plays local files only and never goes online. Formerly called Media Wall; your saved walls and settings come over on the first start.

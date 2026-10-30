@@ -37,6 +37,16 @@ test('expand finds media in folders, reports formats that cannot play, and skips
   assert.deepEqual(none.entries, []);
 });
 
+test('expand with audio finds the music in a folder for the background music, and nothing else', async (t) => {
+  const dir = tempDir();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const n of ['01 b.mp3', '02 a.flac', 'cover.jpg', 'clip.mp4', 'old.wma', 'disc 2/03 c.m4a']) touch(path.join(dir, n));
+  const res = await files.expand([dir], { audio: true });
+  assert.deepEqual(res.entries.map((e) => path.relative(dir, e.path)), ['01 b.mp3', '02 a.flac', path.join('disc 2', '03 c.m4a')]);
+  assert.ok(res.entries.every((e) => e.kind === 'audio'));
+  assert.deepEqual(res.unsupported, {}, 'no word about videos or pictures that cannot play');
+});
+
 // A minimal GIF with one frame per delay (in hundredths of a second).
 function gif(delays) {
   const parts = [Buffer.from('GIF89a'), Buffer.from([1, 0, 1, 0, 0, 0, 0])];

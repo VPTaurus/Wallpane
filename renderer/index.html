@@ -61,6 +61,7 @@
         <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fit, auto-arrange, rows and columns, frame layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
         <div class="pop menu" id="popArr" hidden>
           <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles so their media fills them</small></span></button>
+          <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small>Every tile keeps its media's shape, and together they fill the wall edge to edge</small></span></button>
           <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Auto-arrange</b><small id="arrangeHint">Pack all tiles from the top left</small></span></button>
           <button class="mi" id="rowsBtn" type="button"><span data-icon="rows"></span><span><b>Rows and columns…</b><small>A different number of tiles in each row</small></span></button>
           <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Frame layouts…</b><small id="layoutHint">Move the tiles into ready-made frames</small></span></button>
@@ -96,6 +97,25 @@
       <button class="btn ib" id="playAll" type="button" aria-label="Pause all"></button>
       <button class="btn ib" id="muteAll" type="button" aria-label="Unmute all"></button>
       <button class="btn ib" id="loopAll" type="button" aria-label="Loop all videos"></button>
+      <div class="popwrap">
+        <button class="btn ib" id="musicBtn" type="button" aria-label="Background music" title="Background music" aria-expanded="false" aria-controls="popM"><span data-icon="music"></span></button>
+        <div class="pop" id="popM" hidden>
+          <span class="lab">Background music</span>
+          <div class="nowplaying"><b id="musicName">No music yet</b><small id="musicInfo">Choose a folder of your own music to play behind the wall.</small></div>
+          <div class="row mctl">
+            <button class="btn ib" id="musicPrev" type="button" aria-label="Previous track" title="Previous track"><span data-icon="prev"></span></button>
+            <button class="btn ib pri" id="musicPlay" type="button" aria-label="Play" title="Play"><span data-icon="play"></span></button>
+            <button class="btn ib" id="musicNext" type="button" aria-label="Next track" title="Next track"><span data-icon="next"></span></button>
+            <input id="musicVol" type="range" min="0" max="100" step="1" aria-label="Music volume" title="Music volume">
+          </div>
+          <label class="check"><input type="checkbox" id="musicShuffle"> Shuffle</label>
+          <div class="row">
+            <button class="btn" id="musicFolderBtn" type="button"><span data-icon="folder"></span>Choose folder…</button>
+            <button class="btn" id="musicStop" type="button" disabled>Stop</button>
+          </div>
+          <p class="note">Plays MP3, M4A, AAC, WAV, OGG, Opus and FLAC files from the folder and the folders in it, one after another. It keeps playing in wall mode, and starts again on the next start if it was playing.</p>
+        </div>
+      </div>
     </div>
     <div class="grp">
       <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
@@ -174,6 +194,13 @@
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
             <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
+            <div class="fld wide"><span>Plays</span>
+              <div class="kinds" id="plTypes" role="group" aria-label="Kinds of file the playlist plays">
+                <label class="check"><input type="checkbox" value="video" checked> Videos</label>
+                <label class="check"><input type="checkbox" value="gif" checked> GIFs</label>
+                <label class="check"><input type="checkbox" value="image" checked> Images</label>
+              </div>
+            </div>
           </div>
           <div class="row">
             <button class="btn pri" id="plStart" type="button">Choose folder</button>
@@ -181,7 +208,7 @@
             <button class="btn warn" id="plStop" type="button" hidden>Stop playlist</button>
           </div>
           <p class="note" id="plStatus"></p>
-          <p class="note">A folder playlist fills the empty cells, one file per tile. When a clip ends, or an image has been shown long enough, the tile takes the next file. Cells you add later fill too, and new files in the folder join the queue. Drop a folder on one tile (or use Own folder in the side panel) to give just that tile the folder. On a tile, the skip button moves on and the pin keeps the current file.</p>
+          <p class="note">A folder playlist fills the empty cells, one file per tile. When a clip ends, or an image has been shown long enough, the tile takes the next file. Cells you add later fill too, and new files in the folder join the queue. Drop a folder on one tile (or right-click it and choose Own folder) to give just that tile the folder. On a tile, the skip button moves on and the pin keeps the current file.</p>
         </div>
       </div>
 
@@ -222,6 +249,12 @@
               <span class="lab">Startup</span>
               <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
               <p class="note" id="loginNote"></p>
+              <span class="lab">Tiles</span>
+              <label class="check"><input type="checkbox" id="setSoloSound"> A tile shown full screen (double-click) plays its sound; the others go quiet until it ends</label>
+              <div class="frow"><label for="setResize">Growing a tile</label>
+                <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
+              </div>
+              <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
@@ -241,6 +274,9 @@
               <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
               <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
               <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
+              <span class="lab">On a TV or projector</span>
+              <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button></div>
+              <p class="note">Shows the wall on a TV, projector or stick that Windows can cast to (Miracast). The button opens Windows' display settings: under Multiple displays, click Connect next to "Connect to a wireless display" (Win+K does the same), pick the TV, and choose Extend so it is a display of its own. Then pick it under Show on and start wall mode.</p>
             </section>
 
             <section class="ssec" id="secHide" data-sec="hide" role="tabpanel" aria-labelledby="tabHide" hidden>
@@ -328,6 +364,7 @@
 <script src="lib/playback.js"></script>
 <script src="lib/hotkey.js"></script>
 <script src="lib/clock.js"></script>
+<script src="lib/collage.js"></script>
 <script src="ui/core.js"></script>
 <script src="ui/tiles.js"></script>
 <script src="ui/inspector.js"></script>
@@ -339,6 +376,7 @@
 <script src="ui/builder.js"></script>
 <script src="ui/hide.js"></script>
 <script src="ui/clock.js"></script>
+<script src="ui/music.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

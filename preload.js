@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('wall', {
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
   openFolder: () => ipcRenderer.invoke('dialog:folder'),
   exportData: (text) => ipcRenderer.invoke('dialog:export', text),
+  chooseMusicFolder: () => ipcRenderer.invoke('dialog:musicFolder'),
+  musicFiles: (dir) => ipcRenderer.invoke('fs:music', dir),
   importData: () => ipcRenderer.invoke('dialog:import'),
 
   // window
@@ -32,6 +34,8 @@ contextBridge.exposeInMainWorld('wall', {
   windowInfo: () => ipcRenderer.invoke('win:info'),
   isFullscreen: () => ipcRenderer.invoke('win:isFullscreen'),
   onFullscreen: (cb) => { ipcRenderer.on('win:fullscreen-changed', (_e, v) => cb(!!v)); },
+  onDisplaysChanged: (cb) => { ipcRenderer.on('win:displays-changed', () => cb()); },
+  openDisplaySettings: () => ipcRenderer.invoke('app:openDisplaySettings'),
 
   // starting with Windows
   loginItem: () => ipcRenderer.invoke('app:loginItem'),

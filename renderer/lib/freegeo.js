@@ -39,8 +39,10 @@
   // Put one tile where it is wanted. Tiles in the way slide aside (the way that needs the least movement); tiles they
   // touch slide too. Always computed from `base` (the layout at the start of the gesture), so dragging back puts tiles back.
   // opts.shrink: a tile pushed against the wall may get smaller (down to MIN) rather than block the move.
+  // opts.keepSide: a tile only moves further to the side of the pushing tile it is on (by their centres), never over it
+  // to the other side; when it cannot, there is no result (a drag then offers to swap).
   function resolve(ids, id, g, base, d, opts) {
-    var shrink = !!(opts && opts.shrink);
+    var shrink = !!(opts && opts.shrink), keepSide = !!(opts && opts.keepSide);
     if (g.w < MIN - 0.01 || g.h < MIN - 0.01 || !inside(g, d)) return null;
     var geo = {};
     ids.forEach(function (k) { if (base[k]) geo[k] = base[k]; });
@@ -56,13 +58,19 @@
       }
       if (victim === null) return geo;
       var v = geo[victim], f = geo[by], best = null, bd = 1e12;
-      var tries = [{ x: f.x + f.w, y: v.y, w: v.w, h: v.h }, { x: f.x - v.w, y: v.y, w: v.w, h: v.h }, { x: v.x, y: f.y + f.h, w: v.w, h: v.h }, { x: v.x, y: f.y - v.h, w: v.w, h: v.h }];
+      // Each try with the side it puts the tile on: right of, left of, below or above the tile pushing it.
+      var tries = [[{ x: f.x + f.w, y: v.y, w: v.w, h: v.h }, 'r'], [{ x: f.x - v.w, y: v.y, w: v.w, h: v.h }, 'l'],
+        [{ x: v.x, y: f.y + f.h, w: v.w, h: v.h }, 'b'], [{ x: v.x, y: f.y - v.h, w: v.w, h: v.h }, 't']];
       if (shrink) {
         var x = f.x + f.w, y = f.y + f.h, x0 = Math.max(0, f.x - v.w), y0 = Math.max(0, f.y - v.h);
-        tries.push({ x: x, y: v.y, w: Math.min(v.w, d.W - x), h: v.h }, { x: x0, y: v.y, w: f.x - x0, h: v.h },
-          { x: v.x, y: y, w: v.w, h: Math.min(v.h, d.H - y) }, { x: v.x, y: y0, w: v.w, h: f.y - y0 });
+        tries.push([{ x: x, y: v.y, w: Math.min(v.w, d.W - x), h: v.h }, 'r'], [{ x: x0, y: v.y, w: f.x - x0, h: v.h }, 'l'],
+          [{ x: v.x, y: y, w: v.w, h: Math.min(v.h, d.H - y) }, 'b'], [{ x: v.x, y: y0, w: v.w, h: f.y - y0 }, 't']);
       }
-      tries.forEach(function (box) {
+      var cx = v.x + v.w / 2 - (f.x + f.w / 2), cy = v.y + v.h / 2 - (f.y + f.h / 2);
+      var onSide = { r: cx >= 0, l: cx <= 0, b: cy >= 0, t: cy <= 0 };
+      tries.forEach(function (tr) {
+        var box = tr[0];
+        if (keepSide && !onSide[tr[1]]) return;
         if (box.w < MIN - 0.01 || box.h < MIN - 0.01 || !inside(box, d)) return;
         for (var k = 0; k < fixed.length; k++) if (ovl(box, geo[fixed[k]])) return;
         // Moving is preferred to shrinking.
@@ -121,10 +129,44 @@
     geo[id] = denorm(A, axis, s, d);
     return true;
   }
+  // The same move, with the tiles beyond the side shrinking evenly instead: the tiles in line with this tile (and the
+  // ones in line with those) first slide into any free space before the wall, then they and the gaps between them
+  // shrink in proportion, like panes behind a splitter. False when one of them would get smaller than MIN.
+  function evenAxis(geo, base, ids, id, g0, d, axis, s) {
+    var L = axis === 'x' ? d.W : d.H;
+    var A = norm(geo[id], axis, s, d), e0 = norm(g0, axis, s, d);
+    e0 = e0.x + e0.w;
+    var E = A.x + A.w;
+    if (E > L + 0.5) return false;
+    function across(a, b) { return a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5; }
+    // Beyond the side by where they were at the start; their place now (a corner drag has done the other axis).
+    var cand = ids.filter(function (k) { return String(k) !== String(id) && geo[k] && base[k] && norm(base[k], axis, s, d).x >= e0 - 0.5; })
+      .map(function (k) { return { k: k, t: norm(geo[k], axis, s, d) }; });
+    var set = cand.filter(function (c) { return across(A, c.t); }), grew = true;
+    while (grew) {
+      grew = false;
+      cand.forEach(function (c) {
+        if (set.indexOf(c) < 0 && set.some(function (m) { return across(m.t, c.t); })) { set.push(c); grew = true; }
+      });
+    }
+    var need = E - e0;
+    if (!set.length || need <= 0) { geo[id] = denorm(A, axis, s, d); return true; }
+    var maxR = Math.max.apply(null, set.map(function (c) { return c.t.x + c.t.w; }));
+    var shift = Math.max(0, Math.min(need, L - maxR)), from = e0 + shift, k = (L - E) / (L - from);
+    for (var i = 0; i < set.length; i++) {
+      var t = set[i].t, x = t.x + shift;
+      set[i].t = { x: E + (x - from) * k, y: t.y, w: t.w * k, h: t.h };
+      if (set[i].t.w < MIN - 0.01) return false;
+    }
+    set.forEach(function (c) { geo[c.k] = denorm(c.t, axis, s, d); });
+    geo[id] = denorm(A, axis, s, d);
+    return true;
+  }
   // Resize tile `id` from g0 (where the gesture started) towards g. The sides that move out push the tiles in their
-  // way; tiles that reach the wall get squeezed. Returns the new layout by id (the tile may end up smaller than g
-  // when everything is squeezed), or null.
-  function pushResize(ids, id, g0, g, base, d) {
+  // way. mode 'even': those tiles shrink evenly (evenAxis); otherwise tiles that reach the wall get squeezed, the far
+  // ones first (pushAxis). Returns the new layout by id (the tile may end up smaller than g when everything is
+  // squeezed), or null.
+  function pushResize(ids, id, g0, g, base, d, mode) {
     if (g.w < MIN - 0.01 || g.h < MIN - 0.01 || !inside(g, d)) return null;
     var geo = {};
     ids.forEach(function (k) { if (base[k]) geo[k] = copy(base[k]); });
@@ -134,7 +176,8 @@
     if (g.x < g0.x - 0.01) dirs.push(['x', -1]);
     if (g.y + g.h > g0.y + g0.h + 0.01) dirs.push(['y', 1]);
     if (g.y < g0.y - 0.01) dirs.push(['y', -1]);
-    for (var i = 0; i < dirs.length; i++) if (!pushAxis(geo, base, ids, id, g0, d, dirs[i][0], dirs[i][1])) return null;
+    var push = mode === 'even' ? evenAxis : pushAxis;
+    for (var i = 0; i < dirs.length; i++) if (!push(geo, base, ids, id, g0, d, dirs[i][0], dirs[i][1])) return null;
     if (valid(geo, d)) return geo;
     // An arrangement the pushes did not untangle (tiles beside, not in line): the general rule has a go.
     return resolve(ids, id, geo[id], geo, d, { shrink: true });
