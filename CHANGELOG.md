@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
+
+Download **Wallpane Setup 1.3.0.exe** (installer) or **Wallpane 1.3.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
 - **Background music:** the ♪ button plays a folder of your own music behind the wall (MP3, M4A, AAC, WAV, OGG, Opus, FLAC), with previous, next, volume and shuffle. It keeps playing in wall mode, pauses with the emergency hide, and starts again on the next start.
 - **On a TV or projector:** Settings › Wall mode › Connect a wireless display… opens Windows' Cast settings; a connected display appears under Show on straight away.
 - **Arrange › Fill the wall:** every tile keeps its media's shape, and together they fill the wall edge to edge in rows or columns.
