@@ -339,17 +339,24 @@
   }
 
   /* ---------- thumbnails in even rows; only the rows on screen exist ---------- */
+  // Rows done again (another width, thumbnail size, or details) keep the first thumbnail on screen where it was, so the
+  // view never jumps while scrolled down.
+  var keep = null;   // { id, off }: the first thumbnail on screen, and how far it is scrolled past
   function relayout() {
     laidWidth = grid.clientWidth;
     layout = J.layout(results, laidWidth, S.lib.size, GAP);
     space.style.height = layout.height + 'px';
+    var i = keep ? index.get(keep.id) : undefined;
+    if (i !== undefined && layout.boxes[i] && grid.scrollTop > 0) grid.scrollTop = layout.boxes[i].y + Math.min(keep.off, layout.boxes[i].h);
     paint();
   }
   // A thumbnail on screen stays as it is (so it never flickers, or vanishes under the pointer) until its file's
   // details change.
   function sigOf(it) { return [it.name, it.path, it.kind, it.w, it.h, it.dur].join('|'); }
   function paint() {
-    var top = grid.scrollTop, v = J.visible(layout.rows, top - 300, top + grid.clientHeight + 300), keep = new Set();
+    var top = grid.scrollTop, v = J.visible(layout.rows, top - 300, top + grid.clientHeight + 300), shown = new Set();
+    var at = top > 0 ? J.visible(layout.rows, top, top) : null, first = at && layout.rows[at.first];
+    keep = first && results[first.start] ? { id: results[first.start].id, off: top - first.y } : null;
     if (v) {
       for (var r = v.first; r <= v.last; r++) {
         var row = layout.rows[r];
@@ -358,19 +365,15 @@
           if (el && el._sig !== sig) { el.remove(); els.delete(it.id); el = null; }
           if (!el) { el = make(it); el._sig = sig; els.set(it.id, el); space.appendChild(el); }
           el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px';
-          keep.add(it.id);
+          shown.add(it.id);
         }
       }
     }
-    els.forEach(function (el, id) { if (!keep.has(id)) { el.remove(); els.delete(id); } });
+    els.forEach(function (el, id) { if (!shown.has(id)) { el.remove(); els.delete(id); } });
     askThumbs();
   }
-  var painting = false;
-  grid.addEventListener('scroll', function () {
-    if (painting) return;
-    painting = true;
-    requestAnimationFrame(function () { painting = false; paint(); });
-  });
+  // Scroll events come at most once a frame, and drawing the rows on screen is quick: drawn at once.
+  grid.addEventListener('scroll', paint);
   new ResizeObserver(function () { if (host.isOpen() && grid.clientWidth !== laidWidth) relayout(); }).observe(grid);
 
   function clock(s) {

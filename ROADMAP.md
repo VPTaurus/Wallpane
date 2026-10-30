@@ -39,7 +39,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [x] **C3. Thumbnails.** A frame from each video (not a black one) and a small copy of each image, as WebP in the cache, filled in as they are made (`lib/thumbs.js`): the ones on screen first, then the rest in the background, about ten a second.
 - [x] **C4. Browsing.** Thumbnails in even rows that stay fast with tens of thousands of files; search by name; filters by kind, portrait or landscape, length and resolution; sorting; drag one or many onto the wall or onto a tile; play a folder or a selection as a playlist. Shown as the drawer first (done: `renderer/ui/library.js`, rows by `renderer/lib/justify.js`), then the panel (done, with the choice in the header and in Settings › Library), then the library window (done: `renderer/library.html`, dragging out as a real file drag). The view itself is `renderer/ui/libview.js`, shared by the wall page and the window.
 - [x] **C5. Collections.** Your own lists of files; a collection plays as a playlist on a tile, and the playlist follows the collection (`PL.follow`).
-- [ ] **C6. Tests** for the store, the scanning and the grid, with generated media.
+- [x] **C6. Tests** for the store, the scanning and the grid, with generated media: unit tests with each step, and `test/e2e/library.spec.js` (3,000 files, a restart, real videos), each test with its own Wallpane.
 
 ## D. Previews and a smoother wall (1.6.0)
 - [ ] **D1. Hover previews** in the library: a few seconds of the video, small.

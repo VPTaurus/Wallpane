@@ -35,6 +35,39 @@ test('the arguments: a quick look into the video, its most typical frame, never 
   assert.ok(!thumbArgs('video', 'D:\\a.mp4', 'o', { at: 0 }).includes('-ss'));
 });
 
+test('a thumbnail asked for while the background round is already making it still reaches the window', async () => {
+  // An FFmpeg stand-in whose runs end when the test says so, writing a small file where the thumbnail goes.
+  const open = [];
+  const fake = {
+    available: () => true,
+    run: (tool, args) => new Promise((res) => { open.push(() => { fs.writeFileSync(args[args.length - 1], 'webp'); res({ code: 0 }); }); })
+  };
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-thumbrace-')), media = path.join(d, 'media');
+  const cache = createCache(path.join(d, 'cache'));
+  const library = createLibrary({ file: path.join(d, 'library.json'), delay: 1e6, maxWait: 1e6 });
+  library.addFolder(media);
+  library.sync(media, [{ path: path.join(media, 'a.png'), size: 1, mtime: 1 }, { path: path.join(media, 'b.png'), size: 2, mtime: 2 }]);
+  library.all().forEach((e) => library.setInfo(e.id, { w: 10, h: 10 }));
+  const told = [];
+  let th = null;
+  const jobs = createJobs({ kinds: { libthumbs: { heavy: false, run: (j, ctx) => th.kind.run(j, ctx) } } });
+  th = createThumbs({ library, cache, ffmpeg: fake, jobs, notify: (m) => told.push(m), notifyEvery: 5 });
+  const a = library.find(path.join(media, 'a.png')).id;
+
+  th.queue();                                   // the background round: a and b are being made
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(open.length, 2);
+  assert.deepEqual(th.want([a]), {});           // a window asks for a meanwhile
+  open[1]();                                    // b is done first, while a is still being made
+  await new Promise((r) => setTimeout(r, 20));
+  open[0]();
+  await jobs.idle();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.ok(Object.assign({}, ...told)[a], 'the window heard about a');
+  assert.equal(Object.assign({}, ...told)[library.find(path.join(media, 'b.png')).id], undefined, 'and only what it asked for');
+  fs.rmSync(d, { recursive: true, force: true });
+});
+
 async function make(out, args) {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   await ff.run('ffmpeg', ['-y', '-v', 'error'].concat(args, [out]), { timeoutMs: 60000 });
