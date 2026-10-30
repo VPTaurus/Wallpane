@@ -351,6 +351,9 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#aboutLine')).toContainText('Wallpane');
   await expect(page.locator('#aboutLine')).toContainText('GPL');
   await expect(page.locator('#aboutLinks')).toContainText('Source code');
+  // FFmpeg comes with the app; About names the build and links to its exact source.
+  await expect(page.locator('#aboutFfmpeg')).toContainText('Includes FFmpeg 9.0.2');
+  await expect(page.locator('#aboutLinks')).toContainText('FFmpeg source');
   await expect(page.locator('#dataDir')).toHaveText(path.join(dir, 'data'));
   await page.keyboard.press('Escape');
 });

@@ -11,10 +11,10 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 ---
 
 ## 0. Release 1.3.0
-- [ ] Try today's changes by hand, then publish 1.3.0 (the changelog is ready under "Unreleased").
+- [x] Try today's changes by hand, then publish 1.3.0 (the changelog is ready under "Unreleased").
 
 ## A. FFmpeg inside Wallpane (foundation, part of 1.4.0)
-- [ ] **A1. Bundle FFmpeg.** A script (`npm run fetch-ffmpeg`) downloads one pinned build (BtbN *win64 GPL shared*: `ffmpeg.exe`, `ffprobe.exe` and their DLLs, no `ffplay`, no docs), checks its SHA-256 and unpacks it to `vendor/ffmpeg` (not in git). electron-builder ships it as an extra resource; CI caches it. FFmpeg's licence and a link to the exact source go with every release; About shows the FFmpeg version. Measure the installer and portable sizes; a slimmer custom build can come later if needed.
+- [x] **A1. Bundle FFmpeg.** A script (`npm run fetch-ffmpeg`) downloads one pinned build (gyan.dev FFmpeg 9.0.2, *full build, shared*: `ffmpeg.exe`, `ffprobe.exe` and their DLLs, no `ffplay`, no docs; a versioned GitHub release that stays up), checks its SHA-256 and unpacks it to `vendor/ffmpeg` (not in git). electron-builder ships it as an extra resource; CI caches it. FFmpeg's licence and the build's README (naming the exact source) go with it; About shows the version and links to the source. Measured: installer +64 MB (178 MB), portable +58 MB (162 MB), installed +230 MB. A slimmer custom build, with only what Wallpane uses, can come later if that matters.
 - [ ] **A2. Running FFmpeg** (`lib/ffmpeg.js`, main process). Finds the binaries (development or installed), runs them with an argument list (never a shell), at below-normal priority, with progress (`-progress pipe:1`), cancel and time limits. `probe(file)` uses ffprobe's JSON output: length, size, rotation, frame rate, codecs, audio channels, and whether Chromium can play it as it is.
 - [ ] **A3. Job queue** (`lib/jobs.js`). Kinds of job (probe, thumbnail, convert, proxy, loudness, …), the user's own requests first, one heavy and two light jobs at a time, unfinished jobs picked up again after a restart, and progress, done and failed reported to the windows.
 - [ ] **A4. Cache.** `%APPDATA%\Wallpane\cache\` with `converted`, `thumbs`, `previews`, `proxies`, each file named by a hash of the original's path, size and time, so a changed file is redone. A size limit with oldest-first clean-up, and **Settings › Storage**: how much it holds, Show folder, Clear.

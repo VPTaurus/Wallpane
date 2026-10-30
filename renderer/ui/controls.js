@@ -280,8 +280,13 @@
   function fillAbout() {
     api.appInfo().then(function (info) {
       $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      var f = info.ffmpeg;
+      $('#aboutFfmpeg').textContent = f
+        ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
+        : 'FFmpeg is not in this copy (npm run fetch-ffmpeg adds it), so converting files is not available.';
       var box = $('#aboutLinks'), links = [];
       if (info.links.source) links.push(['Source code', info.links.source]);
+      if (info.links.ffmpeg) links.push(['FFmpeg source', info.links.ffmpeg]);
       info.links.support.forEach(function (u) {
         links.push([/buymeacoffee\.com/.test(u) ? 'Buy me a coffee' : /github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
       });

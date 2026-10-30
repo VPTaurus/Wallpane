@@ -11,16 +11,19 @@ Wallpane is free software under the [GNU General Public License, version 3 or la
 ## Run it
 1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
 2. In this folder: `npm install`
-3. `npm start` (or `npm run dev` for developer tools, F12).
+3. `npm run fetch-ffmpeg` once: it downloads the pinned FFmpeg build (about 95 MB, checked against its SHA-256) and keeps what Wallpane uses in `vendor/ffmpeg`, which is not in git. Wallpane runs without it, but then it cannot convert or read media files with FFmpeg.
+4. `npm start` (or `npm run dev` for developer tools, F12).
 
 ## Build a Windows app
-`npm run dist` creates an installer and a portable .exe in `dist/`.
+`npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
 
 ### Releases
 1. Raise `version` in `package.json` (`npm version 1.3.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
 2. On GitHub: Releases › Draft a new release › tag `v1.3.0` (the same version) on `main`, paste the changelog section, Publish.
 3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
-(Building on Windows is simplest.)
+
+### FFmpeg inside Wallpane
+Wallpane ships FFmpeg 9.0.2, the shared Windows build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (`ffmpeg.exe`, `ffprobe.exe` and their libraries), under the GPL version 3. It is pinned in `scripts/fetch-ffmpeg.js` by URL and SHA-256 and lands in `resources/ffmpeg` of the installed app, next to its licence (`LICENSE.txt`) and the build's `README.txt`, which names the exact FFmpeg source ([commit 946fcce07b](https://github.com/FFmpeg/FFmpeg/commit/946fcce07b)) and the libraries in it. Settings › About shows the version and links to that source. Wallpane only ever gives FFmpeg local files; it never goes online. To move to a newer build, change the version, URL, SHA-256 and source in that script.
 
 ### Code signing
 Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows protected your PC"). To sign, get a code-signing certificate (.pfx) and set two environment variables before `npm run dist`; electron-builder picks them up:

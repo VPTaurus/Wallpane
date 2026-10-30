@@ -18,6 +18,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # FFmpeg (one pinned build, checked by its SHA-256), cached until the script that pins it changes.
+      - uses: actions/cache@v4
+        with:
+          path: vendor/ffmpeg
+          key: ffmpeg-${{ hashFiles('scripts/fetch-ffmpeg.js') }}
+      - run: npm run fetch-ffmpeg
       - run: npm run lint
       - run: npm test
       - run: npm run test:e2e
@@ -49,6 +55,10 @@ jobs:
           $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ("v$v" -ne '${{ github.event.release.tag_name }}') { throw "The release tag is ${{ github.event.release.tag_name }} but package.json says $v. Use the tag v$v." }
       - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: vendor/ffmpeg
+          key: ffmpeg-${{ hashFiles('scripts/fetch-ffmpeg.js') }}
       - run: npm run dist
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}

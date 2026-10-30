@@ -15,10 +15,21 @@ if (process.env.WALLPANE_USER_DATA) app.setPath('userData', process.env.WALLPANE
 // Wallpane used to be called Media Wall: bring its saved walls and settings over on the first start.
 else try { files.migrateData(path.join(app.getPath('appData'), 'Media Wall'), app.getPath('userData')); } catch { /* start fresh */ }
 
-// Links the page may open in the browser (About and support, in Help). Nothing else leaves the app.
+// FFmpeg comes with the app (resources/ffmpeg), or for development from vendor/ffmpeg (npm run fetch-ffmpeg).
+// build.json says which build it is and where its source is.
+const FFMPEG_DIR = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg') : path.join(__dirname, 'vendor', 'ffmpeg');
+const ffmpegBuild = (() => {
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(FFMPEG_DIR, 'build.json'), 'utf8'));
+    return fs.existsSync(path.join(FFMPEG_DIR, 'ffmpeg.exe')) ? b : null;
+  } catch { return null; }
+})();
+
+// Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
   source: pkg.homepage,
-  support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || ''))
+  support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || '')),
+  ffmpeg: ffmpegBuild && /^https:\/\//.test(ffmpegBuild.source || '') ? ffmpegBuild.source : null
 };
 
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
@@ -191,10 +202,13 @@ function tellDisplays() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('win:displays-changed');
 }
 handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
-handle('app:info', () => ({ name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS }));
-// Opens one of the app's own links (source code, support) in the browser; any other address is ignored.
+handle('app:info', () => ({
+  name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS,
+  ffmpeg: ffmpegBuild ? { version: ffmpegBuild.version, by: ffmpegBuild.by, license: ffmpegBuild.license } : null
+}));
+// Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
-  if (url === LINKS.source || LINKS.support.includes(url)) shell.openExternal(url);
+  if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
   return true;
 });
 
