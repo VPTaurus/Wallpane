@@ -145,6 +145,7 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target, inField = t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
     if (e.key === 'F11') { e.preventDefault(); A.setClean(!document.body.classList.contains('clean')); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'l') { e.preventDefault(); A.toggleLibrary(); return; }
     if (e.key === 'Escape' && A.soloId != null) { A.setSolo(null); return; }   // only the tile's full screen ends
     // Escape (or Enter) first closes the right-click menu, or finishes repositioning media, or closes Properties.
     if (e.key === 'Escape' && A.menuOpen()) { A.hideMenu(); return; }
@@ -344,11 +345,15 @@
     showSec(secNow);
     A.refreshHideSettings();
     A.refreshStorage();
+    A.refreshLibrary();
     fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
+    $('#setFillShapes').checked = S.fillShapes;
+    $('#setPauseMin').checked = S.pauseMin;
+    $('#setStartWith').value = S.startWith;
     $('#setConvert').checked = S.autoConvert;
     $('#setGifVideo').value = S.gifVideo;
     $('#setResize').value = S.resizeMode;
@@ -366,6 +371,25 @@
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
   $('#castBtn').addEventListener('click', function () { api.openDisplaySettings(); });
   $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
+  $('#setFillShapes').addEventListener('change', function () { S.fillShapes = this.checked; A.savePrefs(); });
+  $('#setPauseMin').addEventListener('change', function () { S.pauseMin = this.checked; A.savePrefs(); });
+  $('#setStartWith').addEventListener('change', function () { S.startWith = this.value; A.savePrefs(); });
+
+  // Minimized, the wall rests: its videos pause and image playlists stop moving on, until the window is back.
+  var restWas = null;
+  api.onMinimized(function (min) {
+    if (min && S.pauseMin && !restWas) {
+      var vids = Array.prototype.slice.call(A.wall.querySelectorAll('video'));
+      restWas = { playing: vids.filter(function (v) { return !v.paused; }), paused: A.wallPaused };
+      A.wallPaused = true;
+      restWas.playing.forEach(function (v) { v.pause(); });
+    } else if (!min && restWas) {
+      A.wallPaused = restWas.paused;
+      restWas.playing.forEach(function (v) { if (v.isConnected) v.play().catch(function () {}); });
+      restWas = null;
+    }
+    A.updateTransport();
+  });
   $('#setResize').addEventListener('change', function () { S.resizeMode = this.value === 'squeeze' ? 'squeeze' : 'even'; A.savePrefs(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
   $('#setAwake').addEventListener('change', function () {

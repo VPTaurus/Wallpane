@@ -95,6 +95,7 @@
     var bt = document.createElement('span'); bt.className = 'hbtns';
     bt.innerHTML =
       (it.pl ? '<button class="hb" data-act="pin" aria-label="Pin to this tile">' + ICON.pin + '</button>' : '') +
+      (it.pl && it._back && it._back.length ? '<button class="hb" data-act="prev" aria-label="Previous in playlist" title="The file this tile showed before">' + ICON.prev + '</button>' : '') +
       (it.pl ? '<button class="hb" data-act="next" aria-label="Next in playlist" title="Next in playlist">' + ICON.next + '</button>' : '') +
       (it.pl ? '' : '<button class="hb" data-act="loop" aria-label="Loop on or off">' + ICON.loop + '</button>') +
       '<button class="hb" data-act="fit" aria-label="Fit">' + ICON.fit + '</button>' +
@@ -156,6 +157,7 @@
       if (act === 'reposDone') { A.endRepos(); return; }
       if (act === 'viewReset') { A.resetView(it); return; }
       if (act === 'next') { if (it.pinned) A.toast('This tile is pinned. Unpin it to skip.'); else A.advance(it); return; }
+      if (act === 'prev') { A.goBack(it); return; }
       if (act === 'pin') { A.setPinned(it, !it.pinned); return; }
       if (act === 'relink') { A.select(it.id); A.relinkOne(it); return; }
       if (act === 'fit') { it.fit = it.fit === 'cover' ? 'contain' : 'cover'; it.fitSet = true; A.render(); A.refreshInspector(); }

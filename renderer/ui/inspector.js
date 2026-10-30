@@ -74,18 +74,20 @@
       selectFld('pFade', 'Crossfade', [['0', 'Cut'], ['0.5', '0.5 s'], ['1', '1 s'], ['2', '2 s']], String(p.fade || 0)) +
       numFld('pMax', 'Max clip seconds', p.maxClip, 0, 3600, '0 plays each clip to the end') +
       selectFld('pView', 'Zoom and position', [['reset', 'New for each file'], ['keep', 'Keep for every file']], p.keepView ? 'keep' : 'reset').replace('class="fld"', 'class="fld wide"') +
+      selectFld('pShape', 'Shapes', [['any', 'Any shape'], ['tile', 'Shaped like the tile first']], p.fitShape ? 'tile' : 'any').replace('class="fld"', 'class="fld wide"') +
       '<div class="fld wide"><span>Plays</span><div class="kinds" id="pTypes" role="group" aria-label="Kinds of file this playlist plays">' +
       [['video', 'Videos'], ['gif', 'GIFs'], ['image', 'Images']].map(function (k) {
         return '<label class="check"><input type="checkbox" value="' + k[0] + '"' + (PL.cleanTypes(p.types).indexOf(k[0]) > -1 ? ' checked' : '') + '> ' + k[1] + '</label>';
       }).join('') + '</div></div>' +
       '</div>' +
-      '<div class="acts"><button class="btn" id="plNext"' + (it.pinned ? ' disabled title="Pinned: unpin to move on"' : '') + '>Next file</button>' +
+      '<div class="acts"><button class="btn" id="plPrev"' + (it.pinned || !(it._back && it._back.length) ? ' disabled' : '') + ' title="The file this tile showed before">Previous file</button>' +
+      '<button class="btn" id="plNext"' + (it.pinned ? ' disabled title="Pinned: unpin to move on"' : '') + '>Next file</button>' +
       '<button class="btn" id="plChange" title="Play a different folder on this tile">Change folder…</button></div>' +
       '<button class="btn" id="plLeave" title="Keep showing the file that is on the tile now">Stop the playlist on this tile</button></div>';
   }
   function playlistSig(it) {
     var p = it.pl && S.playlists[it.pl];
-    return p ? [p.name, p.files.length, !!p.truncated, p.shuffle, p.secs, p.gifOnce, p.randomStart, p.fade, p.maxClip, !!p.keepView, PL.cleanTypes(p.types), playersOf(it)].join(',') : '';
+    return p ? [p.name, p.files.length, !!p.truncated, p.shuffle, p.secs, p.gifOnce, p.randomStart, p.fade, p.maxClip, !!p.keepView, !!p.fitShape, PL.cleanTypes(p.types), playersOf(it), (it._back || []).length].join(',') : '';
   }
 
   // What the card shows. When only the tile's place changed (every step of a drag) or a playlist moved on to the next
@@ -224,6 +226,7 @@
         fade: clamp(parseFloat($('#pFade').value) || 0, 0, 5),
         maxClip: clamp(parseInt($('#pMax').value, 10) || 0, 0, 3600),
         keepView: $('#pView').value === 'keep',
+        fitShape: $('#pShape').value === 'tile',
         types: PL.cleanTypes(A.readTypes($('#pTypes')))
       };
       var typesChanged = next.types.join() !== PL.cleanTypes(p.types).join();
@@ -246,6 +249,7 @@
     });
     if ($('#pTypes')) A.guardTypes($('#pTypes'));
     if ($('#plNext')) $('#plNext').addEventListener('click', function () { A.advance(it); });
+    if ($('#plPrev')) $('#plPrev').addEventListener('click', function () { A.goBack(it); });
     if ($('#plChange')) $('#plChange').addEventListener('click', function () { A.ownFolder(it); });
     if ($('#plLeave')) $('#plLeave').addEventListener('click', function () { A.leavePlaylist(it); });
     if ($('#insZoom')) $('#insZoom').addEventListener('input', function () {

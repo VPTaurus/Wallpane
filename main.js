@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -30,6 +30,10 @@ const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind } = require('./lib/playable');
+const { createLibrary } = require('./lib/library');
+const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
+const { imageSize } = require('./lib/imagesize');
+const { createThumbs } = require('./lib/thumbs');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -54,10 +58,11 @@ function idOf(e) {
 }
 
 /* ---------- only our own pages may call in ---------- */
-// The caller must be one of our wall windows, from its top frame, showing a page from the app folder.
+// The caller must be one of our wall windows (or the library window), from its top frame, showing a page from the app
+// folder.
 function trusted(e) {
   const w = winOf(e);
-  if (!w || ![...wins.values()].includes(w)) return false;
+  if (!w || !([...wins.values()].includes(w) || w === libWin)) return false;
   const f = e.senderFrame;
   return !!f && !f.parent && /^file:/i.test(f.url);
 }
@@ -69,7 +74,7 @@ function handle(channel, fn) {
 }
 
 /* ---------- stored data: small JSON files in the app's data folder ---------- */
-const STORES = new Set(['prefs', 'presets', 'layouts', 'session']);
+const STORES = new Set(['prefs', 'presets', 'layouts', 'session', 'libwin']);   // libwin: the library window's settings
 function dataDir() { return app.getPath('userData'); }
 // The wall itself (session) and its settings (prefs) belong to one window; presets and layouts are shared by all.
 function storeFile(name, id) {
@@ -103,11 +108,18 @@ const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
 const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
+let library = null, libFolders = null, thumbs = null;   // the library, its folders on disk and its thumbnails
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
 function tellJobs(list) {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('jobs:changed', list);
+}
+function tellLibrary() {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:changed');
+}
+function tellThumbs(made) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:thumbsMade', made);
 }
 // The list of unfinished jobs is written at most twice a second, the latest one last.
 function saveJobs(pending) {
@@ -118,8 +130,21 @@ function saveJobs(pending) {
 function startBackground() {
   try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
+  library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
+  const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
+  thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
+  libFolders = createLibraryFolders({
+    library, watchers, notify: tellLibrary, onUpdated: thumbs.queue,
+    jobs: jobsLater,
+    scan: (dir) => files.scan(dir, (p) => !!formats.kindOfName(p, ffmpeg.available())),
+    imageSize,
+    gifSeconds: async (p) => ((await fsp.stat(p)).size > 60 * 1024 * 1024 ? 0 : files.gifSeconds(await fsp.readFile(p))),
+    probeRaw: ffmpeg.probeRaw, canProbe: ffmpeg.available
+  });
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
+  JOB_KINDS.libinfo = libFolders.infoKind;
+  JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
     kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
     load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
@@ -176,6 +201,111 @@ handle('cache:setLimit', (_e, gb) => {
 handle('cache:clear', () => { cache.clear(); return cacheInfo(); });
 handle('cache:reveal', () => { fs.mkdirSync(cache.root, { recursive: true }); shell.openPath(cache.root); return true; });
 
+/* ---------- the library: folders of media and what is in them (lib/library.js, lib/libraryfolders.js) ---------- */
+handle('library:folders', () => libFolders.folders());
+// A folder from the page (dropped from Explorer), or else one chosen in a dialog. Answers once its files are in:
+// { status: 'added' | 'inside', path }, or 'missing' / 'notfolder', or null when the dialog was cancelled.
+handle('library:addFolder', async (e, p) => {
+  if (typeof p !== 'string' || !p) {
+    const r = await dialog.showOpenDialog(winOf(e), { title: 'Add a folder to the library', properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    p = r.filePaths[0];
+  }
+  try { if (!fs.statSync(p).isDirectory()) return { status: 'notfolder', path: p }; } catch { return { status: 'missing', path: p }; }
+  return libFolders.add(p);
+});
+handle('library:removeFolder', (_e, p) => (typeof p === 'string' ? libFolders.remove(p) : -1));
+handle('library:rescan', async (_e, p) => {
+  if (typeof p === 'string' && p) await libFolders.rescan(p); else await libFolders.rescanAll();
+  return libFolders.folders();
+});
+handle('library:query', (_e, q) => { libFolders.ready(); return library.query(q && typeof q === 'object' ? q : {}); });
+// Collections: your own lists of library files.
+handle('library:collections', () => { libFolders.ready(); return library.collections(); });
+// A collection's files as a tile plays them (GIFs count as pictures there): [{ path, name, kind }], or null.
+handle('library:collectionFiles', (_e, id) => {
+  libFolders.ready();
+  const list = typeof id === 'string' ? library.collectionFiles(id) : null;
+  return list && list.map((x) => ({ path: x.path, name: x.name, kind: x.kind === 'video' ? 'video' : 'image' }));
+});
+// make (name, ids) · rename (id, name) · drop (id) · add (id, ids) · take (id, ids) · move (id, ids, before id or none)
+handle('library:editCollection', (_e, op, a, b, c) => {
+  libFolders.ready();
+  const s = (x) => (typeof x === 'string' ? x : ''), ids = (x) => (Array.isArray(x) ? x.filter((v) => typeof v === 'string') : []);
+  switch (op) {
+    case 'make': return library.makeCollection(s(a), ids(b));
+    case 'rename': return library.renameCollection(s(a), s(b));
+    case 'drop': return library.dropCollection(s(a));
+    case 'add': return library.addToCollection(s(a), ids(b));
+    case 'take': return library.takeFromCollection(s(a), ids(b));
+    case 'move': return library.moveInCollection(s(a), ids(b), s(c) || null);
+    default: return null;
+  }
+});
+// The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
+// 'library:thumbsMade'.
+handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });
+
+/* ---------- the library window (Settings › Library › Show the library as: a window of its own) ---------- */
+// One for the whole app, made when first shown. Closing it only hides it; it goes with the last wall window. Its place
+// and size are kept in window.json like the wall windows'.
+let libWin = null, lastWall = 1, dragIcon = null;
+// The wall windows' Library buttons show whether the library window does.
+function tellLibraryShown(shown) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('library:window', shown);
+}
+function makeLibraryWindow() {
+  const st = state.libwin || {};
+  const opts = {
+    width: st.width >= 340 ? st.width : 520, height: st.height >= 420 ? st.height : 820, minWidth: 340, minHeight: 420,
+    show: false, backgroundColor: '#0e1218', title: 'Wallpane · Library', autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
+  };
+  if (Number.isFinite(st.x) && Number.isFinite(st.y) && boundsVisible({ x: st.x, y: st.y, width: opts.width, height: opts.height })) { opts.x = st.x; opts.y = st.y; }
+  const w = new BrowserWindow(opts);
+  const remember = () => { if (!w.isDestroyed() && !w.isMinimized() && !w.isMaximized()) state.libwin = w.getBounds(); };
+  w.on('resize', remember);
+  w.on('move', remember);
+  w.on('close', (e) => {
+    remember(); saveState();
+    if (!quitting && wins.size) { e.preventDefault(); w.hide(); }
+  });
+  w.on('show', () => tellLibraryShown(true));
+  w.on('hide', () => tellLibraryShown(false));
+  w.on('closed', () => { libWin = null; tellLibraryShown(false); });
+  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  w.webContents.on('will-navigate', (e) => e.preventDefault());
+  w.once('ready-to-show', () => { w.show(); w.focus(); });
+  w.loadFile(path.join(__dirname, 'renderer', 'library.html'));
+  return w;
+}
+// show: true, false, or null to turn it round. Returns whether it shows now.
+function showLibraryWindow(show) {
+  const there = libWin && !libWin.isDestroyed(), visible = there && libWin.isVisible();
+  if (show === null) show = !visible;
+  if (!show) { if (visible) libWin.hide(); return false; }
+  if (!there) libWin = makeLibraryWindow();   // it shows once its page is ready
+  else { if (libWin.isMinimized()) libWin.restore(); libWin.show(); libWin.focus(); }
+  return true;
+}
+handle('library:openWindow', (_e, show) => showLibraryWindow(typeof show === 'boolean' ? show : null));
+// From the library window: files for the wall window used last (double-click, Enter, Put on the wall).
+handle('library:toWall', (_e, paths) => {
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 5000);
+  const w = wins.get(lastWall) || [...wins.values()][0];
+  if (!w || w.isDestroyed() || !list.length) return false;
+  w.webContents.send('library:put', list);
+  return true;
+});
+// A real Windows file drag of these files out of the library window (Electron offers it for copying or linking, never
+// moving): a wall window takes it as it takes a drop from Explorer.
+ipcMain.on('library:drag', (e, paths) => {
+  if (!trusted(e)) return;
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p && fs.existsSync(p)).slice(0, 1000);
+  if (!list.length) return;
+  e.sender.startDrag({ file: list[0], files: list, icon: dragIcon || nativeImage.createEmpty() });
+});
+
 /* ---------- files and dialogs ---------- */
 // With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.
 function mediaOpts() { return { convertible: ffmpeg.available() }; }
@@ -207,14 +337,47 @@ handle('media:probe', async (_e, p) => {
     return Object.assign(info, { verdict: mediainfo.verdict(info) });
   } catch (err) { return { error: err.message, code: err.code }; }
 });
+// The shapes (width / height, as they show) of media files, for playlists that prefer files shaped like their tile:
+// what the library knows, else read from the file (a picture's first bytes, ffprobe for a video), four at a time, and
+// kept for this run. { path: shape } for the ones known.
+const shapes = new Map();   // lower-case path|size|time -> shape, or 0 when unknown
+async function shapeOf(p) {
+  try {
+    const known = library && library.find(p);
+    if (known && known.w && known.h) return known.w / known.h;
+    if (formats.kindOfName(p, true) !== 'video') { const s = await imageSize(p); if (s) return s.w / s.h; }
+    if (!ffmpeg.available()) return 0;
+    const v = mediainfo.describe(await ffmpeg.probeRaw(p)).video;
+    return v && v.width && v.height ? v.width / v.height : 0;
+  } catch { return 0; }
+}
+handle('media:shapes', async (_e, paths) => {
+  if (libFolders) libFolders.ready();
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 40), out = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const p = list[next++];
+      let st;
+      try { st = await fsp.stat(p); } catch { continue; }
+      const key = p.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs);
+      if (!shapes.has(key)) shapes.set(key, await shapeOf(p));
+      if (shapes.get(key)) out[p] = shapes.get(key);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return out;
+});
 handle('shell:reveal', (_e, p) => {
   if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p);
   return true;
 });
 
-// Playlist folders: each window says which ones it plays, and hears when one of them changes.
+// Playlist folders: each window says which ones it plays, and hears when one of them changes. The library's folders
+// are watched the same way, by the owner LIBRARY.
 const watchers = createWatchers({
   notify(owner, root) {
+    if (owner === LIBRARY) { if (libFolders) libFolders.onChanged(root); return; }
     const w = wins.get(owner);
     if (w && !w.isDestroyed()) w.webContents.send('fs:changed', root);
   }
@@ -461,7 +624,7 @@ function loadState() {
     const j = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
     if (j && j.wins && typeof j.wins === 'object') {
       const open = Array.isArray(j.open) ? j.open.filter((n) => Number.isInteger(n) && n >= 1 && n <= 99).slice(0, MAX_WINS) : [1];
-      return { wins: j.wins, open: open.length ? open : [1] };
+      return { wins: j.wins, open: open.length ? open : [1], libwin: j.libwin && typeof j.libwin === 'object' ? j.libwin : null };
     }
     return { wins: { 1: j }, open: [1] };   // file from an earlier version: one window
   } catch { return { wins: {}, open: [1] }; }
@@ -514,8 +677,13 @@ function createWindow(id, given) {
     if (!quitting && wins.size > 1) state.open = state.open.filter((n) => n !== id);
     saveState();
   });
+  win.on('focus', () => { lastWall = id; });   // where the library window sends its files
+  // Minimized, the wall may rest (Settings › General): the page pauses its tiles and resumes them.
+  win.on('minimize', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', true); });
+  win.on('restore', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', false); });
   win.on('closed', () => {
     wins.delete(id);
+    if (!wins.size && libWin && !libWin.isDestroyed()) libWin.destroy();   // the library window goes with the last wall
     watchers.dropOwner(id);
     const a = awake.get(id);
     if (a && a.blocker !== null) powerSaveBlocker.stop(a.blocker);
@@ -557,12 +725,20 @@ if (!app.requestSingleInstanceLock()) {
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
     startBackground();
+    // The picture under the pointer while files are dragged out of the library window: Wallpane's own icon.
+    app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
+    // The library loads and checks its folders once the wall is up, so a big one never slows the start.
+    setTimeout(() => { libFolders.start().catch(() => { /* tried again on Rescan */ }); }, 1500);
   });
-  app.on('before-quit', () => { quitting = true; watchers.closeAll(); });
+  app.on('before-quit', () => {
+    quitting = true;
+    watchers.closeAll();
+    if (library) library.flush();
+  });
   app.on('will-quit', () => { globalShortcut.unregisterAll(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

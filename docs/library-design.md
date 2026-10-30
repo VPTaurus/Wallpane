@@ -14,19 +14,22 @@ It is not a file manager. Wallpane never moves, renames or deletes your files; i
 ## Where it lives (Decision 1: all three, your choice)
 **Settings › Library › Show the library as** offers three ways. A small menu in the library's own header switches between them on the spot. Either way, the choice is remembered.
 
-- **A drawer over the wall** (the default). It slides in from the left, over the wall. The wall keeps its exact size and shape and keeps playing. While you drag thumbnails out of it, the drawer fades and lets the drop through, so a tile underneath it can take the drop too.
+- **A drawer over the wall** (the default). It slides in from the left, over the wall. The wall keeps its exact size and shape and keeps playing. While a drag stays inside the drawer it can land there (on a collection, or a new place in one). Once the drag leaves, the drawer fades and lets drops through, so a tile underneath it can take the drop too.
 - **A panel beside the wall.** The wall gets narrower while the panel is open. Tiles change shape with the wall (Free layouts scale with the window) and change back when it closes.
 - **A window of its own,** for a second screen. Its place and size are remembered like the wall windows'. Closing it only hides it.
 
 The same in all three:
 - A **Library** button in the bar next to Add, and **Ctrl+L**, open and close it. Wall mode hides the drawer and the panel; a library window stays where it is.
 - Drag the edge of the drawer or panel to make it wider or narrower, up to the whole window. The width is remembered.
+- The drawer and the panel go on the left of the wall (the default) or on its right: the header's menu, or Settings › Library › On the side.
 - With several wall windows, each has its own drawer or panel, and the library window serves them all. Double-click and **Put on the wall** go to the wall window used last.
 
 ### One library, three hosts
-- **One piece of page code** (`renderer/ui/library.js` with its plain logic in `renderer/lib/`). It draws the whole library into whatever element it is given. The wall page mounts it in an `<aside>`, either as a drawer or as a panel. A small `library.html` mounts it as a whole window, with the same preload and the same security rules as the wall.
-- **Inside a wall window,** a drag is an ordinary page drag. It carries the file list (and, for a collection, the collection), and the wall's drop code handles it.
-- **From the library window,** a drag is a real Windows file drag (`webContents.startDrag`). The wall takes it exactly like a drop from Explorer. The main process remembers what the drag came from, so a dropped collection still becomes a collection playlist.
+- **One piece of page code**, `renderer/ui/libview.js` (with its row layout in `renderer/lib/justify.js`). It builds the whole view into the `<aside id="lib">` of the page it is in. Its host decides what its files do:
+  - In the wall page, `renderer/ui/library.js` shows it as a drawer or as a panel.
+  - In the small `renderer/library.html`, `renderer/libwin/` shows it as a whole window, with the same preload and the same security rules as the wall.
+- **Inside a wall window,** a drag is an ordinary page drag. It carries the file paths, and the wall's drop code handles them as a drop from Explorer; Shift makes a tile play several files in turn.
+- **From the library window,** a drag is a real Windows file drag (`webContents.startDrag`, offered for copying or linking, never moving). The wall takes it exactly like a drop from Explorer. Double-click, Enter and Put on the wall go to the wall window used last. When collections come (C5), the main process will remember what such a drag came from, so a dropped collection can still become a collection playlist.
 - **The data lives only in the main process.** Every host asks it for results and gets told about changes, so the drawer, the panel and the window always agree.
 
 ## What it holds (Decision 2: only the folders you add)
@@ -46,46 +49,57 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
   "version": 1,
   "folders": [{ "path": "D:\\Clips", "added": 1793400000000 }],
   "files": {
-    "f_8c1e…": {
-      "path": "D:\\Clips\\beach\\sunset.mp4", "folder": "D:\\Clips",
+    "f3c9a1e07b2d4": {
+      "path": "D:\\Clips\\beach\\sunset.mp4",
       "size": 48213012, "mtime": 1790000000000, "kind": "video", "added": 1793400000000,
-      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "ok"
+      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "none"
     }
   },
-  "collections": [{ "id": "c_1", "name": "Evening", "files": ["f_8c1e…"] }]
+  "lost": [{ "id": "f81d0c55e9a20", "at": 1793500000000, "e": { "path": "D:\\Clips\\old name.mp4", "size": 1200, "mtime": 1790000000000, "kind": "video", "added": 1793400000000 } }],
+  "collections": [{ "id": "c1", "name": "Evening", "files": ["f3c9a1e07b2d4"] }]
 }
 ```
 
-- **Per file:** where it is, its size and time, its kind and when it was added. Probing fills in its size in pixels, length, frame rate, codecs, rotation, and whether it plays as it is (`play`: ok, remux, audio or convert).
+- **Per file:** where it is, its size and time, its kind (video, GIF or image) and when it was added. Its library folder is not stored, because loading finds it from the path. Probing fills in its size in pixels, length, frame rate, codecs and rotation, and whether it plays as it is (`play`: none, maybe, remux, audio or convert). For a file that cannot be read, it fills in why (`err`), so it is not tried again and again.
+- **Lost files:** files that left the library in the last 30 days, so that one that comes back keeps its id.
 - **Not stored here:** thumbnails (they are files in the cache) and anything from the internet (Wallpane never goes online).
 - **Moved or renamed files keep their place.** A file can disappear while one with the same size, time and name appears elsewhere in the library. That is taken as the same file, so it stays in its collections (and keeps its tags, later on).
-- **Saving** waits two seconds after the last change, then goes through a temporary file (`writeJsonAtomic`), so a crash never leaves half a file.
-- **Size (Decision 4: up to 50,000 files):** about 300 bytes a file. 50,000 files make about 15 MB of JSON, which loads in well under a second. All of this sits behind `lib/library.js`, so moving to SQLite later would not touch the page.
-- **Searching:** the main process runs each search and sort, which takes a few milliseconds even for 50,000 files. The page gets back the whole result in a compact form (id, name, kind, width and height, length). That is all it needs to lay out the rows; names and details for the rows on screen follow as they scroll in.
+- **Saving** waits two seconds after the last change. While changes keep coming (probing a big folder), it still saves at least every 30 seconds. It writes through a temporary file, so a crash never leaves half a file, and once more when Wallpane closes.
+- **Size (Decision 4: up to 50,000 files):** about 300 bytes a file. Measured with 50,000 fully probed files:
+
+  | | |
+  |---|---|
+  | `library.json` | 14 MB |
+  | loading it | 0.35 s |
+  | saving it | 0.07 s |
+  | the first scan | 0.4 s |
+  | a scan that finds no changes | 0.07 s |
+
+  C2 loads the library after the first window is up, so it never delays the start. All of this sits behind `lib/library.js`, so moving to SQLite later would not touch the page.
+- **Searching:** the main process runs each search and sort, which takes 4 to 40 milliseconds for 50,000 files. The page gets back the whole result in a compact form (id, name, kind, width and height, length). That is all it needs to lay out the rows; names and details for the rows on screen follow as they scroll in.
 
 ## Scanning (C2)
-1. **Adding a folder** walks it straight away. The 3,000-file limit is only for playlists; this walk has none. Each file goes in with its name, size, time and kind (from its extension), so the grid fills at once.
-2. **Background jobs** then probe each file (light jobs) and make thumbnails (C3), using the job queue that exists today.
-3. **Starting the app** does a quick check of every folder for files that are new, gone or changed (by size and time). The same check runs when a watcher reports a change, and on the **Rescan** button.
+1. **Adding a folder** walks it straight away (`files.scan`). The 3,000-file limit is only for playlists; this walk stops at 200,000. Each file goes in with its name, size, time and kind (from its extension), so the grid fills at once. Hidden files, Windows' own folders and links are skipped.
+2. **One background job** ("Reading file details") then fills in the details, two files at a time. Pictures take their size from their first bytes (PNG, GIF, JPEG with its EXIF orientation, WebP, BMP), which is thousands of files a minute. Videos, and pictures in other formats, go through ffprobe. Thumbnails (C3) come after.
+3. **Starting the app** checks every folder for files that are new, gone or changed (by size and time). The same check runs when a watcher reports a change, and on the **Look again** button. Folders that could not be read keep their files, and so does a folder on a drive that is not connected; Wallpane looks for that drive again every minute.
+4. **Settings › Library** lists the folders with how many files each holds and how many still wait for their details, with **Add folder…**, **Look again** and **Remove**.
 
 ## Thumbnails (C3)
-- WebP files, 360 px on the long side, in `cache\thumbs`. They count toward the cache limit; one that was cleaned away is simply made again.
-- **Videos:** FFmpeg picks a typical frame from about 10 % in, so never a black one.
-- **Images:** a small copy, so a folder of 6,000-pixel photos still scrolls smoothly.
+- WebP files, at most 360 px on the long side (never larger than the original), in `cache\thumbs`. They count toward the cache limit; one that was cleaned away is simply made again. A changed file gets a new one.
+- **Videos:** FFmpeg's thumbnail filter picks the most typical of 40 frames from about 10 % in, which skips a black or blank one. Phone videos come out upright, and stretched pixels (anamorphic video) are made square.
+- **Images:** a small copy, turned the way the camera says, so a folder of 6,000-pixel photos still scrolls smoothly.
 - **GIFs:** the first frame. Hover previews for videos and GIFs come in D1.
-- **Order:** the thumbnails on screen are made first, the rest in the background at low priority.
-- **Without FFmpeg (Lite):** images show from the file itself, and videos show a plain card with name and length.
+- **Order:** one background job ("Making thumbnails"), two at a time. The thumbnails a window asks for (`library:thumbs`, the ones on screen) come first and are checked again before every file. Then every other file that has its details. Each one asked for arrives through `library:thumbsMade` as soon as it is made.
+- **Speed:** about a tenth of a second each, for a 12-megapixel photo or a 1080p video, so about ten a second: a thousand files in under two minutes, 50,000 in about an hour and a half.
+- **A file FFmpeg cannot make one of** is marked (`terr`) and not tried again until it changes.
+- **Without FFmpeg (Lite):** there are no thumbnails. Images show from the file itself, and videos show a plain card with name and length.
 
 ## Browsing (C4)
 ```
 ┌ Library ──────────────────────────┐
 │ ⌕ Search names…                   │
 │ [Videos] [GIFs] [Images]  Filters▾ │
-│ ▾ Folders                          │
-│     Clips            1,204         │
-│     Loops              312         │
-│ ▾ Collections                      │
-│     Evening             24         │
+│ [ All folders           1,516  ▾ ] │  ← opens the list of folders
 │ ────────────────────────────────── │
 │ ▭▭▭  ▯  ▭▭▭▭  ▭▭                   │
 │ ▭▭  ▯ ▯  ▭▭▭  ▭▭▭                  │
@@ -114,8 +128,11 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 - **Right-click** offers Put on the wall, Play on the selected tile, Add to collection, Make playable and Show in Explorer.
 
 ## Collections (C5)
-- Your own lists of files. Add to one by dragging or by right-click, and change the order by dragging.
-- A collection dropped on a tile plays there as a playlist and follows the collection as it changes. It uses the playlist code that plays files without a folder today; saved searches (E2) will use it too.
+- **Where they are:** your own lists of files, kept in `library.json` by file id. A moved or renamed file stays in them; a file gone for longer than 30 days drops out. They are listed under Collections in the folder row's list, which also makes a new one, and renames or deletes one (right-click; deleting asks first, and the files stay).
+- **Filling them:** right-click files › Add to "…" or Add to a new collection, or drag files onto a collection in the list (held over the folder row, the list opens).
+- **In a collection:** it sorts by Collection order (its own sort, apart from the folders'). Dragging there changes the order, with a bar showing where the files will go; Move to the start / end in the menu does the same. Delete (or Take out) takes files out of it, never off the disk.
+- **On the wall:** a collection dropped on a tile plays there as a playlist, which remembers the collection (`coll`, saved with the wall). When the library changes, and when the wall loads, it follows the collection (`PL.follow`): in order it takes the new order and carries on after the file it played last; shuffled, it takes new files as a folder's playlist does. A collection deleted or emptied leaves its tiles playing what they have. Dropped elsewhere, a collection fills the empty tiles and cells as a folder does.
+- **From the library window,** collections cannot be dragged onto a wall yet: a real file drag carries only files. Its files can, as files.
 
 ## Later, not in part 1
 Tags, ratings and favourites (E1); saved searches (E2); markers (E3); duplicates (E4); hover and timeline previews (D1, D2).

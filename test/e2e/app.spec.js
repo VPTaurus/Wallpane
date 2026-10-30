@@ -4,26 +4,10 @@ const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const zlib = require('zlib');
 const FF = require('../../lib/ffmpeg');
+const { png } = require('./media');
 
 const root = path.join(__dirname, '..', '..');
-
-// A solid-colour PNG of the given size.
-function png(w, h, rgb) {
-  const chunk = (type, data) => {
-    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-    const body = Buffer.concat([Buffer.from(type), data]);
-    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(body));
-    return Buffer.concat([len, body, crc]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
-  const row = Buffer.alloc(1 + w * 3);
-  for (let x = 0; x < w; x++) row.set(rgb, 1 + x * 3);
-  const raw = Buffer.concat(Array.from({ length: h }, () => row));
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
-}
 
 // A short mono sine tone as a WAV file, for the background music.
 function wav(secs, hz) {
@@ -74,7 +58,9 @@ async function answerDialogs(p, save) {
   }, { p, save });
 }
 const toast = () => page.locator('#toast');
-// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Keys' or 'About'.
+// A data file as the app saved it, or {} while it is not there yet (polls then simply try again).
+const saved = (name) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', name + '.json'), 'utf8')); } catch { return {}; } };
+// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Library', 'Storage', 'Keys' or 'About'.
 async function settingsAt(sec) {
   if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
   await page.click('#tab' + sec);
@@ -234,7 +220,7 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   // The clock's time format, for this window.
   await page.locator('#setClock').selectOption('12');
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(false);
+  await expect.poll(() => saved('prefs').clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
   // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
   await expect(page.locator('#setSoloSound')).toBeChecked();
@@ -245,7 +231,7 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#secWall')).toBeVisible();
   await expect(page.locator('#secGeneral')).toBeHidden();
   await page.click('#setStartWall');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).startWall).toBe(true);
+  await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('#popS')).toBeHidden();
 });
@@ -365,7 +351,7 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#cacheClear')).toBeDisabled();
   await page.locator('#cacheLimit').selectOption('5');
   await expect(page.locator('#cacheOf')).toHaveText('of 5 GB');
-  await expect.poll(() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB; } catch { return null; } }).toBe(5);
+  await expect.poll(() => saved('app').cacheLimitGB).toBe(5);
   await page.keyboard.press('Escape');
 });
 
@@ -679,7 +665,7 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await key.click();
   await page.keyboard.press('Control+Shift+J');
   await expect(key).toHaveText('Ctrl + Shift + J');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).key).toBe('Ctrl+Shift+J');
+  await expect.poll(() => saved('hide').key).toBe('Ctrl+Shift+J');
   await expect(page.locator('#keysHideKey')).toHaveText('Ctrl Shift J');   // Settings > Keys shows the new key
   // Black screen, from Hide now.
   await page.locator('#hideCover').selectOption('black');
@@ -713,7 +699,7 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await settingsAt('Hide');
   await page.locator('#hideMouse').selectOption('middle');
   await expect(page.locator('#hideMouseNote')).toBeVisible();
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'hide.json'), 'utf8')).mouse).toBe('middle');
+  await expect.poll(() => saved('hide').mouse).toBe('middle');
   await page.keyboard.press('Escape');
   const w = await page.locator('#wall').boundingBox();
   await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });
@@ -732,7 +718,7 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await page.locator('#clock24').setChecked(true);
   await expect(page.locator('#clock')).not.toHaveText(/M$/);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(true);
+  await expect.poll(() => saved('prefs').clock24).toBe(true);
   // Stopwatch (not ticked for the bar, so it runs in the popover only)
   await page.click('#swGo');
   await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
@@ -760,7 +746,7 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#clock')).toBeHidden();
   await expect(page.locator('#clockIcon')).toBeVisible();
   await expect(page.locator('#swChip')).toBeVisible();
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).timeBar).toEqual({ clock: false, sw: true, tm: true, ct: false });
+  await expect.poll(() => saved('prefs').timeBar).toEqual({ clock: false, sw: true, tm: true, ct: false });
   await page.keyboard.press('Escape');
   await expect(page.locator('#swCtl')).toHaveAttribute('aria-label', 'Start the stopwatch');
   await page.click('#swCtl');
@@ -806,12 +792,12 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#ctChipT')).toHaveText('3');
   await page.click('#ctCtl', { button: 'right' });
   await expect(page.locator('#ctChipT')).toHaveText('2');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(2);
+  await expect.poll(() => saved('prefs').counter).toBe(2);
   await page.click('#ctOpen');
   await page.locator('#showCt').uncheck();
   await expect(page.locator('#ctChip')).toBeHidden();
   await expect(page.locator('#ctNum')).toHaveText('0');
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(0);
+  await expect.poll(() => saved('prefs').counter).toBe(0);
   await page.keyboard.press('Escape');
 });
 
@@ -836,7 +822,7 @@ test('background music: a folder plays behind the wall, moves on by itself, paus
   await expect(page.locator('#musicName')).toHaveText('01 First', { timeout: 6000 });
   await page.locator('#musicVol').fill('30');
   await expect.poll(async () => (await audio()).vol).toBeCloseTo(0.3, 2);
-  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
+  await expect.poll(() => saved('prefs').music).toEqual({ root: music, shuffle: false, vol: 0.3, on: true });
   // The emergency hide pauses it too, and it plays on afterwards.
   await page.evaluate(() => window.wall.toggleHide());
   await expect.poll(async () => (await audio()).paused).toBe(true);
@@ -859,6 +845,340 @@ test('cast: Wall mode settings open Windows display settings; a display coming o
   await app.evaluate(({ screen }) => { screen.emit('display-added', {}, {}); });
   await expect.poll(options).toBe(before);
   await page.keyboard.press('Escape');
+});
+
+test('Settings › Library: a folder comes in with its files and their details, notices new ones, and goes out again', async () => {
+  const lib = path.join(dir, 'Library folder');
+  fs.mkdirSync(path.join(lib, 'sub'), { recursive: true });
+  fs.writeFileSync(path.join(lib, 'wide.png'), png(160, 90, [200, 80, 40]));
+  fs.writeFileSync(path.join(lib, 'sub', 'tall.png'), png(90, 160, [40, 80, 200]));
+  fs.writeFileSync(path.join(lib, 'readme.txt'), 'not media');
+  await settingsAt('Library');
+  await expect(page.locator('#libFolders')).toContainText('No folders yet');
+  await answerDialogs(lib);
+  await page.click('#libAdd');
+  const row = page.locator('#libFolders .lrow');
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('b')).toHaveText('Library folder');
+  await expect(toast()).toContainText('Added Library folder: 2 videos, GIFs and pictures.');
+  await expect(row.locator('.lstat')).toHaveText('2 files');   // the details are read, too
+  const tall = await page.evaluate(() => window.wall.queryLibrary({ shape: 'portrait' }));
+  expect(tall.items.map((i) => [i.name, i.w, i.h])).toEqual([['tall.png', 90, 160]]);
+
+  // Thumbnails: asked for, made in the background, and shown by the page from the cache.
+  const ids = (await page.evaluate(() => window.wall.queryLibrary({}))).items.map((i) => i.id);
+  await expect.poll(async () => Object.keys(await page.evaluate((x) => window.wall.libraryThumbs(x), ids)).length, { timeout: 15000 }).toBe(2);
+  const shown = await page.evaluate(async (x) => {
+    const made = await window.wall.libraryThumbs(x);
+    return Promise.all(Object.values(made).map((p) => new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res(img.naturalWidth + '×' + img.naturalHeight);
+      img.onerror = () => res('did not load');
+      img.src = window.MW.util.fileUrl(p);
+    })));
+  }, ids);
+  expect(shown.sort()).toEqual(['160×90', '90×160']);
+
+  // A new file is noticed by itself.
+  fs.writeFileSync(path.join(lib, 'square.png'), png(100, 100, [90, 90, 90]));
+  await expect(row.locator('.lstat')).toHaveText('3 files', { timeout: 10000 });
+
+  // Remove takes two clicks, and leaves the files where they are.
+  await row.locator('button').click();
+  await expect(row.locator('button')).toHaveText('Click again to remove');
+  await row.locator('button').click();
+  await expect(page.locator('#libFolders')).toContainText('No folders yet');
+  await expect(toast()).toContainText('Library folder is out of the library (3 files)');
+  expect(fs.existsSync(path.join(lib, 'square.png'))).toBe(true);
+  await page.keyboard.press('Escape');
+});
+
+test('the library drawer: search, kinds, and files dragged or double-clicked onto the wall', async () => {
+  const lib = path.join(dir, 'Drawer media');
+  fs.mkdirSync(path.join(lib, 'more'), { recursive: true });
+  fs.writeFileSync(path.join(lib, 'red wide.png'), png(160, 90, [220, 40, 40]));
+  fs.writeFileSync(path.join(lib, 'green tall.png'), png(90, 160, [40, 200, 60]));
+  fs.writeFileSync(path.join(lib, 'blue square.png'), png(100, 100, [40, 60, 220]));
+  fs.writeFileSync(path.join(lib, 'more', 'grey extra.png'), png(120, 90, [128, 128, 128]));
+  await page.evaluate((p) => window.wall.addLibraryFolder(p), lib);
+  // A fresh grid wall.
+  await settingsAt('General');
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await page.keyboard.press('Escape');
+  await page.click('#modeSeg [data-mode="grid"]');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('#gridBtn');   // 4 × 3, so the tiles below land beside the drawer, where they can be clicked
+  await page.fill('#cols', '4'); await page.press('#cols', 'Tab');
+  await page.fill('#rows', '3'); await page.press('#rows', 'Tab');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+
+  await page.keyboard.press('Control+l');
+  await expect(page.locator('#lib')).toBeVisible();
+  await expect(page.locator('#libSearch')).toBeFocused();
+  const thumbs = page.locator('#libGrid .lthumb');
+  await expect(thumbs).toHaveCount(4);
+  await expect(page.locator('#libShown')).toHaveText('4 files');
+  await expect(page.locator('#libGrid .lthumb img')).toHaveCount(4, { timeout: 15000 });   // the thumbnails came
+
+  await page.fill('#libSearch', 'tall');
+  await expect(thumbs).toHaveCount(1);
+  await expect(page.locator('#libShown')).toHaveText('1 of 4');
+  await page.fill('#libSearch', 'more');
+  await expect(thumbs).toHaveCount(1, { timeout: 3000 });   // the subfolder's name finds its file
+  await page.fill('#libSearch', '');
+  await page.click('.lkinds [data-kind="video"]');
+  await expect(page.locator('#libEmpty')).toContainText('Nothing matches.');
+  await page.click('#libEmpty button');
+  await expect(thumbs).toHaveCount(4);
+
+  // One folder at a time, from the list that the folder row opens; Esc closes the list, not the drawer.
+  const folderList = page.locator('#libFolderList');
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+  await expect(folderList).toBeHidden();
+  await page.click('#libFolderBtn');
+  await expect(folderList).toBeVisible();
+  await folderList.locator('.lfolder', { hasText: 'Drawer media' }).click();
+  await expect(folderList).toBeHidden();
+  await expect(page.locator('#libFolderName')).toHaveText('Drawer media');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libFolderBtn');
+  await page.keyboard.press('Escape');
+  await expect(folderList).toBeHidden();
+  await expect(page.locator('#lib')).toBeVisible();
+  await page.click('#libFolderBtn');
+  await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+
+  // Dragged onto an empty cell under the drawer itself: once the drag has left the drawer, it lets the drop through.
+  const thumb = (name) => page.locator('#libGrid .lthumb', { hasText: '' }).and(page.locator('[title^="' + name + '"]'));
+  async function dragTo(src, target, shift) {
+    await expect(src).toBeVisible();
+    const a = await src.boundingBox(), b = await target.boundingBox(), d = await page.locator('#lib').boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    if (shift) await page.keyboard.down('Shift');
+    await page.mouse.move(d.x + d.width + 80, d.y + d.height / 2, { steps: 6 });   // out of the drawer first
+    await expect(page.locator('#lib')).toHaveClass(/out/);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+    await page.mouse.up();
+    if (shift) await page.keyboard.up('Shift');
+  }
+  await dragTo(thumb('red wide.png'), page.locator('[aria-label^="Empty cell, column 1 row 1"]'));
+  await expect(tiles()).toHaveCount(1);
+  await expect(page.locator('#wall .tile[aria-label^="red wide.png"]')).toHaveCount(1);
+  await expect(page.locator('#lib')).not.toHaveClass(/out/);
+
+  // Two picked with Ctrl, dragged together.
+  await thumb('blue square.png').click();
+  await thumb('green tall.png').click({ modifiers: ['Control'] });
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(2);
+  await dragTo(thumb('green tall.png'), page.locator('[aria-label^="Empty cell, column 3 row 2"]'));
+  await expect(tiles()).toHaveCount(3);
+
+  // With Shift, the two play in turn on the tile they land on.
+  await dragTo(thumb('green tall.png'), page.locator('#wall .tile[aria-label^="red wide.png"]'), true);
+  await expect(toast()).toContainText('This tile now plays "2 files from the library"');
+  await expect(tiles()).toHaveCount(3);
+
+  // Double-click: onto the selected tile (not the one now playing the two, which shows blue square.png first).
+  await page.locator('#wall .tile[aria-label^="green tall.png"]').click();
+  await thumb('grey extra.png').dblclick();
+  await expect(page.locator('#wall .tile[aria-label^="grey extra.png"]')).toHaveCount(1);
+  await expect(toast()).toContainText('grey extra.png is on the selected tile now');
+  await expect(tiles()).toHaveCount(3);
+
+  // Esc first lets go of the selection, then closes it; Ctrl+L brings it back as it was.
+  await page.locator('#libSearch').focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(0);
+  await expect(page.locator('#lib')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).toBeHidden();
+  await page.keyboard.press('Control+l');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libClose');
+  await expect(page.locator('#lib')).toBeHidden();
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('the library as a panel beside the wall: the wall makes room, and drags still land', async () => {
+  const wallBox = () => page.locator('#wall').boundingBox();
+  const full = (await wallBox()).width;
+  await page.keyboard.press('Control+l');
+  await page.click('#libPlace');
+  await menuItem('A panel beside the wall').click();
+  await expect(page.locator('#lib')).toHaveClass(/panel/);
+  await expect.poll(async () => (await wallBox()).width).toBeLessThan(full - 200);
+  const wall = await wallBox(), lib = await page.locator('#lib').boundingBox();
+  expect(wall.x).toBeGreaterThanOrEqual(lib.x + lib.width);   // beside it, not under it
+
+  const before = await tiles().count();
+  const src = page.locator('#libGrid .lthumb[title^="red wide.png"]');
+  const empty = page.locator('#wall [aria-label^="Empty cell"]').first();
+  await expect(src).toBeVisible();
+  const a = await src.boundingBox(), b = await empty.boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // On the right: the panel comes after the wall.
+  await page.click('#libPlace');
+  await menuItem('On the right').click();
+  await expect(page.locator('#lib')).toHaveClass(/right/);
+  await expect.poll(async () => (await page.locator('#lib').boundingBox()).x >= (await wallBox()).x + (await wallBox()).width).toBe(true);
+
+  // The same choices in Settings › Library, and they are kept. The drawer on the right lies over the wall's right part.
+  await settingsAt('Library');
+  await expect(page.locator('#setLibPlace')).toHaveValue('panel');
+  await expect(page.locator('#setLibSide')).toHaveValue('right');
+  await page.selectOption('#setLibPlace', 'drawer');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).not.toHaveClass(/panel/);
+  await expect.poll(async () => (await wallBox()).width).toBe(full);
+  const d = await page.locator('#lib').boundingBox(), w2 = await wallBox();
+  expect(d.x + d.width).toBeGreaterThan(w2.x + w2.width - 20);
+  expect(d.x).toBeGreaterThan(w2.x + 100);
+  await settingsAt('Library');
+  await page.selectOption('#setLibSide', 'left');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).not.toHaveClass(/right/);
+  await page.click('#libClose');
+});
+
+test('the library in a window of its own: from the bar, double-click sends a file to the wall, Esc hides it', async () => {
+  const libShows = () => app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Wallpane · Library');
+    return !!w && w.isVisible();
+  });
+  await settingsAt('Library');
+  await page.selectOption('#setLibPlace', 'window');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lib')).toBeHidden();
+
+  const opened = app.waitForEvent('window');
+  await page.click('#libBtn');
+  const lw = await opened;
+  lw.on('pageerror', (e) => errors.push('library window: ' + e.message));
+  await lw.waitForSelector('body[data-ready="1"]');
+  await expect(lw).toHaveTitle('Wallpane · Library');
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(lw.locator('#libGrid .lthumb')).toHaveCount(4);
+  await expect(lw.locator('#libPlace')).toHaveCount(0);   // switching happens in the wall's Settings
+
+  // Double-click: onto the wall window used last (no tile selected there: into a free cell).
+  await page.keyboard.press('Escape');
+  const before = await tiles().count();
+  await lw.locator('#libGrid .lthumb[title^="blue square.png"]').dblclick();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // Esc lets go of the selection, then hides it; Ctrl+L on the wall shows it again; back to the drawer, it goes.
+  await lw.locator('#libSearch').focus();
+  await lw.keyboard.press('Escape');
+  await expect(lw.locator('#libGrid .lthumb.sel')).toHaveCount(0);
+  await lw.keyboard.press('Escape');
+  await expect.poll(libShows).toBe(false);
+  await expect(page.locator('#libBtn')).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('Control+l');
+  await expect.poll(libShows).toBe(true);
+  await settingsAt('Library');
+  await page.selectOption('#setLibPlace', 'drawer');
+  await page.keyboard.press('Escape');
+  await expect.poll(libShows).toBe(false);
+});
+
+test('collections: made and renamed, filled by dragging, reordered, played on a tile that follows them', async () => {
+  await page.keyboard.press('Control+l');
+  const thumbs = page.locator('#libGrid .lthumb'), list = page.locator('#libFolderList');
+  const thumb = (name) => page.locator('#libGrid .lthumb[title^="' + name + '"]');
+  const collRow = (name) => list.locator('.lfolder.coll', { hasText: name });
+  await expect(thumbs).toHaveCount(4);
+  const at = async (loc) => { const b = await loc.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+
+  // Right-click › Add to a new collection, then rename it in the list.
+  await thumb('red wide.png').click();
+  await thumb('red wide.png').click({ button: 'right' });
+  await menuItem('Add to a new collection').click();
+  await expect(toast()).toContainText('"New collection" holds 1 file now');
+  await page.click('#libFolderBtn');
+  await collRow('New collection').click({ button: 'right' });
+  await menuItem('Rename').click();
+  await list.locator('.lfinput').fill('Evening');
+  await page.keyboard.press('Enter');
+  await expect(collRow('Evening')).toHaveCount(1);
+  await page.click('#libSearch');
+  await expect(list).toBeHidden();
+
+  // Two files dragged onto it: held over the folder row, the list opens.
+  await thumb('blue square.png').click();
+  await thumb('green tall.png').click({ modifiers: ['Control'] });
+  let p = await at(thumb('green tall.png'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  p = await at(page.locator('#libFolderBtn'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.move(p[0] + 4, p[1], { steps: 3 });
+  await expect(list).toBeVisible();
+  p = await at(collRow('Evening'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.up();
+  await expect(toast()).toContainText('2 files added to "Evening".');
+
+  // In the collection, in its own order; a drag changes the order, Delete takes one out.
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click();
+  await expect(page.locator('#libFolderName')).toHaveText('Evening');
+  await expect(page.locator('#libSort')).toHaveValue('order');
+  const order = () => thumbs.evaluateAll((els) => els.sort((a, b) => (parseFloat(a.style.top) - parseFloat(b.style.top)) || (parseFloat(a.style.left) - parseFloat(b.style.left))).map((e) => e.title.split('\n')[0]));
+  await expect.poll(order).toEqual(['red wide.png', 'blue square.png', 'green tall.png']);
+  await thumb('green tall.png').click();
+  p = await at(thumb('green tall.png'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  const red = await thumb('red wide.png').boundingBox();
+  await page.mouse.move(red.x + 6, red.y + red.height / 2, { steps: 8 });
+  await expect(thumb('red wide.png')).toHaveClass(/dropbefore/);
+  await page.mouse.up();
+  await expect.poll(order).toEqual(['green tall.png', 'red wide.png', 'blue square.png']);
+  await thumb('blue square.png').click();
+  await page.keyboard.press('Delete');
+  await expect(toast()).toContainText('1 file taken out of "Evening"');
+  await expect(thumbs).toHaveCount(2);
+
+  // Dropped on a tile (beside the drawer), the collection plays there, and the tile follows it.
+  const tileId = await page.evaluate(() => {
+    const r = document.querySelector('#lib').getBoundingClientRect();
+    const t = Array.prototype.find.call(document.querySelectorAll('#wall .tile'), (el) => el.getBoundingClientRect().left > r.right + 10);
+    return t && t.dataset.id;
+  });
+  expect(tileId).toBeTruthy();
+  await page.click('#libFolderBtn');
+  p = await at(collRow('Evening'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  const lib = await page.locator('#lib').boundingBox();
+  await page.mouse.move(lib.x + lib.width + 60, p[1], { steps: 6 });
+  p = await at(page.locator('#wall .tile[data-id="' + tileId + '"]'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.up();
+  await expect(toast()).toContainText('This tile now plays "Evening" (2 files)');
+  await page.click('#libFolderBtn');
+  await list.locator('.lfolder', { hasText: 'All folders' }).click();
+  await thumb('grey extra.png').click({ button: 'right' });
+  await menuItem('Add to "Evening"').click();
+  await expect(toast()).toContainText('"Evening": 1 new file added to the playlist.', { timeout: 8000 });
+
+  // Deleting it takes two steps, and leaves the files.
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await menuItem('Delete…').click();
+  await menuItem('Delete "Evening"').click();
+  await expect(toast()).toContainText('"Evening" is deleted');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libClose');
 });
 
 test('no page errors along the way', async () => {

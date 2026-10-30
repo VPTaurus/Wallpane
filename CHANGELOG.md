@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.5.0: The library
+
+Download **Wallpane Setup 1.5.0.exe** (installer) or **Wallpane 1.5.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Wallpane now keeps a library of your own videos, GIFs and pictures, so you can find what you want and put it on the wall in a moment. Nothing leaves your computer, and your files are only ever read.
+
+- **Library folders** (Settings › Library): add the folders where you keep your media. Wallpane looks through them and their subfolders, notices new files by itself, and reads each file's details in the background (size, shape, length, whether it plays as it is). A folder on a drive that is not connected keeps its files until the drive is back. Then it makes a thumbnail of every file: a typical frame of each video (not a black one), a small copy of each picture, upright as it should be.
+- **The library drawer** (Library in the bar, Ctrl+L): every file as a thumbnail in its own shape, in even rows, fast with tens of thousands of files; search, Videos / GIFs / Pictures, filters by shape, length and resolution, one folder at a time, and sorting. Drag thumbnails or a folder onto the wall or a tile (Shift: a tile plays several in turn), or double-click one to put it on the selected tile. Drop folders on it to add them.
+- **Where it shows:** a drawer over the wall, a panel beside it (left or right), or a window of its own for a second screen, whose files drag onto any wall window. Choose in its header or in Settings › Library.
+- **Collections:** your own lists of library files. Add files from the right-click menu or by dragging them onto a collection; change the order by dragging; take files out with Delete. A collection dropped on a tile plays there and follows the collection as it changes.
+
+And on the wall:
+- **A folder bigger than a Free wall** now plays in turn on the tiles it fills, as on the grid, so those tiles have Next (before, the files that did not fit were left out).
+- **Previous** on a playlist tile (its ‹ button, right-click, or Properties) goes back through the files it showed.
+- **Files shaped like the tile:** after Fill the wall or Fit to media, a playlist tile moves on to a file shaped like it, so a tall tile keeps showing tall files. Each playlist has it under Shapes; Settings › General can leave playlists be.
+- **Growing a tile in Free (pixels)** first takes the empty space up to the next tile; only then do the tiles beside it shrink.
+- **Minimized, the wall rests:** videos pause and playlists wait until the window is back (Settings › General; background music keeps playing).
+- **A fresh start:** Wallpane starts with an empty wall and offers your last one (Restore it, or Start empty; starting empty keeps it in Saved walls as "Last wall"). Settings › General can open the last wall straight away instead. A wall that starts in wall mode still opens as it was.
+- **New wall window** is a button in the top bar now, beside Wall mode.
+
 ## 1.4.0: Play anything
 
 Download **Wallpane Setup 1.4.0.exe** (installer) or **Wallpane 1.4.0.exe** (portable). Both are larger than before (about 178 and 162 MB) because FFmpeg now comes inside. Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('wall', {
   probeMedia: (p) => ipcRenderer.invoke('media:probe', String(p)),
   ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
   gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
+  mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
@@ -39,6 +40,25 @@ contextBridge.exposeInMainWorld('wall', {
   clearCache: () => ipcRenderer.invoke('cache:clear'),
   revealCache: () => ipcRenderer.invoke('cache:reveal'),
 
+  // the library: folders of media and what is in them
+  libraryFolders: () => ipcRenderer.invoke('library:folders'),
+  addLibraryFolder: (p) => ipcRenderer.invoke('library:addFolder', p == null ? null : String(p)),
+  removeLibraryFolder: (p) => ipcRenderer.invoke('library:removeFolder', String(p)),
+  rescanLibrary: (p) => ipcRenderer.invoke('library:rescan', p == null ? null : String(p)),
+  queryLibrary: (q) => ipcRenderer.invoke('library:query', q || {}),
+  libraryCollections: () => ipcRenderer.invoke('library:collections'),
+  collectionFiles: (id) => ipcRenderer.invoke('library:collectionFiles', String(id)),
+  editCollection: (op, a, b, c) => ipcRenderer.invoke('library:editCollection', String(op), a, b, c),
+  onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
+  libraryThumbs: (ids) => ipcRenderer.invoke('library:thumbs', Array.isArray(ids) ? ids.map(String) : []),
+  onLibraryThumbs: (cb) => { ipcRenderer.on('library:thumbsMade', (_e, made) => cb(made)); },
+  // the library window: shown or hidden (null turns it round); its files for the wall window used last; real file drags
+  openLibraryWindow: (show) => ipcRenderer.invoke('library:openWindow', typeof show === 'boolean' ? show : null),
+  onLibraryWindow: (cb) => { ipcRenderer.on('library:window', (_e, shown) => cb(!!shown)); },
+  libraryToWall: (paths) => ipcRenderer.invoke('library:toWall', Array.isArray(paths) ? paths.map(String) : []),
+  onLibraryPut: (cb) => { ipcRenderer.on('library:put', (_e, paths) => cb(Array.isArray(paths) ? paths : [])); },
+  startFileDrag: (paths) => ipcRenderer.send('library:drag', Array.isArray(paths) ? paths.map(String) : []),
+
   // window
   displays: () => ipcRenderer.invoke('win:displays'),
   setFullscreen: (on, displayId) => ipcRenderer.invoke('win:fullscreen', !!on, displayId == null ? null : displayId),
@@ -47,6 +67,7 @@ contextBridge.exposeInMainWorld('wall', {
   windowInfo: () => ipcRenderer.invoke('win:info'),
   isFullscreen: () => ipcRenderer.invoke('win:isFullscreen'),
   onFullscreen: (cb) => { ipcRenderer.on('win:fullscreen-changed', (_e, v) => cb(!!v)); },
+  onMinimized: (cb) => { ipcRenderer.on('win:minimized', (_e, v) => cb(!!v)); },
   onDisplaysChanged: (cb) => { ipcRenderer.on('win:displays-changed', () => cb()); },
   openDisplaySettings: () => ipcRenderer.invoke('app:openDisplaySettings'),
 

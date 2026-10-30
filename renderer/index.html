@@ -28,6 +28,7 @@
           <p class="note">You can also drop files and folders from Explorer onto the wall.</p>
         </div>
       </div>
+      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
     </div>
 
     <div class="grp">
@@ -225,6 +226,7 @@
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
             <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
+            <label class="fld wide" title="Whether a tile moving on prefers, of the next files, one shaped like the tile"><span>Shapes</span><select id="plShape"><option value="any">Any shape</option><option value="tile">Shaped like the tile first</option></select></label>
             <div class="fld wide"><span>Plays</span>
               <div class="kinds" id="plTypes" role="group" aria-label="Kinds of file the playlist plays">
                 <label class="check"><input type="checkbox" value="video" checked> Videos</label>
@@ -271,6 +273,7 @@
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
+            <button type="button" role="tab" id="tabLibrary" data-sec="library" aria-controls="secLibrary"><span data-icon="library"></span>Library</button>
             <button type="button" role="tab" id="tabStorage" data-sec="storage" aria-controls="secStorage"><span data-icon="disk"></span>Storage</button>
             <button type="button" role="tab" id="tabKeys" data-sec="keys" aria-controls="secKeys"><span data-icon="keyboard"></span>Keys</button>
             <button type="button" role="tab" id="tabAbout" data-sec="about" aria-controls="secAbout"><span data-icon="info"></span>About</button>
@@ -283,6 +286,8 @@
               <p class="note" id="loginNote"></p>
               <span class="lab">Tiles</span>
               <label class="check"><input type="checkbox" id="setSoloSound"> A tile shown full screen (double-click) plays its sound; the others go quiet until it ends</label>
+              <label class="check"><input type="checkbox" id="setFillShapes"> After Fill the wall or Fit to media, playlists pick files shaped like their tile first</label>
+              <label class="check"><input type="checkbox" id="setPauseMin"> Pause the wall while its window is minimized (background music keeps playing)</label>
               <div class="frow"><label for="setResize">Growing a tile</label>
                 <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
               </div>
@@ -297,9 +302,13 @@
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
               </div>
+              <span class="lab">Starting</span>
+              <div class="frow"><label for="setStartWith">When Wallpane starts</label>
+                <select id="setStartWith"><option value="offer">Offer the last wall</option><option value="last">Open the last wall</option><option value="empty">Start with an empty wall</option></select>
+              </div>
+              <p class="note">Starting empty keeps the last wall in Saved walls as "Last wall". A wall that starts in wall mode (Wall mode settings) always opens the last wall.</p>
               <span class="lab">Windows</span>
-              <div class="row"><button class="btn" id="newWinBtn" type="button"><span data-icon="window"></span>Open another wall window</button></div>
-              <p class="note">Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
+              <p class="note">The window button in the top bar, beside Wall mode, opens another wall window. Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
               <span class="lab">This wall</span>
               <div class="row"><button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button></div>
               <p class="note">Takes every tile off this window's wall. Ctrl+Z brings them back.</p>
@@ -340,6 +349,24 @@
               <p class="note" id="hideNote"></p>
             </section>
 
+            <section class="ssec" id="secLibrary" data-sec="library" role="tabpanel" aria-labelledby="tabLibrary" hidden>
+              <h2>Library</h2>
+              <p class="note">Wallpane keeps track of the videos, GIFs and pictures in these folders and their subfolders, and notices new ones by itself. Your files are only read, never changed.</p>
+              <div class="frow"><label for="setLibPlace">Show the library as</label>
+                <select id="setLibPlace"><option value="drawer">A drawer over the wall</option><option value="panel">A panel beside the wall</option><option value="window">A window of its own</option></select>
+              </div>
+              <div class="frow"><label for="setLibSide">On the side</label>
+                <select id="setLibSide"><option value="left">Left</option><option value="right">Right</option></select>
+              </div>
+              <p class="note">The drawer leaves the wall as it is and fades while you drag from it. The panel makes the wall narrower while it is open. The window suits a second screen: drag files from it onto any wall window. Library in the bar, or Ctrl+L, opens and closes it.</p>
+              <div class="libfolders" id="libFolders"></div>
+              <div class="row">
+                <button class="btn" id="libAdd" type="button"><span data-icon="plus"></span>Add folder…</button>
+                <button class="btn" id="libRescan" type="button"><span data-icon="reset"></span>Look again</button>
+              </div>
+              <p class="note">Removing a folder only takes it out of the library; its files stay where they are.</p>
+            </section>
+
             <section class="ssec" id="secStorage" data-sec="storage" role="tabpanel" aria-labelledby="tabStorage" hidden>
               <h2>Storage</h2>
               <p class="note">Wallpane keeps what it makes from your files here: playable copies, thumbnails, previews and lighter copies. Your own files are never changed, and anything here can be made again.</p>
@@ -372,6 +399,7 @@
                 <dt><kbd>Delete</kbd></dt><dd>Remove the tile</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Y</kbd></dt><dd>Undo · redo</dd>
                 <dt><kbd>F11</kbd></dt><dd>Wall mode on or off</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>L</kbd></dt><dd>Library open or closed</dd>
                 <dt id="keysHideKey"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>H</kbd></dt><dd>Emergency hide, from any program; again to come back</dd>
                 <dt><kbd>Esc</kbd></dt><dd>Close, finish, or let go of the tile</dd>
                 <dt>Double-click</dt><dd>One tile full screen</dd>
@@ -395,12 +423,22 @@
         </div>
       </div>
 
+      <button class="btn ib" id="newWinBtn" type="button" aria-label="New wall window" title="Open another wall window: a wall of its own, for example on another monitor"><span data-icon="window"></span></button>
       <button class="btn wallbtn" id="cleanBtn" type="button" title="Hide the controls and fill the screen (F11)"><span data-icon="tv"></span>Wall mode</button>
     </div>
   </header>
 
   <main class="work">
+    <!-- The library: a drawer over the wall or a panel beside it; ui/libview.js builds what is in it. -->
+    <aside class="lib" id="lib" aria-label="Library" hidden></aside>
     <section class="stage" id="stage"><div class="wall" id="wall"></div></section>
+    <!-- At the start: the wall is empty and offers the last one (ui/presets.js). -->
+    <div class="lastwall" id="lastWall" role="dialog" aria-labelledby="lastWallTitle" hidden>
+      <div class="lwmap" id="lastWallMap" aria-hidden="true"></div>
+      <div><b id="lastWallTitle">Your last wall</b><p class="note" id="lastWallInfo"></p></div>
+      <div class="row"><button class="btn pri" id="lastWallRestore" type="button"><span data-icon="undo"></span>Restore it</button><button class="btn" id="lastWallEmpty" type="button">Start empty</button></div>
+      <p class="note">Starting empty, or putting something on the empty wall, keeps it in Saved walls as "Last wall".</p>
+    </div>
   </main>
 </div>
 
@@ -421,6 +459,8 @@
 <script src="lib/hotkey.js"></script>
 <script src="lib/clock.js"></script>
 <script src="lib/collage.js"></script>
+<script src="lib/justify.js"></script>
+<script src="lib/icons.js"></script>
 <script src="ui/core.js"></script>
 <script src="ui/tiles.js"></script>
 <script src="ui/inspector.js"></script>
@@ -435,6 +475,8 @@
 <script src="ui/music.js"></script>
 <script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
+<script src="ui/library.js"></script>
+<script src="ui/libview.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

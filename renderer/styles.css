@@ -123,7 +123,7 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .bar.c2 #arrangeMenuBtn { padding: 0 8px; gap: 4px; }
 
 /* ---------- stage + wall ---------- */
-.work { flex: 1; min-height: 0; display: flex; gap: 10px; }
+.work { flex: 1; min-height: 0; display: flex; gap: 10px; position: relative; }
 .stage {
   flex: 1; min-width: 0; min-height: 0;
   display: flex; align-items: center; justify-content: center;
@@ -490,6 +490,122 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .jrow.failed small { color: var(--danger); }
 .jrow .btn.ib { width: 28px; height: 28px; }
 .jrow .bbar { grid-column: 1 / -1; }
+/* ---------- the library drawer: over the wall, from the left (ui/library.js) ---------- */
+.bar #libBtn[aria-pressed="true"] { background: var(--accent-soft); }
+.bar #libBtn[aria-pressed="true"] .ic { color: var(--accent); }
+.bar.c1 #libBtn .lbl { display: none; }
+.bar.c1 #libBtn { width: 34px; padding: 0; justify-content: center; }
+.lib {
+  position: absolute; left: 0; top: 0; bottom: 0; z-index: 30; width: min(var(--libw, 400px), calc(100% - 40px));
+  display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  transition: opacity 0.15s;
+}
+.lib.out { opacity: 0.15; pointer-events: none; }        /* while dragging out of it: the tiles under it take the drop */
+/* The panel: beside the wall, which gets narrower. */
+.lib.panel { position: relative; inset: auto; z-index: auto; flex: none; width: min(var(--libw, 400px), 60%); box-shadow: none; }
+/* On the right of the wall: the drawer from the right edge, the panel after the wall, the width handle on the left. */
+.lib.right:not(.panel) { left: auto; right: 0; }
+.lib.panel.right { order: 1; }
+.lib.right .lresize { right: auto; left: -6px; }
+/* The library window (library.html): the view fills it. */
+body.libwin { padding: 0; }
+body.libwin .lib { position: fixed; inset: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; padding: 12px 12px 10px; }
+body.libwin .lresize { display: none; }
+.lib.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+body.clean .lib { display: none !important; }
+.lhead { display: flex; align-items: center; gap: 6px; padding-left: 2px; }
+.lhead > .ic { color: var(--accent); }
+.lhead h2 { margin: 0; font: 700 15px/1 var(--ui); }
+.lcount { font: 400 11px var(--mono); color: var(--muted); }
+.lhead .btn.ib { width: 30px; height: 30px; background: transparent; border-color: transparent; }
+.lhead .btn.ib:hover { background: var(--panel-2); }
+.lsearch { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); cursor: text; }
+.lsearch:focus-within { border-color: var(--accent); }
+.lsearch > .ic { color: var(--muted); }
+.lsearch input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; padding: 0; }
+.lchips { display: flex; align-items: center; gap: 6px; }
+.lkinds { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; background: transparent; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.chip:hover { background: var(--panel-2); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.chip[aria-expanded="true"] { background: var(--panel-2); }
+.chip [data-icon="chev"] svg { width: 12px; height: 12px; }
+.lnum { font: 500 10px/16px var(--mono); min-width: 16px; text-align: center; border-radius: 8px; background: var(--accent); color: var(--accent-ink); }
+.lfilt { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
+.lfilt select { width: 100%; max-width: none; height: 30px; font-size: 13px; }
+.lfilt .check { font-size: 13px; }
+.lfilt .btn { height: 30px; justify-content: center; font-size: 13px; }
+/* The folders: one row saying which (all, or one), opening the list of them over the thumbnails. */
+.lfolderpick { position: relative; flex: none; }
+.lfolderbtn { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: transparent; text-align: left; font-size: 13px; }
+.lfolderbtn:hover, .lfolderbtn[aria-expanded="true"] { background: var(--panel-2); }
+.lfolderbtn.one { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.lfolderbtn > .ic { color: var(--muted); }
+.lfolderbtn > .ic:last-child svg { width: 12px; height: 12px; }
+.lfolderbtn.off .lfname { color: var(--danger); }
+.lfolderbtn .lnumr { font: 400 11px var(--mono); color: var(--muted); }
+.lfolders {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5;
+  display: flex; flex-direction: column; max-height: min(55vh, 380px); overflow-y: auto; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow);
+}
+.lfolder { display: flex; align-items: center; gap: 8px; flex: none; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; text-align: left; font-size: 13px; }
+.lfolder:hover { background: var(--panel-2); }
+.lfhead { flex: none; margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--line); font: 500 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lfolder.newcoll { color: var(--muted); }
+.lfolder.droptarget { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.lfinput { flex: none; height: 28px; margin: 0 2px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg); font-size: 13px; outline: none; }
+/* Where files dragged inside a collection will go: a bar before or after the thumbnail under the pointer. */
+.lthumb.dropbefore::before, .lthumb.dropafter::before { content: ""; position: absolute; top: 0; bottom: 0; z-index: 2; width: 4px; border-radius: 2px; background: var(--accent); }
+.lthumb.dropbefore::before { left: 0; }
+.lthumb.dropafter::before { right: 0; }
+.lfolder[aria-current="true"] { background: var(--accent-soft); font-weight: 700; }
+.lfolder > .ic { color: var(--muted); }
+.lfolder.off .lfname { color: var(--danger); }
+.lfname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lfolder .lnumr { font: 400 11px var(--mono); color: var(--muted); }
+.lgrid { flex: 1; min-height: 0; position: relative; overflow-x: hidden; overflow-y: auto; border-radius: 6px; outline: none; }
+.lgrid:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.lspace { position: relative; }
+.lthumb { position: absolute; overflow: hidden; border-radius: 4px; background: var(--slot); cursor: grab; }
+.lthumb img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.lthumb::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.lthumb:hover::after { box-shadow: inset 0 0 0 1px var(--slot-line); }
+.lthumb.sel::after { box-shadow: inset 0 0 0 3px var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.lthumb.bare { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; color: var(--muted); }
+.ltname { max-width: 100%; font-size: 11px; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.lbadge { position: absolute; right: 4px; bottom: 4px; font: 500 10px/1 var(--mono); padding: 3px 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.65); color: #fff; pointer-events: none; }
+.lempty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+.lempty p { margin: 0; max-width: 280px; }
+.lfoot { display: flex; align-items: center; gap: 6px; }
+.lshown { font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; }
+.lfoot select { height: 30px; max-width: 128px; font-size: 13px; }
+.lfoot .btn.ib { width: 30px; height: 30px; }
+.lfoot .btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.lfoot input[type="range"] { width: 76px; height: 30px; }
+.lresize { position: absolute; top: 14px; bottom: 14px; right: -6px; width: 12px; cursor: ew-resize; touch-action: none; }
+.lresize::after { content: ""; position: absolute; top: 50%; left: 4px; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: var(--line); }
+.lresize:hover::after { background: var(--accent); }
+
+/* ---------- at the start: the last wall, offered ---------- */
+.lastwall {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25;
+  width: min(380px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; padding: 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.lastwall b { font-size: 15px; }
+.lwmap { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; background: var(--wall); overflow: hidden; }
+.lwmap i { position: absolute; border-radius: 2px; background: var(--slot-line); }
+.lwmap i.media { background: var(--accent); opacity: 0.75; }
+body.clean .lastwall { display: none !important; }
+
+/* Settings › Library: the library folders */
+.libfolders { display: flex; flex-direction: column; margin: 4px 0 10px; }
+.libfolders .lrow { grid-template-columns: auto minmax(0, 1fr) auto; }
+.lrow > .ic { color: var(--muted); align-self: start; margin-top: 2px; }
+.lrow.busy > .ic { color: var(--accent); }
+.lrow.off .lstat { color: var(--danger); }
 .bbar { display: block; height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
 .bbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 .tile .busy {

@@ -57,6 +57,34 @@ test('refresh queues new files after the ones still to come and drops removed on
   assert.equal(PL.refresh(p, [file('a.png'), file('c.png'), file('d.png')]), 0, 'nothing new');
 });
 
+test("a collection's playlist follows the collection: its order, carrying on after the file it played last", () => {
+  const p = PL.make([file('a.png'), file('b.png'), file('c.png')], {});
+  p.coll = 'c1';
+  assert.deepEqual(PL.clean({ x: PL.fields(p) }).x.coll, 'c1', 'saved with the wall');
+  assert.equal(PL.clean({ x: { files: [file('a.png')] } }).x.coll, null);
+  PL.nextFile(p); PL.nextFile(p);                         // a and b have played
+  assert.equal(PL.follow(p, [file('c.png'), file('b.png'), file('a.png'), file('d.png')]), 1);
+  assert.deepEqual([PL.nextFile(p), PL.nextFile(p), PL.nextFile(p)].map((f) => f.name), ['a.png', 'd.png', 'c.png'], 'after b in the new order');
+  assert.equal(PL.follow(p, [file('c.png'), file('b.png'), file('a.png'), file('d.png')]), -1, 'nothing changed');
+  // A shuffled one takes the change as a folder's playlist does.
+  const s = PL.make([file('a.png'), file('b.png')], { shuffle: true });
+  assert.equal(PL.follow(s, [file('b.png'), file('a.png'), file('e.png')], () => 0.5), 1);
+  assert.deepEqual(s.files.map((f) => f.name).sort(), ['a.png', 'b.png', 'e.png']);
+});
+
+test('the files still to come, and one brought forward (shaped like its tile), the rest keeping their order', () => {
+  const p = PL.make(['a.png', 'b.png', 'c.mp4', 'd.png', 'e.png'].map((n) => (n.endsWith('.mp4') ? { path: 'D:\\wall\\' + n, name: n, kind: 'video' } : file(n))), { types: ['image'], fitShape: true });
+  assert.equal(p.fitShape, true);
+  assert.equal(PL.clean({ x: PL.fields(p) }).x.fitShape, true, 'saved with the wall');
+  PL.nextFile(p);                                                   // a
+  assert.deepEqual(PL.upcoming(p, 2).map((f) => f.name), ['b.png', 'd.png'], 'only what it plays');
+  assert.ok(PL.bringForward(p, 'D:\\wall\\e.png'));
+  assert.deepEqual([PL.nextFile(p), PL.nextFile(p), PL.nextFile(p)].map((f) => f.name), ['e.png', 'b.png', 'd.png']);
+  assert.equal(PL.bringForward(p, 'D:\\wall\\a.png'), true, 'a new round begins with it');
+  assert.equal(PL.nextFile(p).name, 'a.png');
+  assert.equal(PL.bringForward(p, 'D:\\wall\\nothing.png'), false);
+});
+
 test('rootFor only trusts a folder that holds every file', () => {
   const files = [file('a.png'), { path: 'D:\\wall\\sub\\b.png' }];
   assert.equal(PL.rootFor({ root: 'D:\\wall' }, files), 'D:\\wall');

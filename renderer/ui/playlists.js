@@ -6,23 +6,70 @@
   var MW = window.MW, U = MW.util, G = MW.geo, PL = MW.pl;
   var S = A.S, $ = A.$, clamp = U.clamp;
 
-  /* ---------- moving on to the next file ---------- */
+  /* ---------- moving on to the next file, or back to the one before ---------- */
+  // Each tile remembers what it showed (not saved), for Previous.
+  var BACK = 50;
   A.advance = function (it) {
     var p = it.pl && S.playlists[it.pl];
     if (!p) { it.pl = null; return; }
-    if (it.pinned) return;
+    if (it.pinned || it._picking) return;
+    if (p.fitShape) {
+      it._picking = true;
+      bringShaped(it, p).then(function () { it._picking = false; step(it, p); });
+      return;
+    }
+    step(it, p);
+  };
+  function step(it, p) {
+    if (S.playlists[it.pl] !== p || it.pinned) return;
     var f = PL.nextFile(p);
     if (!f) return;
-    var mu = it.muted, ft = it.fit, view = MW.view.of(it);
+    if (it.path) { it._back = (it._back || []).concat({ path: it.path, name: it.name, kind: it.kind }).slice(-BACK); }
+    show(it, p, f);
+  }
+  // The file this tile showed before (Previous). The playlist's own order stays as it is.
+  A.goBack = function (it) {
+    var p = it.pl && S.playlists[it.pl];
+    if (!p) return;
+    if (it.pinned) { A.toast('This tile is pinned. Unpin it to move on.'); return; }
+    var f = it._back && it._back.pop();
+    if (!f) { A.toast('Nothing earlier on this tile yet.'); return; }
+    show(it, p, f);
+  };
+  function show(it, p, f) {
+    var mu = it.muted, ft = it.fit, view = MW.view.of(it), back = it._back;
     var old = p.fade > 0 ? A.tileEls.get(it.id) : null;
     if (old) A.tileEls.delete(it.id); // keep the old element on screen while the new one fades in
     A.replaceMedia(it, f);
-    it.muted = mu; it.fit = ft; it.loop = false; it.shown = 0;
+    it.muted = mu; it.fit = ft; it.loop = false; it.shown = 0; it._back = back;
     if (p.keepView) { it.mx = view.mx; it.my = view.my; it.zoom = view.zoom; }   // same framing for every file
     A.render();
     if (old) crossfade(it, old, p.fade);
     if (S.sel === it.id) A.refreshInspector();
-  };
+  }
+
+  /* ---------- shaped like the tile ---------- */
+  // With fitShape, of the next files in line, the first whose shape is close to the tile's (within a quarter) comes
+  // forward, else the closest. Shapes come from the main process (the library, or the file itself).
+  function tileAspect(it) {
+    var el = A.tileEls.get(it.id), r = el && el.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? r.width / r.height : 0;
+  }
+  function bringShaped(it, p) {
+    var t = tileAspect(it), up = PL.upcoming(p, 24);
+    if (!t || up.length < 2) return Promise.resolve();
+    return A.api.mediaShapes(up.map(function (f) { return f.path; })).then(function (s) {
+      var best = null, bestD = Infinity;
+      for (var i = 0; i < up.length; i++) {
+        var a = s && s[up[i].path];
+        if (!a) continue;
+        var d = Math.abs(Math.log(a / t));
+        if (d < Math.log(1.25)) { best = up[i]; break; }
+        if (d < bestD) { bestD = d; best = up[i]; }
+      }
+      if (best && S.playlists[it.pl] === p) PL.bringForward(p, best.path);
+    }, function () { /* in line as it is */ });
+  }
   A.applyClipStart = function (it, media) {
     var p = it.pl && S.playlists[it.pl];
     it._t0 = 0;
@@ -135,14 +182,16 @@
   };
 
   /* ---------- new files in a playlist's folder ---------- */
-  // The main process watches the folders and says when one changed. A slow rescan also runs, for network drives
-  // that do not report changes.
-  function watched() {
+  // The playlists in use, once each: [[id, playlist]].
+  function inUse() {
     var out = [], seen = {};
     playlistTiles().forEach(function (t) { if (!seen[t.pl]) { seen[t.pl] = true; out.push([t.pl, S.playlists[t.pl]]); } });
     if (S.fillPl && S.playlists[S.fillPl] && !seen[S.fillPl]) out.push([S.fillPl, S.playlists[S.fillPl]]);
-    return out.filter(function (j) { return j[1].root; });
+    return out;
   }
+  // The main process watches the folders and says when one changed. A slow rescan also runs, for network drives
+  // that do not report changes.
+  function watched() { return inUse().filter(function (j) { return j[1].root; }); }
   var watchSig = null;
   A.syncWatches = function () {
     var roots = [], seen = {};
@@ -180,6 +229,28 @@
     Object.keys(keys).forEach(rescan);
   }, 120000);
 
+  /* ---------- a collection's playlist follows the collection ---------- */
+  // When the library changes (and once the wall is loaded), each playlist that plays a library collection takes its
+  // files and order as they are now. A collection that was deleted or emptied leaves its tiles playing what they have.
+  A.followCollections = function () {
+    var lists = inUse().filter(function (j) { return j[1].coll; }), ids = {};
+    lists.forEach(function (j) { ids[j[1].coll] = true; });
+    Object.keys(ids).forEach(function (c) {
+      A.api.collectionFiles(c).then(function (entries) {
+        if (!entries || !entries.length) return;
+        lists.forEach(function (j) {
+          if (j[1].coll !== c || S.playlists[j[0]] !== j[1]) return;
+          var n = PL.follow(j[1], entries);
+          if (n < 0) return;
+          A.scheduleSession();
+          if (n) A.toast('"' + j[1].name + '": ' + n + (n === 1 ? ' new file' : ' new files') + ' added to the playlist.');
+        });
+      });
+    });
+  };
+  var followTimer = 0;
+  A.api.onLibrary(function () { clearTimeout(followTimer); followTimer = setTimeout(A.followCollections, 1000); });
+
   /* ---------- starting and stopping ---------- */
   // The ticked boxes of a "Plays" group (Videos, GIFs, Images). One always stays ticked: unticking the last one
   // puts it back.
@@ -203,6 +274,7 @@
       fade: parseFloat($('#plFade').value) || 0,
       gifOnce: $('#plGif').value === 'once',
       keepView: $('#plView').value === 'keep',
+      fitShape: $('#plShape').value === 'tile',
       types: A.readTypes($('#plTypes'))
     };
   };
@@ -215,6 +287,12 @@
     A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. Tick more kinds of file under Plays.');
   }
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
+  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows.
+  function fromRes(p, res) {
+    if (res.title) p.name = String(res.title).slice(0, 60);
+    if (res.coll) p.coll = res.coll;
+    return p;
+  }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
   A.fillWithFolder = function (res, opts) {
     var files = res.entries || [];
@@ -223,7 +301,7 @@
       A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
       return;
     }
-    var id = newId(), p = PL.make(files, opts, PL.rootFor(res, files));
+    var id = newId(), p = fromRes(PL.make(files, opts, PL.rootFor(res, files)), res);
     if (!PL.playable(p)) { nothingPlays(p); return; }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
@@ -285,7 +363,7 @@
     var files = res.entries || [];
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
     var base = (it.pl && S.playlists[it.pl]) || A.readPlOpts();
-    var id = newId(), p = PL.make(files, base, PL.rootFor(res, files));
+    var id = newId(), p = fromRes(PL.make(files, base, PL.rootFor(res, files)), res);
     if (!PL.playable(p)) { nothingPlays(p); return; }
     p.truncated = !!res.truncated;
     A.pushHistory();
