@@ -128,7 +128,7 @@
     tiles.forEach(function (t) { seen[t.pl] = (seen[t.pl] || 0) + 1; });
     Object.keys(seen).forEach(function (k) {
       var p = S.playlists[k];
-      lines.push('"' + p.name + '": ' + p.files.length + ' files' + (p.truncated ? ' (the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder)' : '') + ' on ' + seen[k] + (seen[k] === 1 ? ' tile' : ' tiles'));
+      lines.push('"' + p.name + '": ' + A.plCount(p) + (p.truncated ? ', the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder' : '') + ' on ' + seen[k] + (seen[k] === 1 ? ' tile' : ' tiles'));
     });
     box.textContent = lines.join('. ') + '.';
     $('#plStop').hidden = false;
@@ -181,6 +181,19 @@
   }, 120000);
 
   /* ---------- starting and stopping ---------- */
+  // The ticked boxes of a "Plays" group (Videos, GIFs, Images). One always stays ticked: unticking the last one
+  // puts it back.
+  A.readTypes = function (box) {
+    return Array.prototype.filter.call(box.querySelectorAll('input'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+  };
+  A.guardTypes = function (box) {
+    box.addEventListener('change', function (e) {
+      if (A.readTypes(box).length) return;
+      e.target.checked = true;
+      A.toast('A playlist plays at least one kind of file.');
+    }, true);
+  };
+  A.guardTypes($('#plTypes'));
   A.readPlOpts = function () {
     return {
       shuffle: $('#plOrder').value === 'shuffle',
@@ -189,9 +202,18 @@
       maxClip: clamp(parseInt($('#plMax').value, 10) || 0, 0, 3600),
       fade: parseFloat($('#plFade').value) || 0,
       gifOnce: $('#plGif').value === 'once',
-      keepView: $('#plView').value === 'keep'
+      keepView: $('#plView').value === 'keep',
+      types: A.readTypes($('#plTypes'))
     };
   };
+  // "12 files" or "12 of 30 files (videos only)": what a playlist plays of its folder.
+  A.plCount = function (p) {
+    var n = PL.playable(p), all = p.files.length, t = PL.typesLabel(p);
+    return (n === all ? n : n + ' of ' + all) + (all === 1 ? ' file' : ' files') + (t ? ' (' + t + ')' : '');
+  };
+  function nothingPlays(p) {
+    A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. Tick more kinds of file under Plays.');
+  }
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
   A.fillWithFolder = function (res, opts) {
@@ -201,17 +223,18 @@
       A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
       return;
     }
+    var id = newId(), p = PL.make(files, opts, PL.rootFor(res, files));
+    if (!PL.playable(p)) { nothingPlays(p); return; }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
     if (S.sel && !A.itemById(S.sel)) S.sel = null;
-    var id = newId(), p = PL.make(files, opts, PL.rootFor(res, files));
     p.truncated = !!res.truncated;
     S.playlists[id] = p;
     S.fillPl = id;
     var n = A.autoFill(false);
     A.render(); A.refreshInspector();
     A.toast([n
-      ? 'Playing "' + p.name + '" (' + files.length + ' files) on ' + n + (n === 1 ? ' tile.' : ' tiles.') + ' Add rows or columns and they fill too.'
+      ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + ' Add rows or columns and they fill too.'
       : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' '));
   };
   // Puts the fill folder into each empty tile, then (on the grid) into each empty cell, never more tiles than files.
@@ -219,7 +242,7 @@
   A.autoFill = function (onlyNew, oldCols, oldRows) {
     var p = S.fillPl && S.playlists[S.fillPl];
     if (!p) return 0;
-    var room = p.files.length - S.items.filter(function (i) { return i.pl === S.fillPl; }).length, count = 0;
+    var room = PL.playable(p) - S.items.filter(function (i) { return i.pl === S.fillPl; }).length, count = 0;
     if (room <= 0) return 0;
     if (!onlyNew) S.items.forEach(function (it) {
       if (count >= room || it.kind !== 'empty') return;
@@ -263,6 +286,7 @@
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
     var base = (it.pl && S.playlists[it.pl]) || A.readPlOpts();
     var id = newId(), p = PL.make(files, base, PL.rootFor(res, files));
+    if (!PL.playable(p)) { nothingPlays(p); return; }
     p.truncated = !!res.truncated;
     A.pushHistory();
     S.playlists[id] = p;
@@ -270,7 +294,7 @@
     A.replaceMedia(it, f);
     it.muted = mu; it.fit = ft; it.pl = id; it.pinned = false; it.loop = false; it.shown = 0;
     A.render(); A.refreshInspector();
-    A.toast(['This tile now plays "' + p.name + '" (' + files.length + ' files).'].concat(A.scanNotes(res)).join(' '));
+    A.toast(['This tile now plays "' + p.name + '" (' + A.plCount(p) + ').'].concat(A.scanNotes(res)).join(' '));
   };
 
   $('#plStart').addEventListener('click', function () {

@@ -133,6 +133,23 @@ test('Free layout: a folder added one tile per file', async () => {
   expect(overlaps).toBe(0);
 });
 
+test("Free layout: new tiles take their media's shape; Fill the wall fills it edge to edge", async () => {
+  // Each tile added in Free (pixels) has its image's exact shape once the image has loaded.
+  const misfit = () => page.evaluate(() => Math.max(...[...document.querySelectorAll('#wall .tile')].map((t) => {
+    const r = t.getBoundingClientRect(), img = t.querySelector('img');
+    return Math.abs(Math.log((r.width / r.height) / (img.naturalWidth / img.naturalHeight)));
+  })));
+  await expect.poll(misfit).toBeLessThan(0.02);
+  await page.click('#arrangeMenuBtn');
+  await page.click('#fillWallBtn');
+  await expect(toast()).toContainText('fill the wall');
+  const { tiles: t, overlaps } = await layout();
+  expect(overlaps).toBe(0);
+  const w = await page.evaluate(() => ({ W: document.querySelector('#wall').clientWidth, H: document.querySelector('#wall').clientHeight, gap: window.MW.app.S.gap }));
+  const covered = t.reduce((s, b) => s + (b.w + w.gap) * (b.h + w.gap), 0);
+  expect(Math.abs(covered / (w.W * w.H) - 1)).toBeLessThan(0.01);
+});
+
 test('Fit tile to media gives a tile the exact shape of its image', async () => {
   const tall = page.locator('#wall .tile', { hasText: 'img2.png' });   // 90 x 160
   await tall.click({ button: 'right' });
@@ -206,6 +223,9 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
+  // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
+  await expect(page.locator('#setSoloSound')).toBeChecked();
+  await expect(page.locator('#setResize')).toHaveValue('even');
   // Arrow keys move between the sections.
   await page.focus('#tabGeneral');
   await page.keyboard.press('ArrowDown');
@@ -236,6 +256,14 @@ test('right-click on empty wall makes an empty tile, which then takes media', as
   await expect(page.locator('#ctxMenu')).toBeVisible();
   await menuItem('New empty tile').click();
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
+  // Its Folder… button gives it a folder to play (undone again: the next tests expect one image on it).
+  await answerDialogs(media);
+  await page.click('#wall .tile.is-empty [data-act="chooseFolder"]');
+  await expect(toast()).toContainText('This tile now plays');
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
+  // Its File… button gives it one file.
   await answerDialogs(path.join(media, 'img1.png'));
   await page.click('#wall .tile.is-empty [data-act="choose"]');
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(0);
@@ -387,6 +415,10 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await menuItem('Playlist settings').click();
   const card = page.locator('#inspector');
   await expect(card.locator('#plSec')).toContainText('6 files');
+  // Plays: the folder has only images, so videos and GIFs only is refused and Images stays ticked.
+  await card.locator('#pTypes input[value="image"]').click();
+  await expect(toast()).toContainText('has none of those');
+  await expect(card.locator('#pTypes input[value="image"]')).toBeChecked();
   await card.locator('#pSecs').fill('3');
   await card.locator('#pSecs').press('Enter');
   await card.locator('#pOrder').selectOption('shuffle');
@@ -485,6 +517,17 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect.poll(() => video.evaluate((v) => v.playbackRate)).toBe(1.25);
   await page.locator('body').press('Backslash');
   await expect(tile.locator('.vloop')).toBeHidden();
+  // Double-click: this tile full screen with its sound on; Esc ends it and the tile is quiet again, as it was.
+  await page.locator('body').press('m');                     // M mutes the selected video (the volume turned it on)
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await tile.dblclick({ position: { x: 40, y: 50 } });
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement && document.fullscreenElement.id)).toBe('wall');
+  await expect(tile).toHaveClass(/\bsolo\b/);
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+  await expect(tile).not.toHaveClass(/\bsolo\b/);
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
   await page.keyboard.press('Escape');
 });
 

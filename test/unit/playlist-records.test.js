@@ -31,6 +31,22 @@ test('keeping zoom and position is saved with the playlist', () => {
   assert.equal(PL.clean({ x: { files: [file('a.png')] } }).x.keepView, false, 'older saved walls');
 });
 
+test('a playlist can play only some kinds of file', () => {
+  const gif = { path: 'D:\\wall\\b.gif', name: 'b.gif', kind: 'image' }, vid = { path: 'D:\\wall\\c.mp4', name: 'c.mp4', kind: 'video' };
+  const p = PL.make([file('a.png'), gif, vid], { types: ['gif', 'video'] }, 'D:\\wall');
+  assert.deepEqual(p.types, ['video', 'gif'], 'kept in a fixed order');
+  assert.equal(PL.playable(p), 2);
+  const seen = new Set();
+  for (let i = 0; i < 6; i++) seen.add(PL.nextFile(p).name);
+  assert.deepEqual([...seen].sort(), ['b.gif', 'c.mp4']);
+  assert.equal(PL.typesLabel(p), 'videos and GIFs');
+  assert.equal(PL.typesLabel(PL.make([gif], { types: ['image'] })), 'images only');
+  assert.deepEqual(PL.make([gif], { types: [] }).types, ['video', 'gif', 'image'], 'none ticked means all');
+  assert.equal(PL.nextFile(PL.make([file('a.png')], { types: ['video'] })), null, 'nothing in the folder plays');
+  assert.deepEqual(PL.clean({ x: PL.fields(p) }).x.types, ['video', 'gif']);
+  assert.deepEqual(PL.clean({ x: { files: [gif] } }).x.types, ['video', 'gif', 'image'], 'older saved walls play everything');
+});
+
 test('refresh queues new files after the ones still to come and drops removed ones', () => {
   const p = PL.make([file('a.png'), file('b.png'), file('c.png')], {}, 'D:\\wall');
   PL.nextFile(p);                         // a has played

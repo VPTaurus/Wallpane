@@ -124,6 +124,7 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target, inField = t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
     if (e.key === 'F11') { e.preventDefault(); A.setClean(!document.body.classList.contains('clean')); return; }
+    if (e.key === 'Escape' && A.soloId != null) { A.setSolo(null); return; }   // only the tile's full screen ends
     // Escape (or Enter) first closes the right-click menu, or finishes repositioning media, or closes Properties.
     if (e.key === 'Escape' && A.menuOpen()) { A.hideMenu(); return; }
     if ((e.key === 'Escape' || (e.key === 'Enter' && !inField)) && A.reposId != null) { e.preventDefault(); A.endRepos(); return; }
@@ -318,6 +319,8 @@
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
+    $('#setSoloSound').checked = S.soloSound;
+    $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');
       cb.disabled = !r.supported; cb.checked = !!r.on;
@@ -330,6 +333,8 @@
     A.savePrefs();
   });
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
+  $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
+  $('#setResize').addEventListener('change', function () { S.resizeMode = this.value === 'squeeze' ? 'squeeze' : 'even'; A.savePrefs(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
   $('#setAwake').addEventListener('change', function () {
     S.awake = this.checked; A.savePrefs();

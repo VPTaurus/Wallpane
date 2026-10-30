@@ -1,14 +1,26 @@
 // Folder playlists: one folder feeds one or more tiles. A playlist is plain data:
-// { name, files: [{ path, name, kind }], shuffle, secs, randomStart, maxClip, fade, gifOnce, keepView, root, order, pos, truncated }.
+// { name, files: [{ path, name, kind }], types, shuffle, secs, randomStart, maxClip, fade, gifOnce, keepView, root, order, pos, truncated }.
 // keepView: a tile keeps its zoom and the position of its media when it moves on to the next file.
+// types: which kinds of file it plays ('video', 'gif', 'image'). files keeps the whole folder, so turning a kind back
+// on needs no rescan; the others are skipped.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./util'));
   else (root.MW = root.MW || {}).pl = factory(root.MW.util);
 })(this, function (U) {
   'use strict';
-  var MAX_PLAYLISTS = 24, MAX_FILES = 3000;
+  var MAX_PLAYLISTS = 24, MAX_FILES = 3000, TYPES = ['video', 'gif', 'image'];
 
   function fileOf(f) { return { path: f.path, name: f.name, kind: f.kind }; }
+  // A file's type for the Plays option: GIFs apart from other images.
+  function typeOf(f) { return f.kind === 'video' ? 'video' : /\.gif$/i.test(f.name || f.path || '') ? 'gif' : 'image'; }
+  // Known types, in a fixed order; none at all means all of them.
+  function cleanTypes(t) {
+    var a = Array.isArray(t) ? TYPES.filter(function (x) { return t.indexOf(x) > -1; }) : [];
+    return a.length ? a : TYPES.slice();
+  }
+  function plays(p, f) { return !p.types || p.types.indexOf(typeOf(f)) > -1; }
+  // How many of the folder's files the playlist plays.
+  function playable(p) { return p.files.filter(function (f) { return plays(p, f); }).length; }
   function makeOrder(n, shuffle, rnd) {
     rnd = rnd || Math.random;
     var a = [], i;
@@ -16,12 +28,16 @@
     if (shuffle) for (i = n - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
     return a;
   }
-  // The next file to show. A new round (reshuffled if the playlist shuffles) starts when the last one is used up.
+  // The next file to show, skipping types the playlist doesn't play. A new round (reshuffled if the playlist
+  // shuffles) starts when the last one is used up. Null when nothing in the folder plays.
   function nextFile(p) {
     var n = p.files.length;
-    if (!n) return null;
-    if (!p.order || p.order.length !== n || p.pos >= n) { p.order = makeOrder(n, p.shuffle); p.pos = 0; }
-    return p.files[p.order[p.pos++]];
+    if (!n || !playable(p)) return null;
+    for (;;) {
+      if (!p.order || p.order.length !== n || p.pos >= n) { p.order = makeOrder(n, p.shuffle); p.pos = 0; }
+      var f = p.files[p.order[p.pos++]];
+      if (plays(p, f)) return f;
+    }
   }
   // A new playlist from a folder's files. `opts` holds the Playlist panel options; `root` is the folder, when known.
   function make(files, opts, root) {
@@ -31,7 +47,7 @@
       name: (U.baseName(dir) || dir || 'Playlist').slice(0, 60), files: files.map(fileOf),
       shuffle: !!opts.shuffle, secs: U.clamp(+opts.secs || 10, 2, 300), randomStart: !!opts.randomStart,
       maxClip: U.clamp(+opts.maxClip || 0, 0, 3600), fade: U.clamp(+opts.fade || 0, 0, 5), gifOnce: !!opts.gifOnce,
-      keepView: !!opts.keepView, root: root || null, order: null, pos: 0, truncated: false
+      keepView: !!opts.keepView, types: cleanTypes(opts.types), root: root || null, order: null, pos: 0, truncated: false
     };
   }
   // The folder a playlist came from, if every file really lives inside it. Used to pick up new files.
@@ -70,7 +86,7 @@
   }
   // The stored fields of a playlist (no runtime extras).
   function fields(p) {
-    return { name: p.name, files: p.files, shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, keepView: !!p.keepView, root: p.root, order: p.order, pos: p.pos, truncated: !!p.truncated };
+    return { name: p.name, files: p.files, types: cleanTypes(p.types), shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, keepView: !!p.keepView, root: p.root, order: p.order, pos: p.pos, truncated: !!p.truncated };
   }
   // A copy for undo: the order is copied, the file list is shared (it is replaced, never changed in place).
   function clone(o) {
@@ -92,11 +108,23 @@
       out[k] = {
         name: typeof p.name === 'string' ? p.name.slice(0, 60) : 'Playlist', files: files, shuffle: !!p.shuffle, secs: U.clamp(+p.secs || 10, 2, 300),
         randomStart: !!p.randomStart, maxClip: U.clamp(+p.maxClip || 0, 0, 3600), fade: U.clamp(+p.fade || 0, 0, 5), gifOnce: !!p.gifOnce, keepView: !!p.keepView,
+        types: cleanTypes(p.types),
         root: typeof p.root === 'string' ? p.root : null, order: order, pos: order ? U.clamp(p.pos | 0, 0, order.length) : 0, truncated: !!p.truncated
       };
     });
     return out;
   }
 
-  return { MAX_FILES: MAX_FILES, makeOrder: makeOrder, nextFile: nextFile, make: make, rootFor: rootFor, refresh: refresh, fields: fields, clone: clone, clean: clean };
+  // "videos and GIFs" for the types a playlist plays; '' when it plays everything.
+  function typesLabel(p) {
+    var t = cleanTypes(p.types);
+    if (t.length === TYPES.length) return '';
+    var w = t.map(function (x) { return { video: 'videos', gif: 'GIFs', image: 'images' }[x]; });
+    return w.length === 1 ? w[0] + ' only' : w.join(' and ');
+  }
+
+  return {
+    MAX_FILES: MAX_FILES, TYPES: TYPES, typeOf: typeOf, cleanTypes: cleanTypes, plays: plays, playable: playable, typesLabel: typesLabel,
+    makeOrder: makeOrder, nextFile: nextFile, make: make, rootFor: rootFor, refresh: refresh, fields: fields, clone: clone, clean: clean
+  };
 });
