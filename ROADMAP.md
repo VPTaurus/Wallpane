@@ -33,11 +33,11 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [x] **B5. Saved walls** keep the original file. If the cache was cleared, the copy is simply made again.
 
 ## C. Library, part 1 (1.5.0)
-- [ ] **C0. Design first.** A short design to agree on before code: where the library lives (a panel beside or over the wall, or its own window), what it stores, how search and filters work, what dragging to the wall does.
+- [x] **C0. Design first.** Agreed in [docs/library-design.md](docs/library-design.md): a drawer over the wall, a panel beside it or a window of its own (chosen in Settings, the drawer by default); only folders you add; thumbnails in their own shape in even rows; up to 50,000 files in `library.json`.
 - [ ] **C1. Library store** (`lib/library.js`): `library.json` with the folders and, per file, its path, size, time, kind, probe info and date added. Saved debounced and atomically, behind one module API.
 - [ ] **C2. Folders.** Add and remove library folders; scanned with the code that reads playlists today and watched the same way; new files are probed in the background.
 - [ ] **C3. Thumbnails.** A frame from each video (not a black one) and a small copy of each image, as WebP in the cache, filled in as they are made.
-- [ ] **C4. Browsing.** A thumbnail grid that stays fast with thousands of files; search by name; filters by kind, portrait or landscape, length and resolution; sorting; drag one or many onto the wall or onto a tile; play a folder or a selection as a playlist.
+- [ ] **C4. Browsing.** Thumbnails in even rows that stay fast with tens of thousands of files; search by name; filters by kind, portrait or landscape, length and resolution; sorting; drag one or many onto the wall or onto a tile; play a folder or a selection as a playlist. Shown as the drawer first, then the panel, then the library window (dragging out as a real file drag), then Settings › Library.
 - [ ] **C5. Collections.** Your own lists of files; a collection plays as a playlist on a tile.
 - [ ] **C6. Tests** for the store, the scanning and the grid, with generated media.
 
