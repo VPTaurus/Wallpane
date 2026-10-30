@@ -46,22 +46,34 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
   "version": 1,
   "folders": [{ "path": "D:\\Clips", "added": 1793400000000 }],
   "files": {
-    "f_8c1e…": {
-      "path": "D:\\Clips\\beach\\sunset.mp4", "folder": "D:\\Clips",
+    "f3c9a1e07b2d4": {
+      "path": "D:\\Clips\\beach\\sunset.mp4",
       "size": 48213012, "mtime": 1790000000000, "kind": "video", "added": 1793400000000,
-      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "ok"
+      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "none"
     }
   },
-  "collections": [{ "id": "c_1", "name": "Evening", "files": ["f_8c1e…"] }]
+  "lost": [{ "id": "f81d0c55e9a20", "at": 1793500000000, "e": { "path": "D:\\Clips\\old name.mp4", "size": 1200, "mtime": 1790000000000, "kind": "video", "added": 1793400000000 } }],
+  "collections": [{ "id": "c1", "name": "Evening", "files": ["f3c9a1e07b2d4"] }]
 }
 ```
 
-- **Per file:** where it is, its size and time, its kind and when it was added. Probing fills in its size in pixels, length, frame rate, codecs, rotation, and whether it plays as it is (`play`: ok, remux, audio or convert).
+- **Per file:** where it is, its size and time, its kind (video, GIF or image) and when it was added. Its library folder is not stored, because loading finds it from the path. Probing fills in its size in pixels, length, frame rate, codecs and rotation, and whether it plays as it is (`play`: none, maybe, remux, audio or convert). For a file that cannot be read, it fills in why (`err`), so it is not tried again and again.
+- **Lost files:** files that left the library in the last 30 days, so that one that comes back keeps its id.
 - **Not stored here:** thumbnails (they are files in the cache) and anything from the internet (Wallpane never goes online).
 - **Moved or renamed files keep their place.** A file can disappear while one with the same size, time and name appears elsewhere in the library. That is taken as the same file, so it stays in its collections (and keeps its tags, later on).
-- **Saving** waits two seconds after the last change, then goes through a temporary file (`writeJsonAtomic`), so a crash never leaves half a file.
-- **Size (Decision 4: up to 50,000 files):** about 300 bytes a file. 50,000 files make about 15 MB of JSON, which loads in well under a second. All of this sits behind `lib/library.js`, so moving to SQLite later would not touch the page.
-- **Searching:** the main process runs each search and sort, which takes a few milliseconds even for 50,000 files. The page gets back the whole result in a compact form (id, name, kind, width and height, length). That is all it needs to lay out the rows; names and details for the rows on screen follow as they scroll in.
+- **Saving** waits two seconds after the last change. While changes keep coming (probing a big folder), it still saves at least every 30 seconds. It writes through a temporary file, so a crash never leaves half a file, and once more when Wallpane closes.
+- **Size (Decision 4: up to 50,000 files):** about 300 bytes a file. Measured with 50,000 fully probed files:
+
+  | | |
+  |---|---|
+  | `library.json` | 14 MB |
+  | loading it | 0.35 s |
+  | saving it | 0.07 s |
+  | the first scan | 0.4 s |
+  | a scan that finds no changes | 0.07 s |
+
+  C2 loads the library after the first window is up, so it never delays the start. All of this sits behind `lib/library.js`, so moving to SQLite later would not touch the page.
+- **Searching:** the main process runs each search and sort, which takes 4 to 40 milliseconds for 50,000 files. The page gets back the whole result in a compact form (id, name, kind, width and height, length). That is all it needs to lay out the rows; names and details for the rows on screen follow as they scroll in.
 
 ## Scanning (C2)
 1. **Adding a folder** walks it straight away. The 3,000-file limit is only for playlists; this walk has none. Each file goes in with its name, size, time and kind (from its extension), so the grid fills at once.
