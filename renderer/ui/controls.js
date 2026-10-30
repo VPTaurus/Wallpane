@@ -234,7 +234,7 @@
   var POPS = {
     add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
     presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn'],
-    time: ['#popT', '#timeBtn'], music: ['#popM', '#musicBtn']
+    time: ['#popT', '#timeBtn'], music: ['#popM', '#musicBtn'], jobs: ['#popJ', '#jobsBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
@@ -274,6 +274,7 @@
     else if (which === 'settings') refreshSettings();
     else if (which === 'time') A.refreshTime();
     else if (which === 'music') A.refreshMusic();
+    else if (which === 'jobs') A.refreshJobs();
     placeOpen();
   }
   // About, in Settings: version and licence, the source code, and support links when package.json lists any.
@@ -348,6 +349,7 @@
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
+    $('#setConvert').checked = S.autoConvert;
     $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');

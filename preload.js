@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('wall', {
   resolveNames: (dir, names) => ipcRenderer.invoke('fs:resolveNames', dir, names),
   revealFile: (p) => ipcRenderer.invoke('shell:reveal', p),
   probeMedia: (p) => ipcRenderer.invoke('media:probe', String(p)),
+  ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),

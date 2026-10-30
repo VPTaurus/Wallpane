@@ -29,6 +29,7 @@ const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
 const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
+const { playableKind } = require('./lib/playable');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -117,6 +118,7 @@ function saveJobs(pending) {
 function startBackground() {
   try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
+  JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   jobs = createJobs({
     kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
     load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
@@ -126,6 +128,29 @@ function startBackground() {
 handle('jobs:list', () => (jobs ? jobs.list() : []));
 handle('jobs:cancel', (_e, id) => (jobs ? jobs.cancel(id) : false));
 handle('jobs:clear', () => { if (jobs) jobs.clearFinished(); return true; });
+// Make playable: what a video tile asks before it plays. { status: 'ok' } plays as it is; 'ready' with the path of the
+// copy already made; 'working' with the key of the job making one; 'needed' when the page does not convert on its own
+// (opts.auto off); 'failed' or 'missing'. opts.force: it did not play, so convert even if it looks playable.
+// opts.background: a playlist's file, made at background priority.
+const verdicts = new Map();   // a file's cache key -> its verdict, so a file is probed once per run
+handle('media:ensurePlayable', async (_e, p, opts) => {
+  opts = opts || {};
+  if (typeof p !== 'string' || !fs.existsSync(p)) return { status: 'missing' };
+  if (!ffmpeg.available() || !jobs) return { status: 'ok' };
+  const made = cache.find('converted', p, 'mp4') || cache.find('converted', p, 'webm');
+  if (made) return { status: 'ready', path: made };
+  let key;
+  try { key = cache.keyOf(p); } catch { return { status: 'missing' }; }
+  let v = verdicts.get(key);
+  if (!v) {
+    try { v = mediainfo.verdict(mediainfo.describe(await ffmpeg.probeRaw(p))); } catch (err) { return { status: 'failed', why: 'FFmpeg cannot read this file (' + err.message + ').' }; }
+    verdicts.set(key, v);
+  }
+  if (!opts.force && (v.action === 'none' || v.action === 'maybe')) return { status: 'ok', verdict: v };
+  if (!opts.auto && !opts.force) return { status: 'needed', verdict: v };
+  const job = jobs.add({ kind: 'playable', key: 'playable:' + key, label: path.basename(p), input: { file: p, force: !!opts.force }, priority: opts.background ? 'background' : 'user' });
+  return { status: 'working', key: job.key, verdict: v };
+});
 handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {
   if (CACHE_LIMITS.includes(gb)) {
@@ -139,7 +164,9 @@ handle('cache:clear', () => { cache.clear(); return cacheInfo(); });
 handle('cache:reveal', () => { fs.mkdirSync(cache.root, { recursive: true }); shell.openPath(cache.root); return true; });
 
 /* ---------- files and dialogs ---------- */
-handle('fs:expand', (_e, paths) => files.expand(paths));   // no options from the page
+// With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.
+function mediaOpts() { return { convertible: ffmpeg.available() }; }
+handle('fs:expand', (_e, paths) => files.expand(paths, mediaOpts()));
 handle('fs:exists', (_e, paths) => (Array.isArray(paths) ? paths : []).map((p) => typeof p === 'string' && fs.existsSync(p)));
 handle('fs:resolveNames', (_e, dir, names) => {
   const found = {};
@@ -186,17 +213,17 @@ handle('dialog:files', async (e, multiple) => {
     title: 'Add media',
     properties: multiple ? ['openFile', 'multiSelections'] : ['openFile'],
     filters: [
-      { name: 'Videos, images and GIFs', extensions: formats.VIDEO.concat(formats.IMAGE) },
+      { name: 'Videos, images and GIFs', extensions: formats.VIDEO.concat(formats.IMAGE, ffmpeg.available() ? formats.convertibleExts() : []) },
       { name: 'All files', extensions: ['*'] }
     ]
   });
   if (r.canceled) return { entries: [], skipped: 0 };
-  return files.expand(r.filePaths);
+  return files.expand(r.filePaths, mediaOpts());
 });
 handle('dialog:folder', async (e) => {
   const r = await dialog.showOpenDialog(winOf(e), { title: 'Add a folder of media', properties: ['openDirectory'] });
   if (r.canceled || !r.filePaths[0]) return { entries: [], skipped: 0 };
-  return Object.assign(await files.expand(r.filePaths), { root: r.filePaths[0] });
+  return Object.assign(await files.expand(r.filePaths, mediaOpts()), { root: r.filePaths[0] });
 });
 // Background music: a folder of the user's own music (and its folders), and the same folder read again on the next start.
 handle('dialog:musicFolder', async (e) => {

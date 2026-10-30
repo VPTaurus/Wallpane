@@ -46,8 +46,15 @@
         media.addEventListener('timeupdate', function () { if (!el._dead) A.clipTick(it, media); });
         media.addEventListener('playing', function () { var pp = S.playlists[it.pl]; if (pp) pp.bad = 0; });
       }
-      media.addEventListener('error', function () { el.classList.add('broken'); });
-      media.src = it.url;
+      // A video that does not play as it is gets a playable copy first (ui/playable.js): the copy if one is made, the
+      // file itself when it should play, nothing while that is being found out.
+      media.addEventListener('error', function () {
+        if (!media.getAttribute('src')) return;
+        el.classList.add('broken');
+        A.didNotPlay(it);
+      });
+      var src = A.playableSrc(it);
+      if (src) media.src = src;
       watchVideo(it, el, media);
     } else {
       media = document.createElement('img');
@@ -85,7 +92,7 @@
       '<button class="hb danger" data-act="remove" aria-label="Remove from wall">' + ICON.trash + '</button>';
     hud.appendChild(nm); hud.appendChild(bt);
     el.appendChild(hud);
-    if (media.tagName === 'VIDEO') buildBar(it, el, media);
+    if (media.tagName === 'VIDEO') { buildBar(it, el, media); A.checkPlayable(it); }
 
     // Shown while the media is being repositioned (see A.startRepos).
     var rbar = document.createElement('div');

@@ -37,6 +37,15 @@ test('expand finds media in folders, reports formats that cannot play, and skips
   assert.deepEqual(none.entries, []);
 });
 
+test('with FFmpeg, videos it can make playable count as videos; other unplayable files are still reported', async (t) => {
+  const dir = tempDir();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const n of ['a.mp4', 'b.avi', 'c.wmv', 'd.heic']) touch(path.join(dir, n));
+  const res = await files.expand([dir], { convertible: true });
+  assert.deepEqual(res.entries.map((e) => [e.name, e.kind]), [['a.mp4', 'video'], ['b.avi', 'video'], ['c.wmv', 'video']]);
+  assert.deepEqual(res.unsupported, { heic: 1 });
+});
+
 test('expand with audio finds the music in a folder for the background music, and nothing else', async (t) => {
   const dir = tempDir();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

@@ -127,6 +127,16 @@
     <!-- The time: the clock, and chips for the stopwatch and timer, each with a start/pause button. Which of them the
          bar shows is ticked in the popover ("In the bar"); a stopwatch or timer in use shows anyway. -->
     <div class="grp">
+      <!-- Background work (making files playable, …): only there while something runs, waits or failed. -->
+      <div class="popwrap" id="jobsWrap" hidden>
+        <button class="btn jobsbtn" id="jobsBtn" type="button" aria-expanded="false" aria-controls="popJ" title="Background work"><span data-icon="jobs"></span><span id="jobsCount">0</span></button>
+        <div class="pop" id="popJ" hidden>
+          <span class="lab">Background work</span>
+          <div class="jlist" id="jobsList"></div>
+          <div class="row"><button class="btn" id="jobsClear" type="button">Clear finished</button></div>
+          <p class="note">What this makes goes to Wallpane's cache (Settings › Storage); your own files are never changed. It runs at low priority, so the wall keeps playing smoothly.</p>
+        </div>
+      </div>
       <div class="popwrap timewrap">
         <button class="btn timebtn" id="timeBtn" type="button" aria-expanded="false" aria-controls="popT" title="Clock, stopwatch and timer">
           <span class="clk" id="clock">--:--</span><span class="clkicon" id="clockIcon" data-icon="clock" hidden></span>
@@ -277,6 +287,8 @@
                 <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
               </div>
               <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
+              <label class="check"><input type="checkbox" id="setConvert"> Make a playable copy of videos that do not play as they are (AVI, WMV, AC3 or DTS sound, …)</label>
+              <p class="note">The copy goes to Wallpane's cache (Storage); your own file is never changed. Without this, such a tile waits until you right-click it and choose Make playable.</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
@@ -417,6 +429,7 @@
 <script src="ui/hide.js"></script>
 <script src="ui/clock.js"></script>
 <script src="ui/music.js"></script>
+<script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
 <script src="ui/boot.js"></script>
 </body>

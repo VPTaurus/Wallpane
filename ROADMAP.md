@@ -18,19 +18,19 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [x] **A2. Running FFmpeg** (`lib/ffmpeg.js`, main process; the facts and the verdict in `lib/mediainfo.js`). Finds the binaries (development or installed), runs them with an argument list (never a shell), at below-normal priority, with progress (`-progress pipe:1`), cancel and time limits. `probe(file)` uses ffprobe's JSON output: length, size, rotation, frame rate, codecs, audio channels, and whether Chromium can play it as it is.
 - [x] **A3. Job queue** (`lib/jobs.js`). Kinds of job (probe, thumbnail, convert, proxy, loudness, …), the user's own requests first, one heavy and two light jobs at a time, unfinished jobs picked up again after a restart, and progress, done and failed reported to the windows.
 - [x] **A4. Cache** (`lib/cache.js`; the limit is app-wide, in `app.json`). `%APPDATA%\Wallpane\cache\` with `converted`, `thumbs`, `previews`, `proxies`, each file named by a hash of the original's path, size and time, so a changed file is redone. A size limit with oldest-first clean-up, and **Settings › Storage**: how much it holds, Show folder, Clear.
-- [ ] **A5. Jobs in the window.** A small indicator in the bar (how many jobs, overall progress) opening a list with cancel; a tile that waits for a job shows its progress on the tile.
-- [ ] **A6. Graphics card encoders.** On first use, test NVIDIA (NVENC), Intel (Quick Sync) and AMD (AMF) H.264 encoders with a one-second encode; use the first that works, else x264 "veryfast".
-- [ ] **A7. Test media made by FFmpeg.** Tests create their own clips with FFmpeg's built-in sources (AVI, MKV with AC3 sound, HEVC, a big GIF), so no media files go into git.
+- [x] **A5. Jobs in the window.** A small indicator in the bar (how many jobs, overall progress) opening a list with cancel; a tile that waits for a job shows its progress on the tile.
+- [x] **A6. Graphics card encoders** (on the development PC: Intel Quick Sync). On first use, test NVIDIA (NVENC), Intel (Quick Sync) and AMD (AMF) H.264 encoders with a one-second encode; use the first that works, else x264 "veryfast".
+- [x] **A7. Test media made by FFmpeg.** Tests create their own clips with FFmpeg's built-in sources (AVI, MKV with AC3 sound, MPEG-4, VP9; a big GIF comes with B4), so no media files go into git.
 
 ## B. Play anything (1.4.0)
-- [ ] **B1. Know before playing.** Every added video is probed; files Chromium cannot play are recognised before they fail.
-- [ ] **B2. Make playable**, the cheapest way that works:
+- [x] **B1. Know before playing.** Every video is probed when a tile first shows it (once per file); files Chromium cannot play are recognised before they fail, and one that fails anyway is converted after all.
+- [x] **B2. Make playable** (`lib/playable.js`), the cheapest way that works:
   - the right codecs in the wrong container (AVI or MKV with H.264 and AAC): copied into MP4 in seconds, no quality lost;
   - only the sound is the problem (AC3, DTS, E-AC3): the sound becomes AAC, the picture is copied;
   - otherwise (MPEG-2, WMV, DivX, HEVC without Windows' HEVC support): converted to H.264.
-- [ ] **B3. How it feels.** An unplayable file on the wall shows "Making playable… 45 %" and switches to the copy by itself. Settings: convert automatically, or ask. Right-click a failing tile › Make playable. Folder playlists include such files and queue them.
+- [x] **B3. How it feels.** An unplayable file on the wall shows "Making it playable… 45 %" and switches to the copy by itself. Settings: copies made automatically, or only on right-click › Make playable. Folder playlists include such files: the tile moves on after three seconds and plays the file once its copy is there.
 - [ ] **B4. GIF to video.** Big GIFs (setting: above a size) become small MP4s that play smoothly; the tile still says GIF.
-- [ ] **B5. Saved walls** keep the original file. If the cache was cleared, the copy is simply made again.
+- [x] **B5. Saved walls** keep the original file. If the cache was cleared, the copy is simply made again.
 
 ## C. Library, part 1 (1.5.0)
 - [ ] **C0. Design first.** A short design to agree on before code: where the library lives (a panel beside or over the wall, or its own window), what it stores, how search and filters work, what dragging to the wall does.

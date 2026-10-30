@@ -13,7 +13,7 @@
     api: api, $: $,
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
-      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even',
+      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, resizeMode: 'even', autoConvert: true,
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0                                                     // the counter in the clock popover
@@ -78,6 +78,7 @@
     eyeoff: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM2.5 2.5l11 11"/>'),
     keyboard: svg('<path d="M1.5 4h13v8h-13zM4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4.6 9.5h6.8"/>'),
     info: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 7.3v4M8 4.7v.1"/>'),
+    jobs: svg('<path d="M8 1.8a6.2 6.2 0 1 1-6.2 6.2"/>'),
     disk: svg('<path d="M2 9.5l1.8-6h8.4L14 9.5v4H2zM2 9.5h12M11 11.5h.01"/>'),
     hash: svg('<path d="M6 2.5l-1.2 11M11.2 2.5L10 13.5M2.8 6h11M2.2 10h11"/>'),
     minus: svg('<path d="M3 8h10"/>'),
@@ -98,7 +99,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, music: S.music, timeBar: S.timeBar, counter: S.counter });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, resizeMode: S.resizeMode, autoConvert: S.autoConvert, music: S.music, timeBar: S.timeBar, counter: S.counter });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -113,6 +114,7 @@
     if (p.awake === false) S.awake = false;
     if (typeof p.clock24 === 'boolean') S.clock24 = p.clock24;   // null: as Windows shows the time
     if (p.soloSound === false) S.soloSound = false;
+    if (p.autoConvert === false) S.autoConvert = false;
     if (p.resizeMode === 'squeeze') S.resizeMode = 'squeeze';   // Free layout: how tiles in the way of a growing tile give way
     var tb = p.timeBar;
     if (tb && typeof tb === 'object') S.timeBar = { clock: tb.clock !== false, sw: tb.sw === true, tm: tb.tm === true, ct: tb.ct === true };

@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
+const FF = require('../../lib/ffmpeg');
 
 const root = path.join(__dirname, '..', '..');
 
@@ -48,7 +49,7 @@ test.beforeAll(async () => {
   [[160, 90], [90, 160], [120, 90], [100, 100], [192, 80], [160, 90]].forEach(([w, h], i) => {
     fs.writeFileSync(path.join(media, 'img' + (i + 1) + '.png'), png(w, h, [40 * i, 120, 200 - 30 * i]));
   });
-  fs.writeFileSync(path.join(media, 'old clip.avi'), 'not really a video');
+  fs.writeFileSync(path.join(media, 'old photo.heic'), 'not really a picture');   // a format that cannot be shown
   // The same window everywhere: GitHub's Windows runners have a 1024 × 768 screen, so the tests use that size here too.
   fs.mkdirSync(path.join(dir, 'data'));
   fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
@@ -68,7 +69,7 @@ test.afterAll(async () => {
 // The next open dialog picks `p`; the next save dialog saves to `save`.
 async function answerDialogs(p, save) {
   await app.evaluate(({ dialog }, a) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [a.p] });
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [].concat(a.p) });
     if (a.save) dialog.showSaveDialog = async () => ({ canceled: false, filePath: a.save });
   }, { p, save });
 }
@@ -86,14 +87,14 @@ test('starts with the sample cards', async () => {
   await expect(page.locator('#readout')).toContainText('4 tiles on 12 cells');
 });
 
-test('Add > Folder as a playlist fills the empty cells and explains the AVI file', async () => {
+test('Add > Folder as a playlist fills the empty cells and explains the HEIC file', async () => {
   await answerDialogs(media);
   await page.click('#addBtn');
   await page.click('#folderPl');
   await expect(page.locator('#popAdd')).toBeHidden();
   await expect(tiles()).toHaveCount(6);
   await expect(toast()).toContainText('on 6 tiles');
-  await expect(toast()).toContainText('1 AVI file cannot play here');
+  await expect(toast()).toContainText('1 HEIC file cannot play here');
   // The images really load through their file:// addresses.
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#wall .tile img')].filter((i) => i.naturalWidth > 0).length)).toBe(6);
 });
@@ -562,6 +563,61 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
   await expect(tile).not.toHaveClass(/\bsolo\b/);
   await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await page.keyboard.press('Escape');
+});
+
+test('make playable: an AVI and AC3 sound play from copies; a long conversion shows in the bar and can be stopped', async () => {
+  const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const conv = path.join(dir, 'To convert');
+  fs.mkdirSync(conv);
+  const make = async (name, secs, size, codecs) => {
+    const out = path.join(conv, name);
+    await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=' + size + ':rate=25:duration=' + secs,
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=' + secs].concat(codecs, [out]), { timeoutMs: 120000 });
+    return out;
+  };
+  const quick = await make('quick.avi', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'libmp3lame']);
+  const sound = await make('sound.mkv', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'ac3']);
+  // A fresh wall, so the new tiles have room.
+  await settingsAt('General');
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await page.keyboard.press('Escape');
+  await answerDialogs([quick, sound]);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const vid = (name) => page.locator('#wall .tile:not(.leaving)', { hasText: name }).locator('video');
+  for (const name of ['quick.avi', 'sound.mkv']) {
+    await expect.poll(() => vid(name).evaluate((v) => decodeURIComponent(v.getAttribute('src') || '')), { timeout: 30000 }).toContain('/cache/converted/');
+    await expect.poll(() => vid(name).evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(1.5);
+  }
+  expect(fs.statSync(quick).size).toBeGreaterThan(0);   // the originals are still there, as they were
+  await settingsAt('Storage');
+  await expect(page.locator('#cacheTotal')).not.toHaveText('0 B');
+  await page.keyboard.press('Escape');
+  // A long one: its tile shows the work, the bar shows a job; stopping it says so on the tile.
+  const long = await make('long.avi', 60, '1280x720', ['-c:v', 'mpeg4', '-q:v', '5', '-c:a', 'ac3']);
+  await answerDialogs(long);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const tile = page.locator('#wall .tile', { hasText: 'long.avi' });
+  await expect(tile.locator('.busy')).toContainText('Converting it to play here');
+  await expect(page.locator('#jobsWrap')).toBeVisible();
+  await page.click('#jobsBtn');
+  await expect(page.locator('#jobsList')).toContainText('long.avi');
+  await expect(page.locator('#jobsList')).toContainText('Making playable');
+  await page.locator('#jobsList .jrow.running button').click();
+  await expect(tile.locator('.busy')).toContainText('Stopped before it could play');
+  await expect(page.locator('#jobsWrap')).toBeHidden();
+  // Right-click › Make playable starts it again (stopped again here: a minute of 720p takes a while).
+  await tile.click({ button: 'right' });
+  await menuItem('Make playable').click();
+  await expect(tile.locator('.busy')).toContainText('Converting');
+  await expect(page.locator('#jobsCount')).toHaveText('1');
+  await page.click('#jobsBtn');
+  await page.locator('#jobsList .jrow button').first().click();
+  await expect(page.locator('#jobsWrap')).toBeHidden();
   await page.keyboard.press('Escape');
 });
 
