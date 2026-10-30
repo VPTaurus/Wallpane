@@ -484,6 +484,9 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   });
   const clip = path.join(dir, 'clip.webm');
   fs.writeFileSync(clip, Buffer.from(b64, 'base64'));
+  // The bundled ffprobe reads it: VP8 in WebM plays as it is.
+  const info = await page.evaluate((p) => window.wall.probeMedia(p), clip);
+  expect([info.video.codec, info.video.width, info.video.height, info.verdict.action]).toEqual(['vp8', 160, 90, 'none']);
   await answerDialogs(clip);
   await page.click('#addBtn');
   await page.click('#addFiles');

@@ -25,6 +25,9 @@ const ffmpegBuild = (() => {
   } catch { return null; }
 })();
 
+const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
+const mediainfo = require('./lib/mediainfo');
+
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
   source: pkg.homepage,
@@ -110,6 +113,14 @@ handle('fs:gifDuration', async (_e, p) => {
     if (st.size > 60 * 1024 * 1024) return 0;
     return files.gifSeconds(await fsp.readFile(p));
   } catch { return 0; }
+});
+// What a media file holds and whether it plays as it is (ffprobe): see lib/mediainfo.js.
+handle('media:probe', async (_e, p) => {
+  if (typeof p !== 'string' || !fs.existsSync(p)) return null;
+  try {
+    const info = mediainfo.describe(await ffmpeg.probeRaw(p));
+    return Object.assign(info, { verdict: mediainfo.verdict(info) });
+  } catch (err) { return { error: err.message, code: err.code }; }
 });
 handle('shell:reveal', (_e, p) => {
   if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p);
