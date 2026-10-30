@@ -289,7 +289,7 @@
       if (info.links.source) links.push(['Source code', info.links.source]);
       if (info.links.ffmpeg) links.push(['FFmpeg source', info.links.ffmpeg]);
       info.links.support.forEach(function (u) {
-        links.push([/buymeacoffee\.com/.test(u) ? 'Buy me a coffee' : /github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
+        links.push([/github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
       });
       box.innerHTML = '';
       links.forEach(function (l) {

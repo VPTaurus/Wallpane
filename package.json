@@ -10,6 +10,7 @@
     "url": "https://github.com/VPTaurus/wallpane"
   },
   "homepage": "https://github.com/VPTaurus/wallpane",
+  "funding": "https://github.com/sponsors/VPTaurus",
   "main": "main.js",
   "private": true,
   "engines": {

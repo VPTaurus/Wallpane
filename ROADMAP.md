@@ -61,7 +61,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 
 ## Later
 - **Wallpane Lite.** The same app without FFmpeg, for people who only play MP4, WebM and pictures: about 115 MB to download instead of 178 MB. Wallpane already runs without FFmpeg (Make playable and the FFmpeg-made thumbnails and previews are simply not offered, and say so), so Lite is mostly a second build: the same code without `resources/ffmpeg`, named *Wallpane Lite*, built and attached to each release by CI next to the full one. Open question to settle first: whether Lite should also hide features (a simpler bar for a casual wall), or only leave FFmpeg out.
-- Microsoft Store (an MSIX package, FFmpeg included) and GitHub Sponsors, once the accounts are ready.
+- Microsoft Store (an MSIX package, FFmpeg included), once the account is ready. GitHub Sponsors is live (About, README and the repository's Sponsor button).
 - Scheduled walls; clock and text tiles on the wall; one wall across several screens; more transitions.
 - Research: similar apps for phones and tablets; a phone version or a phone as a remote for the wall.
 - **v2:** the optional Stash connector.
