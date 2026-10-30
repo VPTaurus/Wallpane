@@ -46,14 +46,30 @@
         media.addEventListener('timeupdate', function () { if (!el._dead) A.clipTick(it, media); });
         media.addEventListener('playing', function () { var pp = S.playlists[it.pl]; if (pp) pp.bad = 0; });
       }
-      media.addEventListener('error', function () { el.classList.add('broken'); });
-      media.src = it.url;
+      // A video that does not play as it is gets a playable copy first (ui/playable.js): the copy if one is made, the
+      // file itself when it should play, nothing while that is being found out.
+      media.addEventListener('error', function () {
+        if (!media.getAttribute('src')) return;
+        el.classList.add('broken');
+        A.didNotPlay(it);
+      });
+      var src = A.playableSrc(it);
+      if (src) media.src = src;
       watchVideo(it, el, media);
+    } else if (A.gifVideoUrl(it)) {
+      // A big GIF plays from its video copy (ui/playable.js): smoother and far lighter; silent and looping, like a GIF.
+      media = document.createElement('video');
+      media.className = 'media';
+      media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true;
+      media.setAttribute('playsinline', '');
+      media.addEventListener('error', function () { A.gifVideoFailed(it); });
+      media.src = A.gifVideoUrl(it);
     } else {
       media = document.createElement('img');
       media.className = 'media'; media.alt = it.name;
       media.addEventListener('error', function () { el.classList.add('broken'); });
       media.src = it.url;
+      A.checkGif(it);
     }
     media.draggable = false;
     if (it._fitOnLoad && A.hasMedia(it)) media.addEventListener(media.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', function () { A.fitNewTile(it); }, { once: true });
@@ -85,7 +101,7 @@
       '<button class="hb danger" data-act="remove" aria-label="Remove from wall">' + ICON.trash + '</button>';
     hud.appendChild(nm); hud.appendChild(bt);
     el.appendChild(hud);
-    if (media.tagName === 'VIDEO') buildBar(it, el, media);
+    if (it.kind === 'video' && media.tagName === 'VIDEO') { buildBar(it, el, media); A.checkPlayable(it); }
 
     // Shown while the media is being repositioned (see A.startRepos).
     var rbar = document.createElement('div');
@@ -241,9 +257,10 @@
       } else if (!it.pl && it.loopA) media.currentTime = it.loopA;
     });
   }
+  // A video tile's video element (not a GIF's video copy).
   A.videoOf = function (it) {
     var el = A.tileEls.get(it.id), m = el && el._media;
-    return m && m.tagName === 'VIDEO' ? m : null;
+    return m && m.tagName === 'VIDEO' && it.kind === 'video' ? m : null;
   };
   // Volume, speed and the loop part belong to the tile: they stay when a playlist moves on (the loop part does not).
   A.setVolume = function (it, v) {
@@ -523,7 +540,8 @@
       m.style.objectFit = it.fit;
       m.style.objectPosition = vc.objectPosition; m.style.transformOrigin = vc.transformOrigin; m.style.transform = vc.transform;
     }
-    if (m.tagName === 'VIDEO') {
+    if (m.tagName === 'VIDEO' && it.kind !== 'video') { m.muted = true; m.loop = true; }   // a GIF's video copy
+    else if (m.tagName === 'VIDEO') {
       var rate = it.speed || 1;
       // One tile full screen: it is heard and the others are quiet (Settings › General), until full screen ends.
       m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
@@ -668,9 +686,13 @@
   A.hasImagePlaylist = function () {
     return S.items.some(function (i) { return i.pl && i.kind === 'image' && !i.missing && S.playlists[i.pl]; });
   };
+  // The video tiles' video elements (GIFs playing from a video copy are not videos here).
   A.videos = function () {
     var vids = [];
-    A.tileEls.forEach(function (el) { var v = el._media; if (v && v.tagName === 'VIDEO') vids.push(v); });
+    A.tileEls.forEach(function (el, id) {
+      var v = el._media, it = A.itemById(id);
+      if (v && v.tagName === 'VIDEO' && it && it.kind === 'video') vids.push(v);
+    });
     return vids;
   };
   // Icon buttons: the label says what a click does. The play icon shows that too (play or pause, as players do);

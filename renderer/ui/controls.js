@@ -234,7 +234,7 @@
   var POPS = {
     add: ['#popAdd', '#addBtn'], wall: ['#popGrid', '#gridBtn'], arrange: ['#popArr', '#arrangeMenuBtn'], layouts: ['#popL', '#arrangeMenuBtn'], builder: ['#popB', '#arrangeMenuBtn'],
     presets: ['#pop', '#presetBtn'], playlist: ['#popP', '#playlistBtn'], help: ['#popH', '#helpBtn'], settings: ['#popS', '#settingsBtn'],
-    time: ['#popT', '#timeBtn'], music: ['#popM', '#musicBtn']
+    time: ['#popT', '#timeBtn'], music: ['#popM', '#musicBtn'], jobs: ['#popJ', '#jobsBtn']
   };
   A.closePops = function () {
     Object.keys(POPS).forEach(function (k) { $(POPS[k][0]).hidden = true; $(POPS[k][1]).setAttribute('aria-expanded', 'false'); });
@@ -274,14 +274,20 @@
     else if (which === 'settings') refreshSettings();
     else if (which === 'time') A.refreshTime();
     else if (which === 'music') A.refreshMusic();
+    else if (which === 'jobs') A.refreshJobs();
     placeOpen();
   }
   // About, in Settings: version and licence, the source code, and support links when package.json lists any.
   function fillAbout() {
     api.appInfo().then(function (info) {
       $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      var f = info.ffmpeg;
+      $('#aboutFfmpeg').textContent = f
+        ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
+        : 'FFmpeg is not in this copy (npm run fetch-ffmpeg adds it), so converting files is not available.';
       var box = $('#aboutLinks'), links = [];
       if (info.links.source) links.push(['Source code', info.links.source]);
+      if (info.links.ffmpeg) links.push(['FFmpeg source', info.links.ffmpeg]);
       info.links.support.forEach(function (u) {
         links.push([/buymeacoffee\.com/.test(u) ? 'Buy me a coffee' : /github\.com\/sponsors/.test(u) ? 'Sponsor on GitHub' : 'Support Wallpane', u]);
       });
@@ -337,11 +343,14 @@
   function refreshSettings() {
     showSec(secNow);
     A.refreshHideSettings();
+    A.refreshStorage();
     fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
+    $('#setConvert').checked = S.autoConvert;
+    $('#setGifVideo').value = S.gifVideo;
     $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');

@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
+const FF = require('../../lib/ffmpeg');
 
 const root = path.join(__dirname, '..', '..');
 
@@ -48,7 +49,7 @@ test.beforeAll(async () => {
   [[160, 90], [90, 160], [120, 90], [100, 100], [192, 80], [160, 90]].forEach(([w, h], i) => {
     fs.writeFileSync(path.join(media, 'img' + (i + 1) + '.png'), png(w, h, [40 * i, 120, 200 - 30 * i]));
   });
-  fs.writeFileSync(path.join(media, 'old clip.avi'), 'not really a video');
+  fs.writeFileSync(path.join(media, 'old photo.heic'), 'not really a picture');   // a format that cannot be shown
   // The same window everywhere: GitHub's Windows runners have a 1024 × 768 screen, so the tests use that size here too.
   fs.mkdirSync(path.join(dir, 'data'));
   fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
@@ -68,7 +69,7 @@ test.afterAll(async () => {
 // The next open dialog picks `p`; the next save dialog saves to `save`.
 async function answerDialogs(p, save) {
   await app.evaluate(({ dialog }, a) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [a.p] });
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [].concat(a.p) });
     if (a.save) dialog.showSaveDialog = async () => ({ canceled: false, filePath: a.save });
   }, { p, save });
 }
@@ -86,14 +87,14 @@ test('starts with the sample cards', async () => {
   await expect(page.locator('#readout')).toContainText('4 tiles on 12 cells');
 });
 
-test('Add > Folder as a playlist fills the empty cells and explains the AVI file', async () => {
+test('Add > Folder as a playlist fills the empty cells and explains the HEIC file', async () => {
   await answerDialogs(media);
   await page.click('#addBtn');
   await page.click('#folderPl');
   await expect(page.locator('#popAdd')).toBeHidden();
   await expect(tiles()).toHaveCount(6);
   await expect(toast()).toContainText('on 6 tiles');
-  await expect(toast()).toContainText('1 AVI file cannot play here');
+  await expect(toast()).toContainText('1 HEIC file cannot play here');
   // The images really load through their file:// addresses.
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#wall .tile img')].filter((i) => i.naturalWidth > 0).length)).toBe(6);
 });
@@ -351,7 +352,19 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await expect(page.locator('#aboutLine')).toContainText('Wallpane');
   await expect(page.locator('#aboutLine')).toContainText('GPL');
   await expect(page.locator('#aboutLinks')).toContainText('Source code');
+  // FFmpeg comes with the app; About names the build and links to its exact source.
+  await expect(page.locator('#aboutFfmpeg')).toContainText('Includes FFmpeg 9.0.2');
+  await expect(page.locator('#aboutLinks')).toContainText('FFmpeg source');
   await expect(page.locator('#dataDir')).toHaveText(path.join(dir, 'data'));
+  // Storage: the cache that jobs fill, empty so far, with a size limit kept app-wide.
+  await page.click('#tabStorage');
+  await expect(page.locator('#cacheTotal')).toHaveText('0 B');
+  await expect(page.locator('#cacheDir')).toHaveText(path.join(dir, 'data', 'cache'));
+  await expect(page.locator('#cacheKinds')).toContainText('Playable copies');
+  await expect(page.locator('#cacheClear')).toBeDisabled();
+  await page.locator('#cacheLimit').selectOption('5');
+  await expect(page.locator('#cacheOf')).toHaveText('of 5 GB');
+  await expect.poll(() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'app.json'), 'utf8')).cacheLimitGB; } catch { return null; } }).toBe(5);
   await page.keyboard.press('Escape');
 });
 
@@ -481,6 +494,9 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   });
   const clip = path.join(dir, 'clip.webm');
   fs.writeFileSync(clip, Buffer.from(b64, 'base64'));
+  // The bundled ffprobe reads it: VP8 in WebM plays as it is.
+  const info = await page.evaluate((p) => window.wall.probeMedia(p), clip);
+  expect([info.video.codec, info.video.width, info.video.height, info.verdict.action]).toEqual(['vp8', 160, 90, 'none']);
   await answerDialogs(clip);
   await page.click('#addBtn');
   await page.click('#addFiles');
@@ -548,6 +564,76 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect(tile).not.toHaveClass(/\bsolo\b/);
   await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
   await page.keyboard.press('Escape');
+});
+
+test('make playable: an AVI and AC3 sound play from copies; a long conversion shows in the bar and can be stopped', async () => {
+  const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const conv = path.join(dir, 'To convert');
+  fs.mkdirSync(conv);
+  const make = async (name, secs, size, codecs) => {
+    const out = path.join(conv, name);
+    await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=' + size + ':rate=25:duration=' + secs,
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=' + secs].concat(codecs, [out]), { timeoutMs: 120000 });
+    return out;
+  };
+  const quick = await make('quick.avi', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'libmp3lame']);
+  const sound = await make('sound.mkv', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'ac3']);
+  // A fresh wall, so the new tiles have room.
+  await settingsAt('General');
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await page.keyboard.press('Escape');
+  await answerDialogs([quick, sound]);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const vid = (name) => page.locator('#wall .tile:not(.leaving)', { hasText: name }).locator('video');
+  for (const name of ['quick.avi', 'sound.mkv']) {
+    await expect.poll(() => vid(name).evaluate((v) => decodeURIComponent(v.getAttribute('src') || '')), { timeout: 30000 }).toContain('/cache/converted/');
+    await expect.poll(() => vid(name).evaluate((v) => v.duration), { timeout: 10000 }).toBeGreaterThan(1.5);
+  }
+  expect(fs.statSync(quick).size).toBeGreaterThan(0);   // the originals are still there, as they were
+  await settingsAt('Storage');
+  await expect(page.locator('#cacheTotal')).not.toHaveText('0 B');
+  await page.keyboard.press('Escape');
+  // A long one: its tile shows the work, the bar shows a job; stopping it says so on the tile.
+  const long = await make('long.avi', 60, '1280x720', ['-c:v', 'mpeg4', '-q:v', '5', '-c:a', 'ac3']);
+  await answerDialogs(long);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const tile = page.locator('#wall .tile', { hasText: 'long.avi' });
+  await expect(tile.locator('.busy')).toContainText('Converting it to play here');
+  await expect(page.locator('#jobsWrap')).toBeVisible();
+  await page.click('#jobsBtn');
+  await expect(page.locator('#jobsList')).toContainText('long.avi');
+  await expect(page.locator('#jobsList')).toContainText('Making playable');
+  await page.locator('#jobsList .jrow.running button').click();
+  await expect(tile.locator('.busy')).toContainText('Stopped before it could play');
+  await expect(page.locator('#jobsWrap')).toBeHidden();
+  // Right-click › Make playable starts it again (stopped again here: a minute of 720p takes a while).
+  await tile.click({ button: 'right' });
+  await menuItem('Make playable').click();
+  await expect(tile.locator('.busy')).toContainText('Converting');
+  await expect(page.locator('#jobsCount')).toHaveText('1');
+  await page.click('#jobsBtn');
+  await page.locator('#jobsList .jrow button').first().click();
+  await expect(page.locator('#jobsWrap')).toBeHidden();
+  await page.keyboard.press('Escape');
+  // GIF to video: with "All GIFs" chosen, a GIF tile plays from a video copy, silent and looping, and is still a GIF.
+  const gif = path.join(conv, 'dance.gif');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=240x180:rate=10:duration=2', gif], { timeoutMs: 60000 });
+  await settingsAt('General');
+  await page.locator('#setGifVideo').selectOption('all');
+  await page.keyboard.press('Escape');
+  await answerDialogs(gif);
+  await page.click('#addBtn');
+  await page.click('#addFiles');
+  const gt = page.locator('#wall .tile:not(.leaving)', { hasText: 'dance.gif' });
+  await expect(gt.locator('video')).toHaveCount(1, { timeout: 30000 });
+  expect(decodeURIComponent(await gt.locator('video').getAttribute('src'))).toContain('/cache/converted/');
+  await expect(gt).toHaveClass(/\bis-image\b/);
+  await expect(gt.locator('.vbar')).toHaveCount(0);
+  expect(await gt.locator('video').evaluate((v) => v.loop && v.muted)).toBe(true);
 });
 
 test('emergency hide: the key covers the wall with a spreadsheet, silences it, and brings it all back', async () => {

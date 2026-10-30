@@ -29,6 +29,13 @@
     var enc = s.split('/').map(function (seg, n) { return (n === 1 && /^[A-Za-z]:$/.test(seg)) ? seg : encodeURIComponent(seg); }).join('/');
     return 'file://' + host + enc;
   }
+  // 1234567 -> "1.2 MB", in decimal units like the cache's size limit.
+  function bytes(n) {
+    n = Math.max(0, +n || 0);
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'], i = 0;
+    while (n >= 1000 && i < units.length - 1) { n /= 1000; i++; }
+    return (i === 0 || n >= 100 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + units[i];
+  }
 
-  return { ASPECTS: ASPECTS, clamp: clamp, esc: esc, dirOf: dirOf, baseName: baseName, sortEntries: sortEntries, readingOrder: readingOrder, fileUrl: fileUrl };
+  return { ASPECTS: ASPECTS, clamp: clamp, esc: esc, dirOf: dirOf, baseName: baseName, sortEntries: sortEntries, readingOrder: readingOrder, fileUrl: fileUrl, bytes: bytes };
 });

@@ -22,6 +22,8 @@
     "test": "node --test \"test/unit/*.test.js\"",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run test:e2e",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.js",
+    "predist": "node scripts/fetch-ffmpeg.js",
     "dist": "electron-builder --win --publish never"
   },
   "devDependencies": {
@@ -46,6 +48,12 @@
       "renderer/**/*",
       "package.json",
       "LICENSE"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/ffmpeg",
+        "to": "ffmpeg"
+      }
     ],
     "win": {
       "target": [

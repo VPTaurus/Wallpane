@@ -127,6 +127,16 @@
     <!-- The time: the clock, and chips for the stopwatch and timer, each with a start/pause button. Which of them the
          bar shows is ticked in the popover ("In the bar"); a stopwatch or timer in use shows anyway. -->
     <div class="grp">
+      <!-- Background work (making files playable, …): only there while something runs, waits or failed. -->
+      <div class="popwrap" id="jobsWrap" hidden>
+        <button class="btn jobsbtn" id="jobsBtn" type="button" aria-expanded="false" aria-controls="popJ" title="Background work"><span data-icon="jobs"></span><span id="jobsCount">0</span></button>
+        <div class="pop" id="popJ" hidden>
+          <span class="lab">Background work</span>
+          <div class="jlist" id="jobsList"></div>
+          <div class="row"><button class="btn" id="jobsClear" type="button">Clear finished</button></div>
+          <p class="note">What this makes goes to Wallpane's cache (Settings › Storage); your own files are never changed. It runs at low priority, so the wall keeps playing smoothly.</p>
+        </div>
+      </div>
       <div class="popwrap timewrap">
         <button class="btn timebtn" id="timeBtn" type="button" aria-expanded="false" aria-controls="popT" title="Clock, stopwatch and timer">
           <span class="clk" id="clock">--:--</span><span class="clkicon" id="clockIcon" data-icon="clock" hidden></span>
@@ -261,6 +271,7 @@
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
+            <button type="button" role="tab" id="tabStorage" data-sec="storage" aria-controls="secStorage"><span data-icon="disk"></span>Storage</button>
             <button type="button" role="tab" id="tabKeys" data-sec="keys" aria-controls="secKeys"><span data-icon="keyboard"></span>Keys</button>
             <button type="button" role="tab" id="tabAbout" data-sec="about" aria-controls="secAbout"><span data-icon="info"></span>About</button>
           </nav>
@@ -276,6 +287,12 @@
                 <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
               </div>
               <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
+              <label class="check"><input type="checkbox" id="setConvert"> Make a playable copy of videos that do not play as they are (AVI, WMV, AC3 or DTS sound, …)</label>
+              <p class="note">The copy goes to Wallpane's cache (Storage); your own file is never changed. Without this, such a tile waits until you right-click it and choose Make playable.</p>
+              <div class="frow"><label for="setGifVideo">GIFs as videos</label>
+                <select id="setGifVideo"><option value="off">Off</option><option value="2">Larger than 2 MB</option><option value="10">Larger than 10 MB</option><option value="all">All GIFs</option></select>
+              </div>
+              <p class="note">A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
@@ -323,6 +340,23 @@
               <p class="note" id="hideNote"></p>
             </section>
 
+            <section class="ssec" id="secStorage" data-sec="storage" role="tabpanel" aria-labelledby="tabStorage" hidden>
+              <h2>Storage</h2>
+              <p class="note">Wallpane keeps what it makes from your files here: playable copies, thumbnails, previews and lighter copies. Your own files are never changed, and anything here can be made again.</p>
+              <div class="usage"><b id="cacheTotal">0 B</b> <span id="cacheOf">of 10 GB</span></div>
+              <div class="ubar" aria-hidden="true"><i id="cacheBar"></i></div>
+              <dl class="ckinds" id="cacheKinds"></dl>
+              <div class="frow"><label for="cacheLimit">Keep at most</label>
+                <select id="cacheLimit"><option value="2">2 GB</option><option value="5">5 GB</option><option value="10">10 GB</option><option value="20">20 GB</option><option value="50">50 GB</option><option value="100">100 GB</option></select>
+              </div>
+              <p class="note">When it is full, the files used longest ago go first.</p>
+              <p class="note path" id="cacheDir"></p>
+              <div class="row">
+                <button class="btn" id="cacheReveal" type="button"><span data-icon="folder"></span>Show folder</button>
+                <button class="btn warn" id="cacheClear" type="button"><span data-icon="trash"></span><span class="lbl">Clear</span></button>
+              </div>
+            </section>
+
             <section class="ssec" id="secKeys" data-sec="keys" role="tabpanel" aria-labelledby="tabKeys" hidden>
               <h2>Keys</h2>
               <dl class="keys">
@@ -349,6 +383,7 @@
               <h2>About</h2>
               <div class="about" id="aboutBox">
                 <p id="aboutLine">Wallpane</p>
+                <p class="note" id="aboutFfmpeg"></p>
                 <div class="row" id="aboutLinks"></div>
               </div>
               <span class="lab">Your data</span>
@@ -398,6 +433,8 @@
 <script src="ui/hide.js"></script>
 <script src="ui/clock.js"></script>
 <script src="ui/music.js"></script>
+<script src="ui/playable.js"></script>
+<script src="ui/jobs.js"></script>
 <script src="ui/boot.js"></script>
 </body>
 </html>

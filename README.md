@@ -11,16 +11,19 @@ Wallpane is free software under the [GNU General Public License, version 3 or la
 ## Run it
 1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
 2. In this folder: `npm install`
-3. `npm start` (or `npm run dev` for developer tools, F12).
+3. `npm run fetch-ffmpeg` once: it downloads the pinned FFmpeg build (about 95 MB, checked against its SHA-256) and keeps what Wallpane uses in `vendor/ffmpeg`, which is not in git. Wallpane runs without it, but then it cannot convert or read media files with FFmpeg.
+4. `npm start` (or `npm run dev` for developer tools, F12).
 
 ## Build a Windows app
-`npm run dist` creates an installer and a portable .exe in `dist/`.
+`npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
 
 ### Releases
 1. Raise `version` in `package.json` (`npm version 1.3.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
 2. On GitHub: Releases › Draft a new release › tag `v1.3.0` (the same version) on `main`, paste the changelog section, Publish.
 3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
-(Building on Windows is simplest.)
+
+### FFmpeg inside Wallpane
+Wallpane ships FFmpeg 9.0.2, the shared Windows build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (`ffmpeg.exe`, `ffprobe.exe` and their libraries), under the GPL version 3. It is pinned in `scripts/fetch-ffmpeg.js` by URL and SHA-256 and lands in `resources/ffmpeg` of the installed app, next to its licence (`LICENSE.txt`) and the build's `README.txt`, which names the exact FFmpeg source ([commit 946fcce07b](https://github.com/FFmpeg/FFmpeg/commit/946fcce07b)) and the libraries in it. Settings › About shows the version and links to that source. Wallpane only ever gives FFmpeg local files; it never goes online. To move to a newer build, change the version, URL, SHA-256 and source in that script.
 
 ### Code signing
 Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows protected your PC"). To sign, get a code-signing certificate (.pfx) and set two environment variables before `npm run dist`; electron-builder picks them up:
@@ -68,7 +71,11 @@ Saved walls, frame layouts, settings and your last wall are JSON files in `%APPD
 ## Formats
 Playback uses Chromium's built-in codecs, so these work: MP4 (H.264, and HEVC where Windows has the decoder), WebM, MOV, M4V, MKV and OGV video; JPEG, PNG, GIF, WebP, AVIF, BMP and SVG images.
 
-AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, HEIC, TIFF, PSD and camera RAW files cannot play. The app tells you when it finds them; convert videos to MP4 (HandBrake does this for free) and images to JPEG or PNG. A file in a supported container with an unsupported codec shows a message on its tile.
+**Make playable.** Other videos play too: AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, RealMedia and DivX, and MKV or MP4 files whose sound Chromium cannot play (AC3, DTS, E-AC3) or whose picture it cannot (10-bit H.264, HEVC where Windows lacks it, MPEG-2, …). The bundled FFmpeg first reads what the file holds, then makes a playable copy the cheapest way that works: re-wrapped into MP4 in seconds when only the container is the problem, only the sound converted when only the sound is, or converted to H.264 (on the graphics card when it can: NVIDIA, Intel or AMD, else on the processor). The tile shows what it is doing and switches to the copy by itself; a playlist tile moves on meanwhile and plays the file once its copy is there. Copies go to the cache (Settings › Storage); your files are never changed, and saved walls keep pointing at them. A video that still fails to play is converted after all, and right-click › Make playable does that by hand. Settings › General can switch the automatic copies off. The bar shows a small indicator while this runs, with a list where each job can be stopped.
+
+**GIFs as videos.** A big GIF (by default over 2 MB; Settings › General: off, 2 MB, 10 MB or all GIFs) gets a small video copy in the background and then plays from it: far smoother and lighter, still silent and looping, and still a GIF everywhere else (playlists time it as a GIF). Transparent parts turn black, as they look on a tile anyway.
+
+HEIC, TIFF, PSD and camera RAW pictures cannot be shown. The app tells you when it finds them; convert them to JPEG or PNG.
 
 ## Wall mode and unattended walls
 - Wall mode (F11) hides the controls and fills the display picked under Settings › Wall mode › Show on.
@@ -117,6 +124,7 @@ GitHub Actions runs all three on every push to `main` or `Dev` and on every pull
 ### Code map
 - `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows, the emergency hide key. Every call from the page goes through `handle()`, which only accepts our own wall windows.
 - `preload.js`: the small API the page gets (`window.wall`).
-- `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`).
+- `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`), running FFmpeg (`ffmpeg.js`), what a file holds and what it needs (`mediainfo.js`), making a playable copy (`playable.js`), the background job queue (`jobs.js`) and the cache (`cache.js`).
+- `scripts/fetch-ffmpeg.js`: the pinned FFmpeg build, fetched into `vendor/ffmpeg`.
 - `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), Fit to media, playlists, saved records, the pan and zoom maths (`view.js`), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process), the stopwatch and timer (`clock.js`) and Fill the wall (`collage.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), and `boot.js` last.
+- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), `playable.js` (tiles waiting for a playable copy), `jobs.js` (background work in the bar, Settings › Storage), and `boot.js` last.

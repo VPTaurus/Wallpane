@@ -16,10 +16,14 @@
   };
 
   function extOf(name) { var m = /\.([^.\\/]+)$/.exec(String(name)); return m ? m[1].toLowerCase() : ''; }
-  function kindOfName(name) {
+  // Videos Chromium cannot play but FFmpeg can make playable (AVI, WMV, FLV, MPEG, …).
+  function convertible(name) { var u = UNPLAYABLE[extOf(name)]; return !!u && u[1] === 'video'; }
+  // 'video', 'image' or null. withConvert: FFmpeg is there, so convertible videos count as videos too.
+  function kindOfName(name, withConvert) {
     var e = extOf(name);
-    return VIDEO.indexOf(e) > -1 ? 'video' : (IMAGE.indexOf(e) > -1 ? 'image' : null);
+    return VIDEO.indexOf(e) > -1 ? 'video' : IMAGE.indexOf(e) > -1 ? 'image' : withConvert && convertible(name) ? 'video' : null;
   }
+  function convertibleExts() { return Object.keys(UNPLAYABLE).filter(function (e) { return UNPLAYABLE[e][1] === 'video'; }); }
   function isUnplayable(name) { return Object.prototype.hasOwnProperty.call(UNPLAYABLE, extOf(name)); }
   function isAudio(name) { return AUDIO.indexOf(extOf(name)) > -1; }
 
@@ -42,5 +46,8 @@
     return list + ' cannot play here. Convert ' + how.join(' and ') + ', then add ' + (total === 1 ? 'it' : 'them') + ' again.';
   }
 
-  return { VIDEO: VIDEO, IMAGE: IMAGE, AUDIO: AUDIO, UNPLAYABLE: UNPLAYABLE, extOf: extOf, kindOfName: kindOfName, isUnplayable: isUnplayable, isAudio: isAudio, describeUnsupported: describeUnsupported };
+  return {
+    VIDEO: VIDEO, IMAGE: IMAGE, AUDIO: AUDIO, UNPLAYABLE: UNPLAYABLE, extOf: extOf, kindOfName: kindOfName, isUnplayable: isUnplayable, isAudio: isAudio,
+    convertible: convertible, convertibleExts: convertibleExts, describeUnsupported: describeUnsupported
+  };
 });

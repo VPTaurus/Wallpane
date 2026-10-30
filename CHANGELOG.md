@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+- **FFmpeg inside:** Wallpane now comes with FFmpeg 9.0.2 (GPL; Settings › About links to its source). It only ever works on your own files, offline.
+- **Make playable:** AVI, WMV, FLV, MPEG, VOB, 3GP and DivX videos, and MKV or MP4 files with AC3 or DTS sound, now play. Wallpane makes a playable copy the quickest way that works (re-wrapped in seconds, only the sound converted, or converted on the graphics card), the tile shows its progress and switches over by itself. Your files are never changed. Right-click › Make playable for a video that plays badly.
+- **GIFs as videos:** big GIFs (over 2 MB unless chosen otherwise) get a small video copy and play far more smoothly, still silent and looping.
+- **Background work** shows in the bar while it runs, with a list where each job can be stopped.
+- **Settings › Storage:** how much the cache holds, a size limit, Show folder and Clear.
+
 ## 1.3.0
 
 Download **Wallpane Setup 1.3.0.exe** (installer) or **Wallpane 1.3.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('wall', {
   exists: (paths) => ipcRenderer.invoke('fs:exists', paths),
   resolveNames: (dir, names) => ipcRenderer.invoke('fs:resolveNames', dir, names),
   revealFile: (p) => ipcRenderer.invoke('shell:reveal', p),
+  probeMedia: (p) => ipcRenderer.invoke('media:probe', String(p)),
+  ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
+  gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
@@ -25,6 +28,16 @@ contextBridge.exposeInMainWorld('wall', {
   chooseMusicFolder: () => ipcRenderer.invoke('dialog:musicFolder'),
   musicFiles: (dir) => ipcRenderer.invoke('fs:music', dir),
   importData: () => ipcRenderer.invoke('dialog:import'),
+
+  // background work: jobs (making files playable, thumbnails, …) and the cache they fill
+  jobs: () => ipcRenderer.invoke('jobs:list'),
+  cancelJob: (id) => ipcRenderer.invoke('jobs:cancel', id),
+  clearJobs: () => ipcRenderer.invoke('jobs:clear'),
+  onJobs: (cb) => { ipcRenderer.on('jobs:changed', (_e, list) => cb(list)); },
+  cacheInfo: () => ipcRenderer.invoke('cache:info'),
+  setCacheLimit: (gb) => ipcRenderer.invoke('cache:setLimit', gb),
+  clearCache: () => ipcRenderer.invoke('cache:clear'),
+  revealCache: () => ipcRenderer.invoke('cache:reveal'),
 
   // window
   displays: () => ipcRenderer.invoke('win:displays'),

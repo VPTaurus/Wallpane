@@ -434,6 +434,14 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .quick .btn { height: 30px; padding: 0 10px; font-size: 12.5px; }
 .bar .pop .quick .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
 .note.path { font-size: 12px; color: var(--fg); }
+/* Settings › Storage: how full the cache is, by kind */
+.usage b { font-size: 20px; }
+.usage span { color: var(--muted); }
+.ubar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.ubar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; }
+.ckinds { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin: 0; font-size: 13px; max-width: 320px; }
+.ckinds dt { color: var(--muted); }
+.ckinds dd { margin: 0; text-align: right; font: 500 12px var(--mono); }
 
 /* The time in the bar: the clock, and chips for a stopwatch or timer in use; a finished timer flashes. */
 .timewrap { display: flex; align-items: center; gap: 6px; }
@@ -467,6 +475,33 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .tpresets .btn { height: 30px; padding: 0 10px; }
 .tmset { width: 92px; height: 34px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; font: 500 14px var(--mono); }
 @media (prefers-reduced-motion: reduce) { .tchip.done .tchipt, .bigtime.done { animation: none; } }
+
+/* Background work: the indicator in the bar, its list, and a tile waiting for its playable copy */
+.jobsbtn { gap: 6px; font: 500 12px var(--mono); }
+.jobsbtn .ic { color: var(--accent); }
+.jobsbtn.busy .ic svg { animation: spin 1s linear infinite; }
+.jobsbtn.bad .ic, .jobsbtn.bad { color: var(--danger); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.jlist { display: flex; flex-direction: column; max-height: min(40vh, 320px); overflow: auto; }
+.jrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.jrow:first-child { border-top: 0; }
+.jtext b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jtext small { display: block; font: 400 11px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.jrow.failed small { color: var(--danger); }
+.jrow .btn.ib { width: 28px; height: 28px; }
+.jrow .bbar { grid-column: 1 / -1; }
+.bbar { display: block; height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.bbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
+.tile .busy {
+  position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 6px;
+  padding: 12px; text-align: center; border-radius: inherit; pointer-events: none;
+  background: rgba(10, 14, 20, 0.82); color: #fff;
+}
+.tile .busy b { font-size: 13px; }
+.tile .busy small { font: 400 11px/1.4 var(--mono); color: #c9d0db; max-width: 34ch; }
+.tile .busy .bbar { width: min(220px, 80%); background: rgba(255, 255, 255, 0.18); }
+.tile .busy.failed b { color: #ffb4ab; }
+@media (prefers-reduced-motion: reduce) { .jobsbtn.busy .ic svg { animation: none; } }
 
 /* Background music */
 .nowplaying { display: flex; flex-direction: column; gap: 3px; }

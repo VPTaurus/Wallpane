@@ -15,10 +15,27 @@ if (process.env.WALLPANE_USER_DATA) app.setPath('userData', process.env.WALLPANE
 // Wallpane used to be called Media Wall: bring its saved walls and settings over on the first start.
 else try { files.migrateData(path.join(app.getPath('appData'), 'Media Wall'), app.getPath('userData')); } catch { /* start fresh */ }
 
-// Links the page may open in the browser (About and support, in Help). Nothing else leaves the app.
+// FFmpeg comes with the app (resources/ffmpeg), or for development from vendor/ffmpeg (npm run fetch-ffmpeg).
+// build.json says which build it is and where its source is.
+const FFMPEG_DIR = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg') : path.join(__dirname, 'vendor', 'ffmpeg');
+const ffmpegBuild = (() => {
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(FFMPEG_DIR, 'build.json'), 'utf8'));
+    return fs.existsSync(path.join(FFMPEG_DIR, 'ffmpeg.exe')) ? b : null;
+  } catch { return null; }
+})();
+
+const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
+const mediainfo = require('./lib/mediainfo');
+const { createJobs } = require('./lib/jobs');
+const { createCache } = require('./lib/cache');
+const { playableKind, gifVideoKind } = require('./lib/playable');
+
+// Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
   source: pkg.homepage,
-  support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || ''))
+  support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || '')),
+  ffmpeg: ffmpegBuild && /^https:\/\//.test(ffmpegBuild.source || '') ? ffmpegBuild.source : null
 };
 
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
@@ -79,8 +96,90 @@ handle('store:reveal', () => {
   return true;
 });
 
+/* ---------- background work: the job queue and the cache it fills (lib/jobs.js, lib/cache.js) ---------- */
+// One of each for the whole app, made when it is ready (the data folder is known then). The kinds of job are added by
+// the features that use them (making files playable, thumbnails, …). Unfinished jobs are saved to jobs.json.
+const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
+const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
+const JOB_KINDS = {};
+let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
+function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
+function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
+function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
+function tellJobs(list) {
+  for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('jobs:changed', list);
+}
+// The list of unfinished jobs is written at most twice a second, the latest one last.
+function saveJobs(pending) {
+  jobsPending = pending;
+  if (jobsSaveTimer) return;
+  jobsSaveTimer = setTimeout(() => { jobsSaveTimer = null; files.writeJsonAtomic(jobsFile(), jobsPending).catch(() => { /* not critical */ }); }, 500);
+}
+function startBackground() {
+  try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
+  cache = createCache(path.join(dataDir(), 'cache'));
+  JOB_KINDS.playable = playableKind({ ffmpeg, cache });
+  JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
+  jobs = createJobs({
+    kinds: JOB_KINDS, notify: tellJobs, save: saveJobs,
+    load: () => { try { return JSON.parse(fs.readFileSync(jobsFile(), 'utf8')); } catch { return []; } }
+  });
+  setTimeout(() => cache.clean(appSettings.cacheLimitGB * 1e9), 30000);
+}
+handle('jobs:list', () => (jobs ? jobs.list() : []));
+handle('jobs:cancel', (_e, id) => (jobs ? jobs.cancel(id) : false));
+handle('jobs:clear', () => { if (jobs) jobs.clearFinished(); return true; });
+// Make playable: what a video tile asks before it plays. { status: 'ok' } plays as it is; 'ready' with the path of the
+// copy already made; 'working' with the key of the job making one; 'needed' when the page does not convert on its own
+// (opts.auto off); 'failed' or 'missing'. opts.force: it did not play, so convert even if it looks playable.
+// opts.background: a playlist's file, made at background priority.
+const verdicts = new Map();   // a file's cache key -> its verdict, so a file is probed once per run
+handle('media:ensurePlayable', async (_e, p, opts) => {
+  opts = opts || {};
+  if (typeof p !== 'string' || !fs.existsSync(p)) return { status: 'missing' };
+  if (!ffmpeg.available() || !jobs) return { status: 'ok' };
+  const made = cache.find('converted', p, 'mp4') || cache.find('converted', p, 'webm');
+  if (made) return { status: 'ready', path: made };
+  let key;
+  try { key = cache.keyOf(p); } catch { return { status: 'missing' }; }
+  let v = verdicts.get(key);
+  if (!v) {
+    try { v = mediainfo.verdict(mediainfo.describe(await ffmpeg.probeRaw(p))); } catch (err) { return { status: 'failed', why: 'FFmpeg cannot read this file (' + err.message + ').' }; }
+    verdicts.set(key, v);
+  }
+  if (!opts.force && (v.action === 'none' || v.action === 'maybe')) return { status: 'ok', verdict: v };
+  if (!opts.auto && !opts.force) return { status: 'needed', verdict: v };
+  const job = jobs.add({ kind: 'playable', key: 'playable:' + key, label: path.basename(p), input: { file: p, force: !!opts.force }, priority: opts.background ? 'background' : 'user' });
+  return { status: 'working', key: job.key, verdict: v };
+});
+// GIF to video: for a GIF at least minBytes big, its video copy ({ status: 'ready', path }), or the background job
+// making one ('working', key), or 'no' (small, no FFmpeg, or gone). The GIF plays as it is meanwhile.
+handle('media:gifVideo', (_e, p, minBytes) => {
+  if (typeof p !== 'string' || !/\.gif$/i.test(p) || !ffmpeg.available() || !jobs) return { status: 'no' };
+  let st;
+  try { st = fs.statSync(p); } catch { return { status: 'no' }; }
+  if (!(st.size >= (+minBytes || 0))) return { status: 'no' };
+  const made = cache.find('converted', p, 'mp4');
+  if (made) return { status: 'ready', path: made };
+  const job = jobs.add({ kind: 'gifvideo', key: 'gifvideo:' + cache.keyOf(p), label: path.basename(p), input: { file: p }, priority: 'background' });
+  return { status: 'working', key: job.key };
+});
+handle('cache:info', () => cacheInfo());
+handle('cache:setLimit', (_e, gb) => {
+  if (CACHE_LIMITS.includes(gb)) {
+    appSettings.cacheLimitGB = gb;
+    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+    cache.clean(gb * 1e9);
+  }
+  return cacheInfo();
+});
+handle('cache:clear', () => { cache.clear(); return cacheInfo(); });
+handle('cache:reveal', () => { fs.mkdirSync(cache.root, { recursive: true }); shell.openPath(cache.root); return true; });
+
 /* ---------- files and dialogs ---------- */
-handle('fs:expand', (_e, paths) => files.expand(paths));   // no options from the page
+// With FFmpeg, videos it can make playable (AVI, WMV, …) count as media too. No options from the page.
+function mediaOpts() { return { convertible: ffmpeg.available() }; }
+handle('fs:expand', (_e, paths) => files.expand(paths, mediaOpts()));
 handle('fs:exists', (_e, paths) => (Array.isArray(paths) ? paths : []).map((p) => typeof p === 'string' && fs.existsSync(p)));
 handle('fs:resolveNames', (_e, dir, names) => {
   const found = {};
@@ -99,6 +198,14 @@ handle('fs:gifDuration', async (_e, p) => {
     if (st.size > 60 * 1024 * 1024) return 0;
     return files.gifSeconds(await fsp.readFile(p));
   } catch { return 0; }
+});
+// What a media file holds and whether it plays as it is (ffprobe): see lib/mediainfo.js.
+handle('media:probe', async (_e, p) => {
+  if (typeof p !== 'string' || !fs.existsSync(p)) return null;
+  try {
+    const info = mediainfo.describe(await ffmpeg.probeRaw(p));
+    return Object.assign(info, { verdict: mediainfo.verdict(info) });
+  } catch (err) { return { error: err.message, code: err.code }; }
 });
 handle('shell:reveal', (_e, p) => {
   if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p);
@@ -119,17 +226,17 @@ handle('dialog:files', async (e, multiple) => {
     title: 'Add media',
     properties: multiple ? ['openFile', 'multiSelections'] : ['openFile'],
     filters: [
-      { name: 'Videos, images and GIFs', extensions: formats.VIDEO.concat(formats.IMAGE) },
+      { name: 'Videos, images and GIFs', extensions: formats.VIDEO.concat(formats.IMAGE, ffmpeg.available() ? formats.convertibleExts() : []) },
       { name: 'All files', extensions: ['*'] }
     ]
   });
   if (r.canceled) return { entries: [], skipped: 0 };
-  return files.expand(r.filePaths);
+  return files.expand(r.filePaths, mediaOpts());
 });
 handle('dialog:folder', async (e) => {
   const r = await dialog.showOpenDialog(winOf(e), { title: 'Add a folder of media', properties: ['openDirectory'] });
   if (r.canceled || !r.filePaths[0]) return { entries: [], skipped: 0 };
-  return Object.assign(await files.expand(r.filePaths), { root: r.filePaths[0] });
+  return Object.assign(await files.expand(r.filePaths, mediaOpts()), { root: r.filePaths[0] });
 });
 // Background music: a folder of the user's own music (and its folders), and the same folder read again on the next start.
 handle('dialog:musicFolder', async (e) => {
@@ -191,10 +298,13 @@ function tellDisplays() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('win:displays-changed');
 }
 handle('win:info', (e) => ({ id: idOf(e), count: wins.size }));
-handle('app:info', () => ({ name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS }));
-// Opens one of the app's own links (source code, support) in the browser; any other address is ignored.
+handle('app:info', () => ({
+  name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS,
+  ffmpeg: ffmpegBuild ? { version: ffmpegBuild.version, by: ffmpegBuild.by, license: ffmpegBuild.license } : null
+}));
+// Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
-  if (url === LINKS.source || LINKS.support.includes(url)) shell.openExternal(url);
+  if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
   return true;
 });
 
@@ -446,6 +556,7 @@ if (!app.requestSingleInstanceLock()) {
     state = loadState();
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
+    startBackground();
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
     state.open.forEach((id) => createWindow(id));

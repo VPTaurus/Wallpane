@@ -11,8 +11,8 @@ module.exports = [
     }
   },
   {
-    // Main process, preload, tests and tool configs: Node, CommonJS.
-    files: ['main.js', 'preload.js', 'lib/**/*.js', 'test/**/*.js', '*.config.js'],
+    // Main process, preload, build scripts, tests and tool configs: Node, CommonJS.
+    files: ['main.js', 'preload.js', 'lib/**/*.js', 'scripts/**/*.js', 'test/**/*.js', '*.config.js'],
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } }
   },
   {
