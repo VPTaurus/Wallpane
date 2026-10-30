@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+- **A folder bigger than a Free wall** now plays in turn on the tiles it fills, as on the grid, so those tiles have Next (before, the files that did not fit were left out).
+- **Previous** on a playlist tile (its ‹ button, right-click, or Properties) goes back through the files it showed.
+- **Files shaped like the tile:** after Fill the wall or Fit to media, a playlist tile moves on to a file shaped like it, so a tall tile keeps showing tall files. Each playlist has it under Shapes; Settings › General can leave playlists be.
+- **Growing a tile in Free (pixels)** first takes the empty space up to the next tile; only then do the tiles beside it shrink.
+- **Minimized, the wall rests:** videos pause and playlists wait until the window is back (Settings › General; background music keeps playing).
+
 ## 1.5.0: The library
 
 Download **Wallpane Setup 1.5.0.exe** (installer) or **Wallpane 1.5.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

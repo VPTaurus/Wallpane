@@ -351,6 +351,8 @@
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
+    $('#setFillShapes').checked = S.fillShapes;
+    $('#setPauseMin').checked = S.pauseMin;
     $('#setConvert').checked = S.autoConvert;
     $('#setGifVideo').value = S.gifVideo;
     $('#setResize').value = S.resizeMode;
@@ -368,6 +370,24 @@
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
   $('#castBtn').addEventListener('click', function () { api.openDisplaySettings(); });
   $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
+  $('#setFillShapes').addEventListener('change', function () { S.fillShapes = this.checked; A.savePrefs(); });
+  $('#setPauseMin').addEventListener('change', function () { S.pauseMin = this.checked; A.savePrefs(); });
+
+  // Minimized, the wall rests: its videos pause and image playlists stop moving on, until the window is back.
+  var restWas = null;
+  api.onMinimized(function (min) {
+    if (min && S.pauseMin && !restWas) {
+      var vids = Array.prototype.slice.call(A.wall.querySelectorAll('video'));
+      restWas = { playing: vids.filter(function (v) { return !v.paused; }), paused: A.wallPaused };
+      A.wallPaused = true;
+      restWas.playing.forEach(function (v) { v.pause(); });
+    } else if (!min && restWas) {
+      A.wallPaused = restWas.paused;
+      restWas.playing.forEach(function (v) { if (v.isConnected) v.play().catch(function () {}); });
+      restWas = null;
+    }
+    A.updateTransport();
+  });
   $('#setResize').addEventListener('change', function () { S.resizeMode = this.value === 'squeeze' ? 'squeeze' : 'even'; A.savePrefs(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
   $('#setAwake').addEventListener('change', function () {

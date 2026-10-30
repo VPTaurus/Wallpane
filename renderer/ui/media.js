@@ -171,21 +171,7 @@
       var it = A.makeItem(f, { col: s.col, row: s.row, w: 1, h: 1 });
       S.items.push(it); fresh.push(it); G.mark(m, s, 1, 1); start = s.idx + 1;
     });
-    // More files than free cells: the new tiles become a playlist, so the rest of the files play in turn.
-    var madePl = false;
-    if (skipped && fresh.length) {
-      var idx = {};
-      all.forEach(function (f, n) { idx[f.path] = n; });
-      var last = 0;
-      fresh.forEach(function (t) { if (idx[t.path] > last) last = idx[t.path]; });
-      var pid = 'p' + Date.now().toString(36) + S.nid;
-      var p = PL.make(all, null, PL.rootFor(res, all));
-      p.order = all.map(function (f, n) { return n; }); p.pos = last + 1; p.truncated = !!res.truncated;
-      S.playlists[pid] = p;
-      fresh.forEach(function (t) { t.pl = pid; t.loop = false; t.shown = 0; A.removeTileEl(t.id); });
-      S.fillPl = pid;
-      madePl = true;
-    }
+    var madePl = skipped && playRest(all, fresh, res);
     A.render(); A.refreshInspector();
     var msg = [];
     if (madePl) msg.push('There are ' + all.length + ' files, so ' + fresh.length + (fresh.length === 1 ? ' tile plays' : ' tiles play') + ' them as a playlist.');
@@ -194,6 +180,21 @@
     msg = msg.concat(A.scanNotes(res));
     if (msg.length) A.toast(msg.join(' '));
   };
+  // More files than room on the wall (grid or Free): the new tiles become a playlist of all of them, so the rest play
+  // in turn, carrying on after the files the tiles show now. Returns whether it made one.
+  function playRest(all, fresh, res) {
+    if (!fresh.length) return false;
+    var idx = {}, last = 0;
+    all.forEach(function (f, n) { idx[f.path] = n; });
+    fresh.forEach(function (t) { if (idx[t.path] > last) last = idx[t.path]; });
+    var pid = 'p' + Date.now().toString(36) + S.nid;
+    var p = PL.make(all, A.readPlOpts(), PL.rootFor(res, all));
+    p.order = all.map(function (f, n) { return n; }); p.pos = last + 1; p.truncated = !!res.truncated;
+    S.playlists[pid] = p;
+    fresh.forEach(function (t) { t.pl = pid; t.loop = false; t.shown = 0; A.removeTileEl(t.id); });
+    S.fillPl = pid;
+    return true;
+  }
 
   /* ---------- adding in free layout ---------- */
   function itemUnderPoint(p) {
@@ -228,8 +229,9 @@
     it._fitOnLoad = true;
     return it;
   }
+  // A tile for each file while there is room; once one does not fit, the rest play in turn on the new tiles.
   function addFilesFree(res, target) {
-    var media = U.sortEntries(res.entries || []);
+    var media = U.sortEntries(res.entries || []), all = media.slice(), fresh = [], failed = 0;
     if (!media.length) { A.toast(A.noMediaMessage(res)); return; }
     A.pushHistory();
     var under = target && target.free ? itemUnderPoint(target) : null;
@@ -239,15 +241,19 @@
       if (under.missing) relinkItem(under, f1); else A.replaceMedia(under, f1);
       if (under.pl) { under.pinned = true; under.loop = true; }
     } else if (target && target.free) {
-      if (!placeFreeAt(newFreeItem(media.shift()), target)) media.unshift(null);
-    } else fillEmpties(media);
-    var failed = 0;
+      var it0 = newFreeItem(media.shift());
+      if (placeFreeAt(it0, target)) fresh.push(it0); else failed++;
+    } else fillEmpties(media).forEach(function (t) { fresh.push(t); });
     media.forEach(function (f) {
-      if (!f || !placeFreeNew(newFreeItem(f))) failed++;
+      if (failed) { failed++; return; }   // the wall is full: no use trying the rest
+      var it = newFreeItem(f);
+      if (placeFreeNew(it)) fresh.push(it); else failed++;
     });
+    var madePl = failed && playRest(all, fresh, res);
     A.render(); A.refreshInspector();
     var msg = [];
-    if (failed) msg.push(failed + (failed === 1 ? ' file did' : ' files did') + ' not fit. Make room and add again.');
+    if (madePl) msg.push('There are ' + all.length + ' files, so ' + fresh.length + (fresh.length === 1 ? ' tile plays' : ' tiles play') + ' them as a playlist.');
+    else if (failed) msg.push(failed + (failed === 1 ? ' file did' : ' files did') + ' not fit. Make room and add again.');
     msg = msg.concat(A.scanNotes(res));
     if (msg.length) A.toast(msg.join(' '));
   }
@@ -492,7 +498,7 @@
     A.toast(msg);
   };
   function fitToMedia() {
-    if (S.mode === 'free') { A.fitTilesToMedia(S.items); return; }
+    if (S.mode === 'free') { A.fitTilesToMedia(S.items); shapePlaylists(); return; }
     var N = S.items.length;
     if (!N) { A.toast('Nothing to fit yet.'); return; }
     if (N > S.cols * S.rows) { A.toast('There are more tiles than cells. Add rows or columns first.'); return; }
@@ -506,9 +512,11 @@
       var it = S.items[best.assign[j]];
       it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; it.fit = 'contain'; it.fitSet = true;
     });
+    var shaped = shapePlaylists();
     A.render(); A.refreshInspector();
     var msg = 'Fitted ' + N + (N === 1 ? ' tile' : ' tiles') + ': ' + Math.round(before * 100) + '% of tile area showed media, now ' + Math.round(best.score * 100) + '%.';
-    if (S.items.some(function (i) { return i.pl; })) msg += ' Playlist tiles keep this shape, so later clips may still have bars.';
+    if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
+    else if (S.items.some(function (i) { return i.pl; })) msg += ' Playlist tiles keep this shape, so later clips may still have bars.';
     if (unknown) msg += ' ' + unknown + (unknown === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and counted as 16:9.';
     A.toast(msg);
   }
@@ -530,6 +538,18 @@
     }
     return out;
   }
+  // After Fill the wall or Fit to media every tile has its media's shape: the playlists on the wall then pick files
+  // shaped like their tiles first, so the shapes keep fitting (Settings › General can leave them be). Returns how many
+  // playlists started to.
+  function shapePlaylists() {
+    if (!S.fillShapes) return 0;
+    var n = 0;
+    S.items.forEach(function (it) {
+      var p = it.pl && S.playlists[it.pl];
+      if (p && !p.fitShape) { p.fitShape = true; n++; }
+    });
+    return n;
+  }
   // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
   // reading order unless regrouping them crops clearly less. On the grid this first switches to Free layout; one
   // Ctrl+Z undoes both.
@@ -545,8 +565,10 @@
       geo[it.id] = plan.boxes[i];
       if (A.hasMedia(it)) { it.fit = 'cover'; it.fitSet = true; }
     });
+    var shaped = shapePlaylists();
     A.applyFreePx(geo); A.render(); A.refreshInspector();
     var n = list.length, msg = n + (n === 1 ? ' tile fills' : ' tiles fill') + ' the wall in ' + plan.rows + (plan.cols ? (plan.rows === 1 ? ' column' : ' columns') : (plan.rows === 1 ? ' row' : ' rows')) + '.';
+    if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
     if (plan.reordered) msg += ' Some tiles changed places so they fit.';
     if (plan.crop >= 0.01) msg += ' Each is cropped by about ' + Math.round(plan.crop * 100) + '% to close the last gap.';
     if (switched) msg += ' Tiles are now placed freely, by the pixel. Ctrl+Z undoes this.';

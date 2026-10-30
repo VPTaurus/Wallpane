@@ -226,6 +226,7 @@
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
             <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
+            <label class="fld wide" title="Whether a tile moving on prefers, of the next files, one shaped like the tile"><span>Shapes</span><select id="plShape"><option value="any">Any shape</option><option value="tile">Shaped like the tile first</option></select></label>
             <div class="fld wide"><span>Plays</span>
               <div class="kinds" id="plTypes" role="group" aria-label="Kinds of file the playlist plays">
                 <label class="check"><input type="checkbox" value="video" checked> Videos</label>
@@ -285,6 +286,8 @@
               <p class="note" id="loginNote"></p>
               <span class="lab">Tiles</span>
               <label class="check"><input type="checkbox" id="setSoloSound"> A tile shown full screen (double-click) plays its sound; the others go quiet until it ends</label>
+              <label class="check"><input type="checkbox" id="setFillShapes"> After Fill the wall or Fit to media, playlists pick files shaped like their tile first</label>
+              <label class="check"><input type="checkbox" id="setPauseMin"> Pause the wall while its window is minimized (background music keeps playing)</label>
               <div class="frow"><label for="setResize">Growing a tile</label>
                 <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
               </div>

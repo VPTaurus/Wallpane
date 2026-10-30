@@ -337,6 +337,37 @@ handle('media:probe', async (_e, p) => {
     return Object.assign(info, { verdict: mediainfo.verdict(info) });
   } catch (err) { return { error: err.message, code: err.code }; }
 });
+// The shapes (width / height, as they show) of media files, for playlists that prefer files shaped like their tile:
+// what the library knows, else read from the file (a picture's first bytes, ffprobe for a video), four at a time, and
+// kept for this run. { path: shape } for the ones known.
+const shapes = new Map();   // lower-case path|size|time -> shape, or 0 when unknown
+async function shapeOf(p) {
+  try {
+    const known = library && library.find(p);
+    if (known && known.w && known.h) return known.w / known.h;
+    if (formats.kindOfName(p, true) !== 'video') { const s = await imageSize(p); if (s) return s.w / s.h; }
+    if (!ffmpeg.available()) return 0;
+    const v = mediainfo.describe(await ffmpeg.probeRaw(p)).video;
+    return v && v.width && v.height ? v.width / v.height : 0;
+  } catch { return 0; }
+}
+handle('media:shapes', async (_e, paths) => {
+  if (libFolders) libFolders.ready();
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 40), out = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const p = list[next++];
+      let st;
+      try { st = await fsp.stat(p); } catch { continue; }
+      const key = p.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs);
+      if (!shapes.has(key)) shapes.set(key, await shapeOf(p));
+      if (shapes.get(key)) out[p] = shapes.get(key);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return out;
+});
 handle('shell:reveal', (_e, p) => {
   if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p);
   return true;
@@ -647,6 +678,9 @@ function createWindow(id, given) {
     saveState();
   });
   win.on('focus', () => { lastWall = id; });   // where the library window sends its files
+  // Minimized, the wall may rest (Settings › General): the page pauses its tiles and resumes them.
+  win.on('minimize', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', true); });
+  win.on('restore', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', false); });
   win.on('closed', () => {
     wins.delete(id);
     if (!wins.size && libWin && !libWin.isDestroyed()) libWin.destroy();   // the library window goes with the last wall

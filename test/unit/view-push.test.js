@@ -58,6 +58,12 @@ test('growing a tile with "even": the tiles beside it shrink in proportion', () 
   assert.deepEqual([g.B.x, g.B.w], [300, 200]);
   const g2 = F.pushResize(['A', 'B'], 'A', gap.A, { x: 0, y: 0, w: 500, h: 200 }, gap, d, 'even');
   assert.deepEqual([g2.B.x, g2.B.w], [500, 100], 'then it shrinks');
+  // Free space between the tile and the next one goes first: B only gives way once A's side reaches it.
+  const apart = { A: { x: 0, y: 0, w: 200, h: 200 }, B: { x: 400, y: 0, w: 200, h: 200 } };
+  const a1 = F.pushResize(['A', 'B'], 'A', apart.A, { x: 0, y: 0, w: 350, h: 200 }, apart, d, 'even');
+  assert.deepEqual([a1.A.w, a1.B.x, a1.B.w], [350, 400, 200], 'B stays as it is');
+  const a2 = F.pushResize(['A', 'B'], 'A', apart.A, { x: 0, y: 0, w: 500, h: 200 }, apart, d, 'even');
+  assert.deepEqual([a2.B.x, a2.B.w], [500, 100], 'then it shrinks by what A takes beyond the gap');
   // To the left, too; and it stops before a tile would get smaller than the minimum.
   const left = F.pushResize(ids, 'C', base.C, { x: 100, y: 0, w: 500, h: 200 }, base, d, 'even');
   assert.deepEqual([left.A.x, left.A.w, left.B.x, left.B.w], [0, 50, 50, 50]);

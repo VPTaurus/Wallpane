@@ -129,9 +129,10 @@
     geo[id] = denorm(A, axis, s, d);
     return true;
   }
-  // The same move, with the tiles beyond the side shrinking evenly instead: the tiles in line with this tile (and the
-  // ones in line with those) first slide into any free space before the wall, then they and the gaps between them
-  // shrink in proportion, like panes behind a splitter. False when one of them would get smaller than MIN.
+  // The same move, with the tiles beyond the side shrinking evenly instead: the side first takes the free space up to
+  // the nearest of the tiles in line with this tile (and the ones in line with those); then they slide into any free
+  // space before the wall, and then they and the gaps between them shrink in proportion, like panes behind a splitter.
+  // False when one of them would get smaller than MIN.
   function evenAxis(geo, base, ids, id, g0, d, axis, s) {
     var L = axis === 'x' ? d.W : d.H;
     var A = norm(geo[id], axis, s, d), e0 = norm(g0, axis, s, d);
@@ -149,10 +150,11 @@
         if (set.indexOf(c) < 0 && set.some(function (m) { return across(m.t, c.t); })) { set.push(c); grew = true; }
       });
     }
-    var need = E - e0;
+    var start = set.length ? Math.max(e0, Math.min.apply(null, set.map(function (c) { return c.t.x; }))) : e0;
+    var need = E - start;
     if (!set.length || need <= 0) { geo[id] = denorm(A, axis, s, d); return true; }
     var maxR = Math.max.apply(null, set.map(function (c) { return c.t.x + c.t.w; }));
-    var shift = Math.max(0, Math.min(need, L - maxR)), from = e0 + shift, k = (L - E) / (L - from);
+    var shift = Math.max(0, Math.min(need, L - maxR)), from = start + shift, k = (L - E) / (L - from);
     for (var i = 0; i < set.length; i++) {
       var t = set[i].t, x = t.x + shift;
       set[i].t = { x: E + (x - from) * k, y: t.y, w: t.w * k, h: t.h };

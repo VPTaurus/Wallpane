@@ -74,7 +74,8 @@
       if (A.hasFfmpeg && it.path) items.push({ label: 'Make playable', hint: 'A converted copy, for a video that plays badly or not at all', icon: 'wand', act: function () { A.makePlayable(it); } });
     }
     if (it.pl && S.playlists[it.pl]) {
-      items.push({ label: 'Next file', icon: 'next', disabled: !!it.pinned, act: function () { A.advance(it); } },
+      items.push({ label: 'Previous file', icon: 'prev', disabled: !!it.pinned || !(it._back && it._back.length), act: function () { A.goBack(it); } },
+        { label: 'Next file', icon: 'next', disabled: !!it.pinned, act: function () { A.advance(it); } },
         { label: it.pinned ? 'Let the playlist continue' : 'Pin this file', icon: 'pin', act: function () { A.setPinned(it, !it.pinned); } },
         { label: 'Playlist settings…', hint: 'Order, timing, crossfade for this folder', icon: 'playlist', act: function () { A.openProps(it, '#plSec'); } });
     }

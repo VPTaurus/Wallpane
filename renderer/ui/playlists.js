@@ -6,23 +6,70 @@
   var MW = window.MW, U = MW.util, G = MW.geo, PL = MW.pl;
   var S = A.S, $ = A.$, clamp = U.clamp;
 
-  /* ---------- moving on to the next file ---------- */
+  /* ---------- moving on to the next file, or back to the one before ---------- */
+  // Each tile remembers what it showed (not saved), for Previous.
+  var BACK = 50;
   A.advance = function (it) {
     var p = it.pl && S.playlists[it.pl];
     if (!p) { it.pl = null; return; }
-    if (it.pinned) return;
+    if (it.pinned || it._picking) return;
+    if (p.fitShape) {
+      it._picking = true;
+      bringShaped(it, p).then(function () { it._picking = false; step(it, p); });
+      return;
+    }
+    step(it, p);
+  };
+  function step(it, p) {
+    if (S.playlists[it.pl] !== p || it.pinned) return;
     var f = PL.nextFile(p);
     if (!f) return;
-    var mu = it.muted, ft = it.fit, view = MW.view.of(it);
+    if (it.path) { it._back = (it._back || []).concat({ path: it.path, name: it.name, kind: it.kind }).slice(-BACK); }
+    show(it, p, f);
+  }
+  // The file this tile showed before (Previous). The playlist's own order stays as it is.
+  A.goBack = function (it) {
+    var p = it.pl && S.playlists[it.pl];
+    if (!p) return;
+    if (it.pinned) { A.toast('This tile is pinned. Unpin it to move on.'); return; }
+    var f = it._back && it._back.pop();
+    if (!f) { A.toast('Nothing earlier on this tile yet.'); return; }
+    show(it, p, f);
+  };
+  function show(it, p, f) {
+    var mu = it.muted, ft = it.fit, view = MW.view.of(it), back = it._back;
     var old = p.fade > 0 ? A.tileEls.get(it.id) : null;
     if (old) A.tileEls.delete(it.id); // keep the old element on screen while the new one fades in
     A.replaceMedia(it, f);
-    it.muted = mu; it.fit = ft; it.loop = false; it.shown = 0;
+    it.muted = mu; it.fit = ft; it.loop = false; it.shown = 0; it._back = back;
     if (p.keepView) { it.mx = view.mx; it.my = view.my; it.zoom = view.zoom; }   // same framing for every file
     A.render();
     if (old) crossfade(it, old, p.fade);
     if (S.sel === it.id) A.refreshInspector();
-  };
+  }
+
+  /* ---------- shaped like the tile ---------- */
+  // With fitShape, of the next files in line, the first whose shape is close to the tile's (within a quarter) comes
+  // forward, else the closest. Shapes come from the main process (the library, or the file itself).
+  function tileAspect(it) {
+    var el = A.tileEls.get(it.id), r = el && el.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? r.width / r.height : 0;
+  }
+  function bringShaped(it, p) {
+    var t = tileAspect(it), up = PL.upcoming(p, 24);
+    if (!t || up.length < 2) return Promise.resolve();
+    return A.api.mediaShapes(up.map(function (f) { return f.path; })).then(function (s) {
+      var best = null, bestD = Infinity;
+      for (var i = 0; i < up.length; i++) {
+        var a = s && s[up[i].path];
+        if (!a) continue;
+        var d = Math.abs(Math.log(a / t));
+        if (d < Math.log(1.25)) { best = up[i]; break; }
+        if (d < bestD) { bestD = d; best = up[i]; }
+      }
+      if (best && S.playlists[it.pl] === p) PL.bringForward(p, best.path);
+    }, function () { /* in line as it is */ });
+  }
   A.applyClipStart = function (it, media) {
     var p = it.pl && S.playlists[it.pl];
     it._t0 = 0;
@@ -227,6 +274,7 @@
       fade: parseFloat($('#plFade').value) || 0,
       gifOnce: $('#plGif').value === 'once',
       keepView: $('#plView').value === 'keep',
+      fitShape: $('#plShape').value === 'tile',
       types: A.readTypes($('#plTypes'))
     };
   };

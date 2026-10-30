@@ -72,6 +72,19 @@ test("a collection's playlist follows the collection: its order, carrying on aft
   assert.deepEqual(s.files.map((f) => f.name).sort(), ['a.png', 'b.png', 'e.png']);
 });
 
+test('the files still to come, and one brought forward (shaped like its tile), the rest keeping their order', () => {
+  const p = PL.make(['a.png', 'b.png', 'c.mp4', 'd.png', 'e.png'].map((n) => (n.endsWith('.mp4') ? { path: 'D:\\wall\\' + n, name: n, kind: 'video' } : file(n))), { types: ['image'], fitShape: true });
+  assert.equal(p.fitShape, true);
+  assert.equal(PL.clean({ x: PL.fields(p) }).x.fitShape, true, 'saved with the wall');
+  PL.nextFile(p);                                                   // a
+  assert.deepEqual(PL.upcoming(p, 2).map((f) => f.name), ['b.png', 'd.png'], 'only what it plays');
+  assert.ok(PL.bringForward(p, 'D:\\wall\\e.png'));
+  assert.deepEqual([PL.nextFile(p), PL.nextFile(p), PL.nextFile(p)].map((f) => f.name), ['e.png', 'b.png', 'd.png']);
+  assert.equal(PL.bringForward(p, 'D:\\wall\\a.png'), true, 'a new round begins with it');
+  assert.equal(PL.nextFile(p).name, 'a.png');
+  assert.equal(PL.bringForward(p, 'D:\\wall\\nothing.png'), false);
+});
+
 test('rootFor only trusts a folder that holds every file', () => {
   const files = [file('a.png'), { path: 'D:\\wall\\sub\\b.png' }];
   assert.equal(PL.rootFor({ root: 'D:\\wall' }, files), 'D:\\wall');

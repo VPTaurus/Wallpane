@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('wall', {
   probeMedia: (p) => ipcRenderer.invoke('media:probe', String(p)),
   ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
   gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
+  mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
@@ -66,6 +67,7 @@ contextBridge.exposeInMainWorld('wall', {
   windowInfo: () => ipcRenderer.invoke('win:info'),
   isFullscreen: () => ipcRenderer.invoke('win:isFullscreen'),
   onFullscreen: (cb) => { ipcRenderer.on('win:fullscreen-changed', (_e, v) => cb(!!v)); },
+  onMinimized: (cb) => { ipcRenderer.on('win:minimized', (_e, v) => cb(!!v)); },
   onDisplaysChanged: (cb) => { ipcRenderer.on('win:displays-changed', () => cb()); },
   openDisplaySettings: () => ipcRenderer.invoke('app:openDisplaySettings'),
 

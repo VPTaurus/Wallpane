@@ -1,35 +1,20 @@
 'use strict';
 // The library with many files, with real videos, and across a restart. Each test starts its own Wallpane with its own
 // data folder (and media it writes itself), so a restart is a real one.
-const { test, expect, _electron: electron } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const { png } = require('./media');
+const launch = require('./launch');
 
-const root = path.join(__dirname, '..', '..');
-const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
+const ff = FF.create(path.join(launch.root, 'vendor', 'ffmpeg'));
 
 let dir;
 test.beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-lib-e2e-')); });
 test.afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
-
-// Wallpane on this test's data folder (the same one again after a restart), with page errors collected.
-async function start() {
-  const data = path.join(dir, 'data');
-  if (!fs.existsSync(data)) {
-    fs.mkdirSync(data);
-    fs.writeFileSync(path.join(data, 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
-  }
-  const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: data });
-  const app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
-  const page = await app.firstWindow();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.waitForSelector('body[data-ready="1"]');
-  return { app, page, errors };
-}
+const start = () => launch.start(dir);
 // Until every file in the library has its details (sizes, lengths).
 async function detailsRead(page) {
   await expect.poll(() => page.evaluate(async () => (await window.wall.libraryFolders()).reduce((n, f) => n + f.pending + (f.scanning ? 1 : 0), 0)), { timeout: 30000 }).toBe(0);
