@@ -247,6 +247,53 @@ test('sorting: names by their numbers, the rest biggest or newest first, files w
   assert.ok([2, 3, 4, 5, 6, 7, 8, 9].some((s) => names({ sort: 'random', seed: s }).join() !== r1.join()), 'another seed, another order');
 });
 
+test('collections: made, filled, reordered, searched, kept, and they follow their files', () => {
+  let t = T;
+  const { lib, file, root } = make({ now: () => t });
+  lib.addFolder(root);
+  lib.sync(root, ['a.mp4', 'b.png', 'c.gif', 'd.mp4'].map((n, i) => f(path.join(root, n), 100 + i)));
+  const id = (n) => lib.find(path.join(root, n)).id;
+  const names = (q) => lib.query(q).items.map((i) => i.name);
+
+  const c = lib.makeCollection('  Evening\n mix  ', [id('d.mp4'), id('a.mp4'), id('d.mp4'), 'nonsense']);
+  assert.deepEqual([c.name, c.files], ['Evening mix', 2], 'one line, each file once, only files in the library');
+  assert.equal(lib.makeCollection('').name, 'New collection');
+  assert.equal(lib.addToCollection(c.id, [id('a.mp4'), id('c.gif')]), 1);
+  assert.equal(lib.addToCollection('nope', [id('a.mp4')]), -1);
+  assert.deepEqual(names({ collection: c.id, sort: 'order' }), ['d.mp4', 'a.mp4', 'c.gif'], 'in the order they came in');
+  assert.deepEqual(names({ collection: c.id, sort: 'order', reverse: true }), ['c.gif', 'a.mp4', 'd.mp4']);
+  assert.deepEqual(names({ collection: c.id, sort: 'name' }), ['a.mp4', 'c.gif', 'd.mp4']);
+  assert.deepEqual(names({ collection: c.id, sort: 'order', kinds: ['video'] }), ['d.mp4', 'a.mp4'], 'filters work inside it too');
+  assert.deepEqual(names({ collection: 'nope' }), []);
+
+  assert.ok(lib.moveInCollection(c.id, [id('c.gif')], id('d.mp4')));
+  assert.deepEqual(names({ collection: c.id, sort: 'order' }), ['c.gif', 'd.mp4', 'a.mp4']);
+  assert.ok(lib.moveInCollection(c.id, [id('c.gif'), id('d.mp4')], null), 'to the end');
+  assert.deepEqual(names({ collection: c.id, sort: 'order' }), ['a.mp4', 'c.gif', 'd.mp4']);
+  assert.equal(lib.moveInCollection(c.id, [id('d.mp4')], null), false, 'already there');
+  assert.equal(lib.takeFromCollection(c.id, [id('c.gif')]), 1);
+  assert.deepEqual(lib.collectionFiles(c.id).map((x) => [x.name, x.kind]), [['a.mp4', 'video'], ['d.mp4', 'video']]);
+  assert.ok(lib.renameCollection(c.id, 'Night'));
+  assert.deepEqual(lib.collections().map((x) => [x.name, x.files]), [['Night', 2], ['New collection', 0]]);
+
+  // A renamed file stays in it; a file gone for good drops out of it; it all comes back after a restart.
+  lib.sync(root, [f(path.join(root, 'a renamed.mp4'), 100), f(path.join(root, 'b.png'), 101), f(path.join(root, 'c.gif'), 102)]);
+  assert.deepEqual(lib.collectionFiles(c.id).map((x) => x.name), ['a renamed.mp4'], 'd.mp4 is gone for now');
+  assert.deepEqual(lib.collections()[0].files, 1);
+  lib.flush();
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).collections[0].files.length, 2, 'd.mp4 may still come back');
+  t += 31 * DAY;
+  lib.addToCollection(c.id, [id('b.png')]);
+  lib.flush();
+  const again = createLibrary({ file });
+  again.load();
+  assert.deepEqual(again.collectionFiles(c.id).map((x) => x.name), ['a renamed.mp4', 'b.png']);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).collections[0].files.length, 2, 'after 30 days d.mp4 is forgotten');
+  assert.ok(again.dropCollection(c.id));
+  assert.equal(again.dropCollection(c.id), false);
+  assert.deepEqual(again.collections().map((x) => x.name), ['New collection']);
+});
+
 test('saving waits for a quiet moment, but never too long', async () => {
   const { lib, file, root } = make({ delay: 200, maxWait: 300 });
   lib.addFolder(root);

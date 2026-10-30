@@ -220,6 +220,28 @@ handle('library:rescan', async (_e, p) => {
   return libFolders.folders();
 });
 handle('library:query', (_e, q) => { libFolders.ready(); return library.query(q && typeof q === 'object' ? q : {}); });
+// Collections: your own lists of library files.
+handle('library:collections', () => { libFolders.ready(); return library.collections(); });
+// A collection's files as a tile plays them (GIFs count as pictures there): [{ path, name, kind }], or null.
+handle('library:collectionFiles', (_e, id) => {
+  libFolders.ready();
+  const list = typeof id === 'string' ? library.collectionFiles(id) : null;
+  return list && list.map((x) => ({ path: x.path, name: x.name, kind: x.kind === 'video' ? 'video' : 'image' }));
+});
+// make (name, ids) · rename (id, name) · drop (id) · add (id, ids) · take (id, ids) · move (id, ids, before id or none)
+handle('library:editCollection', (_e, op, a, b, c) => {
+  libFolders.ready();
+  const s = (x) => (typeof x === 'string' ? x : ''), ids = (x) => (Array.isArray(x) ? x.filter((v) => typeof v === 'string') : []);
+  switch (op) {
+    case 'make': return library.makeCollection(s(a), ids(b));
+    case 'rename': return library.renameCollection(s(a), s(b));
+    case 'drop': return library.dropCollection(s(a));
+    case 'add': return library.addToCollection(s(a), ids(b));
+    case 'take': return library.takeFromCollection(s(a), ids(b));
+    case 'move': return library.moveInCollection(s(a), ids(b), s(c) || null);
+    default: return null;
+  }
+});
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
 handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });

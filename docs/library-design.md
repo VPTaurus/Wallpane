@@ -14,7 +14,7 @@ It is not a file manager. Wallpane never moves, renames or deletes your files; i
 ## Where it lives (Decision 1: all three, your choice)
 **Settings › Library › Show the library as** offers three ways. A small menu in the library's own header switches between them on the spot. Either way, the choice is remembered.
 
-- **A drawer over the wall** (the default). It slides in from the left, over the wall. The wall keeps its exact size and shape and keeps playing. While you drag thumbnails out of it, the drawer fades and lets the drop through, so a tile underneath it can take the drop too.
+- **A drawer over the wall** (the default). It slides in from the left, over the wall. The wall keeps its exact size and shape and keeps playing. While a drag stays inside the drawer it can land there (on a collection, or a new place in one). Once the drag leaves, the drawer fades and lets drops through, so a tile underneath it can take the drop too.
 - **A panel beside the wall.** The wall gets narrower while the panel is open. Tiles change shape with the wall (Free layouts scale with the window) and change back when it closes.
 - **A window of its own,** for a second screen. Its place and size are remembered like the wall windows'. Closing it only hides it.
 
@@ -128,8 +128,11 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 - **Right-click** offers Put on the wall, Play on the selected tile, Add to collection, Make playable and Show in Explorer.
 
 ## Collections (C5)
-- Your own lists of files. Add to one by dragging or by right-click, and change the order by dragging.
-- A collection dropped on a tile plays there as a playlist and follows the collection as it changes. It uses the playlist code that plays files without a folder today; saved searches (E2) will use it too.
+- **Where they are:** your own lists of files, kept in `library.json` by file id. A moved or renamed file stays in them; a file gone for longer than 30 days drops out. They are listed under Collections in the folder row's list, which also makes a new one, and renames or deletes one (right-click; deleting asks first, and the files stay).
+- **Filling them:** right-click files › Add to "…" or Add to a new collection, or drag files onto a collection in the list (held over the folder row, the list opens).
+- **In a collection:** it sorts by Collection order (its own sort, apart from the folders'). Dragging there changes the order, with a bar showing where the files will go; Move to the start / end in the menu does the same. Delete (or Take out) takes files out of it, never off the disk.
+- **On the wall:** a collection dropped on a tile plays there as a playlist, which remembers the collection (`coll`, saved with the wall). When the library changes, and when the wall loads, it follows the collection (`PL.follow`): in order it takes the new order and carries on after the file it played last; shuffled, it takes new files as a folder's playlist does. A collection deleted or emptied leaves its tiles playing what they have. Dropped elsewhere, a collection fills the empty tiles and cells as a folder does.
+- **From the library window,** collections cannot be dragged onto a wall yet: a real file drag carries only files. Its files can, as files.
 
 ## Later, not in part 1
 Tags, ratings and favourites (E1); saved searches (E2); markers (E3); duplicates (E4); hover and timeline previews (D1, D2).

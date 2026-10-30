@@ -95,9 +95,14 @@ Settings › Library holds the folders where you keep your videos, GIFs and pict
 
 **Library** in the bar (Ctrl+L) opens it as a drawer over the wall; the wall keeps playing behind it. Its header's panel button (or Settings › Library › Show the library as) makes it a panel beside the wall instead, which makes the wall narrower while it is open, or a window of its own, for a second screen. The drawer and the panel go on the left or the right of the wall (the same menu, or Settings › Library › On the side). Files dragged from the library window are ordinary Windows file drags, so any wall window takes them; double-click or Enter there sends a file to the wall window used last. Closing the library window only hides it.
 - **Finding files:** search by name (file and folder names, every word, without accents or case), Videos / GIFs / Pictures, Filters (shape, length, resolution, files that need a playable copy), or one library folder (the folder row under the filters opens the list of them, however many there are). Sort by name, date added, date changed, length, file size or at random (shuffle again with its button); the slider sets the thumbnail size, and the drawer's right edge its width.
-- **Onto the wall:** drag thumbnails onto the wall or onto a tile: it works as a drop from Explorer does. While you drag, the drawer fades, so a tile under it can take the drop too. Hold Shift while dropping several on a tile to make that tile play them in turn. Drag a folder from the list to make a tile (or the empty tiles) play it.
+- **Onto the wall:** drag thumbnails onto the wall or onto a tile: it works as a drop from Explorer does. Once a drag leaves the drawer, the drawer fades, so a tile under it can take the drop too (drag out, then back over it). Hold Shift while dropping several on a tile to make that tile play them in turn. Drag a folder from the list to make a tile (or the empty tiles) play it.
 - **Without dragging:** double-click a thumbnail (or select and press Enter) to put it on the selected tile, or else into the empty tiles. Right-click for the same, and for Show in Explorer.
 - **Selecting:** click, Ctrl+click, Shift+click, and Ctrl+A for everything shown.
+- **Collections** are your own lists of files, under Collections in the folder row's list.
+  - **Filling one:** right-click files › Add to "…" or Add to a new collection, or drag them onto a collection in that list (held over the folder row, the list opens).
+  - **In a collection:** sorted by Collection order, drag thumbnails to change the order, or right-click › Move to the start / end. Delete (or right-click › Take out) takes files out of it, never off the disk.
+  - **Renaming and deleting:** right-click a collection in the list.
+  - **On the wall:** drag a collection onto a tile and the tile plays it, following it as it changes (new files join, its order is kept). Dropped elsewhere, it fills the empty tiles and cells as a folder does.
 - **Adding folders:** drop folders from Explorer onto the drawer, or use its + button.
 
 ## On a TV or projector

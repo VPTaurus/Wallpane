@@ -965,14 +965,16 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
   await expect(page.locator('#libFolderName')).toHaveText('All folders');
 
-  // Dragged onto an empty cell under the drawer itself: the drawer lets the drop through.
+  // Dragged onto an empty cell under the drawer itself: once the drag has left the drawer, it lets the drop through.
   const thumb = (name) => page.locator('#libGrid .lthumb', { hasText: '' }).and(page.locator('[title^="' + name + '"]'));
   async function dragTo(src, target, shift) {
     await expect(src).toBeVisible();
-    const a = await src.boundingBox(), b = await target.boundingBox();
+    const a = await src.boundingBox(), b = await target.boundingBox(), d = await page.locator('#lib').boundingBox();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     if (shift) await page.keyboard.down('Shift');
+    await page.mouse.move(d.x + d.width + 80, d.y + d.height / 2, { steps: 6 });   // out of the drawer first
+    await expect(page.locator('#lib')).toHaveClass(/out/);
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
     await page.mouse.up();
     if (shift) await page.keyboard.up('Shift');
@@ -1100,6 +1102,97 @@ test('the library in a window of its own: from the bar, double-click sends a fil
   await page.selectOption('#setLibPlace', 'drawer');
   await page.keyboard.press('Escape');
   await expect.poll(libShows).toBe(false);
+});
+
+test('collections: made and renamed, filled by dragging, reordered, played on a tile that follows them', async () => {
+  await page.keyboard.press('Control+l');
+  const thumbs = page.locator('#libGrid .lthumb'), list = page.locator('#libFolderList');
+  const thumb = (name) => page.locator('#libGrid .lthumb[title^="' + name + '"]');
+  const collRow = (name) => list.locator('.lfolder.coll', { hasText: name });
+  await expect(thumbs).toHaveCount(4);
+  const at = async (loc) => { const b = await loc.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+
+  // Right-click › Add to a new collection, then rename it in the list.
+  await thumb('red wide.png').click();
+  await thumb('red wide.png').click({ button: 'right' });
+  await menuItem('Add to a new collection').click();
+  await expect(toast()).toContainText('"New collection" holds 1 file now');
+  await page.click('#libFolderBtn');
+  await collRow('New collection').click({ button: 'right' });
+  await menuItem('Rename').click();
+  await list.locator('.lfinput').fill('Evening');
+  await page.keyboard.press('Enter');
+  await expect(collRow('Evening')).toHaveCount(1);
+  await page.click('#libSearch');
+  await expect(list).toBeHidden();
+
+  // Two files dragged onto it: held over the folder row, the list opens.
+  await thumb('blue square.png').click();
+  await thumb('green tall.png').click({ modifiers: ['Control'] });
+  let p = await at(thumb('green tall.png'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  p = await at(page.locator('#libFolderBtn'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.move(p[0] + 4, p[1], { steps: 3 });
+  await expect(list).toBeVisible();
+  p = await at(collRow('Evening'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.up();
+  await expect(toast()).toContainText('2 files added to "Evening".');
+
+  // In the collection, in its own order; a drag changes the order, Delete takes one out.
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click();
+  await expect(page.locator('#libFolderName')).toHaveText('Evening');
+  await expect(page.locator('#libSort')).toHaveValue('order');
+  const order = () => thumbs.evaluateAll((els) => els.sort((a, b) => (parseFloat(a.style.top) - parseFloat(b.style.top)) || (parseFloat(a.style.left) - parseFloat(b.style.left))).map((e) => e.title.split('\n')[0]));
+  await expect.poll(order).toEqual(['red wide.png', 'blue square.png', 'green tall.png']);
+  await thumb('green tall.png').click();
+  p = await at(thumb('green tall.png'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  const red = await thumb('red wide.png').boundingBox();
+  await page.mouse.move(red.x + 6, red.y + red.height / 2, { steps: 8 });
+  await expect(thumb('red wide.png')).toHaveClass(/dropbefore/);
+  await page.mouse.up();
+  await expect.poll(order).toEqual(['green tall.png', 'red wide.png', 'blue square.png']);
+  await thumb('blue square.png').click();
+  await page.keyboard.press('Delete');
+  await expect(toast()).toContainText('1 file taken out of "Evening"');
+  await expect(thumbs).toHaveCount(2);
+
+  // Dropped on a tile (beside the drawer), the collection plays there, and the tile follows it.
+  const tileId = await page.evaluate(() => {
+    const r = document.querySelector('#lib').getBoundingClientRect();
+    const t = Array.prototype.find.call(document.querySelectorAll('#wall .tile'), (el) => el.getBoundingClientRect().left > r.right + 10);
+    return t && t.dataset.id;
+  });
+  expect(tileId).toBeTruthy();
+  await page.click('#libFolderBtn');
+  p = await at(collRow('Evening'));
+  await page.mouse.move(p[0], p[1]);
+  await page.mouse.down();
+  const lib = await page.locator('#lib').boundingBox();
+  await page.mouse.move(lib.x + lib.width + 60, p[1], { steps: 6 });
+  p = await at(page.locator('#wall .tile[data-id="' + tileId + '"]'));
+  await page.mouse.move(p[0], p[1], { steps: 6 });
+  await page.mouse.up();
+  await expect(toast()).toContainText('This tile now plays "Evening" (2 files)');
+  await page.click('#libFolderBtn');
+  await list.locator('.lfolder', { hasText: 'All folders' }).click();
+  await thumb('grey extra.png').click({ button: 'right' });
+  await menuItem('Add to "Evening"').click();
+  await expect(toast()).toContainText('"Evening": 1 new file added to the playlist.', { timeout: 8000 });
+
+  // Deleting it takes two steps, and leaves the files.
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await menuItem('Delete…').click();
+  await menuItem('Delete "Evening"').click();
+  await expect(toast()).toContainText('"Evening" is deleted');
+  await expect(thumbs).toHaveCount(4);
+  await page.click('#libClose');
 });
 
 test('no page errors along the way', async () => {

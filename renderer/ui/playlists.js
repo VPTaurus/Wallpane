@@ -135,14 +135,16 @@
   };
 
   /* ---------- new files in a playlist's folder ---------- */
-  // The main process watches the folders and says when one changed. A slow rescan also runs, for network drives
-  // that do not report changes.
-  function watched() {
+  // The playlists in use, once each: [[id, playlist]].
+  function inUse() {
     var out = [], seen = {};
     playlistTiles().forEach(function (t) { if (!seen[t.pl]) { seen[t.pl] = true; out.push([t.pl, S.playlists[t.pl]]); } });
     if (S.fillPl && S.playlists[S.fillPl] && !seen[S.fillPl]) out.push([S.fillPl, S.playlists[S.fillPl]]);
-    return out.filter(function (j) { return j[1].root; });
+    return out;
   }
+  // The main process watches the folders and says when one changed. A slow rescan also runs, for network drives
+  // that do not report changes.
+  function watched() { return inUse().filter(function (j) { return j[1].root; }); }
   var watchSig = null;
   A.syncWatches = function () {
     var roots = [], seen = {};
@@ -180,6 +182,28 @@
     Object.keys(keys).forEach(rescan);
   }, 120000);
 
+  /* ---------- a collection's playlist follows the collection ---------- */
+  // When the library changes (and once the wall is loaded), each playlist that plays a library collection takes its
+  // files and order as they are now. A collection that was deleted or emptied leaves its tiles playing what they have.
+  A.followCollections = function () {
+    var lists = inUse().filter(function (j) { return j[1].coll; }), ids = {};
+    lists.forEach(function (j) { ids[j[1].coll] = true; });
+    Object.keys(ids).forEach(function (c) {
+      A.api.collectionFiles(c).then(function (entries) {
+        if (!entries || !entries.length) return;
+        lists.forEach(function (j) {
+          if (j[1].coll !== c || S.playlists[j[0]] !== j[1]) return;
+          var n = PL.follow(j[1], entries);
+          if (n < 0) return;
+          A.scheduleSession();
+          if (n) A.toast('"' + j[1].name + '": ' + n + (n === 1 ? ' new file' : ' new files') + ' added to the playlist.');
+        });
+      });
+    });
+  };
+  var followTimer = 0;
+  A.api.onLibrary(function () { clearTimeout(followTimer); followTimer = setTimeout(A.followCollections, 1000); });
+
   /* ---------- starting and stopping ---------- */
   // The ticked boxes of a "Plays" group (Videos, GIFs, Images). One always stays ticked: unticking the last one
   // puts it back.
@@ -215,6 +239,12 @@
     A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. Tick more kinds of file under Plays.');
   }
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
+  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows.
+  function fromRes(p, res) {
+    if (res.title) p.name = String(res.title).slice(0, 60);
+    if (res.coll) p.coll = res.coll;
+    return p;
+  }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
   A.fillWithFolder = function (res, opts) {
     var files = res.entries || [];
@@ -223,7 +253,7 @@
       A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
       return;
     }
-    var id = newId(), p = PL.make(files, opts, PL.rootFor(res, files));
+    var id = newId(), p = fromRes(PL.make(files, opts, PL.rootFor(res, files)), res);
     if (!PL.playable(p)) { nothingPlays(p); return; }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
@@ -285,10 +315,9 @@
     var files = res.entries || [];
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
     var base = (it.pl && S.playlists[it.pl]) || A.readPlOpts();
-    var id = newId(), p = PL.make(files, base, PL.rootFor(res, files));
+    var id = newId(), p = fromRes(PL.make(files, base, PL.rootFor(res, files)), res);
     if (!PL.playable(p)) { nothingPlays(p); return; }
     p.truncated = !!res.truncated;
-    if (res.title) p.name = String(res.title).slice(0, 60);   // files picked in the library, not one folder
     A.pushHistory();
     S.playlists[id] = p;
     var mu = it.muted, ft = it.fit, f = PL.nextFile(p);

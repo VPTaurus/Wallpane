@@ -19,17 +19,20 @@
   function nameOf(p) { return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p; }
 
   // The view's settings, from what was saved (anything odd falls back to the default).
-  var DEFAULTS = { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null };
+  // folder or coll: what it shows (one library folder, or one collection); sort for folders, csort in a collection.
+  var DEFAULTS = { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null, coll: null };
+  var SORTS = ['added', 'changed', 'length', 'size', 'random'];
   function cleanPrefs(l) {
     var one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
     if (!l || typeof l !== 'object') return Object.assign({}, DEFAULTS);
     return {
       place: one(l.place, ['panel', 'window']) || 'drawer', side: one(l.side, ['right']) || 'left', open: l.open === true,
       w: U.clamp(+l.w || 400, 260, 4000), size: U.clamp(+l.size || 110, 60, 240),
-      sort: one(l.sort, ['added', 'changed', 'length', 'size', 'random']) || 'name', rev: l.rev === true,
+      sort: one(l.sort, SORTS) || 'name', csort: one(l.csort, SORTS.concat('name')) || 'order', rev: l.rev === true,
       kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
       shape: one(l.shape, ['landscape', 'portrait', 'square']), length: one(l.length, ['short', 'medium', 'long']),
-      res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, folder: typeof l.folder === 'string' && l.folder ? l.folder : null
+      res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, folder: typeof l.folder === 'string' && l.folder ? l.folder : null,
+      coll: typeof l.coll === 'string' && l.coll ? l.coll : null
     };
   }
 
@@ -58,7 +61,7 @@
       '<div class="lfolders" id="libFolderList" role="list" aria-label="Library folders" hidden></div></div>' +
     '<div class="lgrid" id="libGrid" tabindex="0" role="listbox" aria-label="Files" aria-multiselectable="true"><div class="lspace" id="libSpace"></div><div class="lempty" id="libEmpty" hidden></div></div>' +
     '<div class="lfoot"><span class="lshown" id="libShown"></span><span class="sp"></span>' +
-      '<select id="libSort" aria-label="Sort by"><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="random">Random</option></select>' +
+      '<select id="libSort" aria-label="Sort by"><option value="order">Collection order</option><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="random">Random</option></select>' +
       '<button class="btn ib" id="libRev" type="button" aria-pressed="false" aria-label="Reverse the order" title="Reverse the order"><span class="ic">' + ICON.sortdir + '</span></button>' +
       '<button class="btn ib" id="libShuffle" type="button" aria-label="Shuffle again" title="Shuffle again" hidden><span class="ic">' + ICON.shuffle + '</span></button>' +
       '<input type="range" id="libSize" min="60" max="240" step="10" aria-label="Thumbnail size" title="Thumbnail size"></div>' +
@@ -66,18 +69,22 @@
 
   var grid = $('#libGrid'), space = $('#libSpace'), emptyBox = $('#libEmpty'), folderBox = $('#libFolderList'), folderPick = $('#libFolderPick');
   var GAP = 4;
-  var results = [], index = new Map(), total = 0, folders = [], layout = { rows: [], boxes: [], height: 0 };
+  var results = [], index = new Map(), total = 0, folders = [], colls = [], layout = { rows: [], boxes: [], height: 0 };
   var els = new Map();       // id -> thumbnail element on screen
   var thumbs = new Map();    // id -> thumbnail URL
   var asked = new Set();     // ids whose thumbnails were asked for
   var sel = new Set(), anchor = -1;
   var seq = 0, text = '', seed = 1, laidWidth = 0;
 
+  function sortNow() { return S.lib.coll ? S.lib.csort : S.lib.sort; }
   function query() {
     var l = S.lib;
-    return { text: text, folder: l.folder, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, sort: l.sort, reverse: l.rev, seed: seed };
+    return { text: text, folder: l.coll ? null : l.folder, collection: l.coll, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, sort: sortNow(), reverse: l.rev, seed: seed };
   }
-  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.folder); }
+  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.folder || l.coll); }
+  function collNow() { return S.lib.coll ? colls.filter(function (c) { return c.id === S.lib.coll; })[0] || null : null; }
+  // Dragging inside a collection changes its order: when it shows in its own order, not reversed.
+  function canReorder() { return !!S.lib.coll && S.lib.csort === 'order' && !S.lib.rev; }
   function refresh() {
     if (!host.isOpen()) return;
     var n = ++seq;
@@ -93,10 +100,11 @@
   }
   function refreshFolders() {
     if (!host.isOpen()) return;
-    api.libraryFolders().then(function (list) {
-      folders = list;
-      if (S.lib.folder && !list.some(function (f) { return f.path === S.lib.folder; })) { S.lib.folder = null; refresh(); }
-      drawFolders();
+    Promise.all([api.libraryFolders(), api.libraryCollections()]).then(function (got) {
+      folders = got[0]; colls = got[1] || [];
+      var gone = (S.lib.folder && !folders.some(function (f) { return f.path === S.lib.folder; })) || (S.lib.coll && !collNow());
+      if (gone) { S.lib.folder = null; S.lib.coll = null; showSortButtons(); refresh(); }
+      if (!editing) drawFolders();   // never under a name being typed
       showCounts();
     });
   }
@@ -106,13 +114,14 @@
     var l = S.lib;
     Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', String(l.kinds.indexOf(b.dataset.kind) > -1)); });
     $('#libShape').value = l.shape; $('#libLength').value = l.length; $('#libRes').value = l.res; $('#libCopy').checked = l.copy;
-    $('#libSort').value = l.sort; $('#libRev').setAttribute('aria-pressed', String(l.rev)); $('#libSize').value = l.size;
+    $('#libRev').setAttribute('aria-pressed', String(l.rev)); $('#libSize').value = l.size;
     showFilterCount(); showSortButtons();
     root.style.setProperty('--libw', l.w + 'px');
     thumbs.clear(); asked.clear();
     refreshFolders(); refresh();
   }
   A.libView = { show: show, refresh: function () { refreshFolders(); refresh(); }, cleanPrefs: cleanPrefs };
+  if (S.lib) S.lib = cleanPrefs(S.lib);   // the page's starting settings, completed with any newer ones
 
   $('#libClose').addEventListener('click', function () { host.close(); });
   if (host.places) $('#libPlace').addEventListener('click', function () { var r = this.getBoundingClientRect(); host.placeMenu(r.left, r.bottom + 4); });
@@ -161,16 +170,22 @@
   });
   function clearAll() {
     $('#libSearch').value = ''; text = '';
-    S.lib.kinds = []; S.lib.folder = null;
+    S.lib.kinds = []; S.lib.folder = null; S.lib.coll = null;
     Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', 'false'); });
     $('#libFiltClear').click();
-    drawFolders();
+    showSortButtons(); drawFolders();
   }
+  // The sort list offers "Collection order" only in a collection, which keeps its own sort.
   function showSortButtons() {
-    var rnd = S.lib.sort === 'random';
+    var s = $('#libSort'), rnd = sortNow() === 'random';
+    s.querySelector('[value="order"]').hidden = !S.lib.coll;
+    s.value = sortNow();
     $('#libShuffle').hidden = !rnd; $('#libRev').hidden = rnd;
   }
-  $('#libSort').addEventListener('change', function () { S.lib.sort = this.value; showSortButtons(); changed(); });
+  $('#libSort').addEventListener('change', function () {
+    if (S.lib.coll) S.lib.csort = this.value; else S.lib.sort = this.value;
+    showSortButtons(); changed();
+  });
   $('#libRev').addEventListener('click', function () { S.lib.rev = !S.lib.rev; this.setAttribute('aria-pressed', String(S.lib.rev)); changed(); });
   $('#libShuffle').addEventListener('click', function () { seed++; grid.scrollTop = 0; refresh(); });
   var sizeSave = 0;
@@ -180,42 +195,107 @@
     clearTimeout(sizeSave); sizeSave = setTimeout(A.savePrefs, 400);
   });
 
-  /* ---------- the folders: one row that says which, and opens the list of them ---------- */
+  /* ---------- the folders and collections: one row that says which shows, and opens the list of them ---------- */
   function folderLabel(f) { return f.path ? nameOf(f.path) + (f.available === false ? ' (not found)' : '') : 'All folders'; }
+  var editing = null;   // the collection being named in the list ('new' for a new one), or null
+  function show1(folder, coll) {
+    openFolders(false);
+    $('#libFolderBtn').focus();
+    if (S.lib.folder === folder && S.lib.coll === coll) return;
+    S.lib.folder = folder; S.lib.coll = coll;
+    showSortButtons(); drawFolders(); changed();
+  }
+  function row(icon, label, num, current, cls) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'lfolder' + (cls ? ' ' + cls : '');
+    b.setAttribute('role', 'listitem');
+    b.setAttribute('aria-current', String(!!current));
+    b.innerHTML = '<span class="ic" aria-hidden="true">' + ICON[icon] + '</span><span class="lfname"></span><span class="lnumr"></span>';
+    b.querySelector('.lfname').textContent = label;
+    b.querySelector('.lnumr').textContent = num;
+    folderBox.appendChild(b);
+    return b;
+  }
+  // A name box in the list, for a new collection or a new name. Enter keeps it, Esc lets it be.
+  function nameBox(value, done) {
+    var box = document.createElement('input');
+    box.type = 'text'; box.className = 'lfinput'; box.value = value; box.maxLength = 60; box.spellcheck = false;
+    box.placeholder = 'Name of the collection';
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); editing = null; done(box.value); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing = null; drawFolders(); $('#libFolderBtn').focus(); }
+    });
+    // Clicking away keeps a name typed; an empty new one is let be.
+    box.addEventListener('blur', function () {
+      if (!editing) return;
+      editing = null;
+      if (box.value.trim() || value) done(box.value); else drawFolders();
+    });
+    folderBox.appendChild(box);
+    setTimeout(function () { box.focus(); box.select(); }, 0);
+  }
   function drawFolders() {
     folderBox.innerHTML = '';
     folderPick.hidden = !folders.length;
     if (!folders.length) { openFolders(false); return; }
-    var all = [{ path: null, files: folders.reduce(function (s, f) { return s + f.files; }, 0) }].concat(folders);
-    var now = all.filter(function (f) { return f.path === S.lib.folder; })[0] || all[0];
-    $('#libFolderIc').innerHTML = now.path ? ICON.folder : ICON.library;
-    $('#libFolderName').textContent = folderLabel(now);
-    $('#libFolderNum').textContent = now.scanning ? '…' : now.files.toLocaleString('en');
-    $('#libFolderBtn').classList.toggle('off', now.available === false);
-    $('#libFolderBtn').classList.toggle('one', !!now.path);
-    all.forEach(function (f) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'lfolder' + (f.available === false ? ' off' : '');
-      b.setAttribute('role', 'listitem');
-      b.setAttribute('aria-current', String(S.lib.folder === f.path));
-      b.innerHTML = '<span class="ic" aria-hidden="true">' + (f.path ? ICON.folder : ICON.library) + '</span><span class="lfname"></span><span class="lnumr"></span>';
-      b.querySelector('.lfname').textContent = folderLabel(f);
-      b.querySelector('.lnumr').textContent = f.scanning ? '…' : f.files.toLocaleString('en');
+    var all = { path: null, files: folders.reduce(function (s, f) { return s + f.files; }, 0) };
+    var c = collNow(), f1 = folders.filter(function (f) { return f.path === S.lib.folder; })[0], now = c ? null : f1 || all;
+    $('#libFolderIc').innerHTML = c ? ICON.playlist : now.path ? ICON.folder : ICON.library;
+    $('#libFolderName').textContent = c ? c.name : folderLabel(now);
+    $('#libFolderNum').textContent = c ? c.files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
+    $('#libFolderBtn').classList.toggle('off', !c && now.available === false);
+    $('#libFolderBtn').classList.toggle('one', !!(c || now.path));
+    [all].concat(folders).forEach(function (f) {
+      var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && S.lib.folder === f.path, f.available === false ? 'off' : '');
       if (f.path) {
         b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.';
         b.draggable = true;
-        b.addEventListener('dragstart', function (e) { host.dragOut(e, [f.path]); });
+        b.addEventListener('dragstart', function (e) { host.dragOut(e, [f.path], {}); });
         b.addEventListener('dragend', function () { openFolders(false); });
       }
-      b.addEventListener('click', function () {
-        openFolders(false);
-        $('#libFolderBtn').focus();
-        if (S.lib.folder === f.path) return;
-        S.lib.folder = f.path;
-        drawFolders(); changed();
-      });
-      folderBox.appendChild(b);
+      b.addEventListener('click', function () { show1(f.path, null); });
     });
+    var head = document.createElement('div');
+    head.className = 'lfhead'; head.textContent = 'Collections';
+    folderBox.appendChild(head);
+    colls.forEach(function (x) {
+      if (editing === x.id) { nameBox(x.name, function (v) { api.editCollection('rename', x.id, v).then(refreshFolders); }); return; }
+      var b = row('playlist', x.name, x.files.toLocaleString('en'), S.lib.coll === x.id, 'coll');
+      b.dataset.coll = x.id;
+      b.title = x.name + '\nDrop files here to add them.' + (host.dragCollections ? ' Drag it onto the wall: a tile plays it, and follows it as it changes.' : '') + '\nRight-click to rename or delete it.';
+      if (host.dragCollections) {
+        b.draggable = true;
+        b.addEventListener('dragstart', function (e) { host.dragOut(e, null, { coll: x.id, name: x.name }); });
+        b.addEventListener('dragend', function () { openFolders(false); });
+      }
+      b.addEventListener('click', function () { show1(null, x.id); });
+      b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); collMenu(x, e.clientX, e.clientY); });
+    });
+    if (editing === 'new') {
+      nameBox('', function (v) {
+        api.editCollection('make', v, []).then(function (c2) { colls.push(c2); show1(null, c2.id); refreshFolders(); });
+      });
+    } else {
+      var add = row('plus', 'New collection', '', false, 'newcoll');
+      add.addEventListener('click', function () { editing = 'new'; drawFolders(); });
+    }
+  }
+  function collMenu(x, px, py) {
+    A.showMenu(px, py, [
+      { label: 'Rename', icon: 'file', act: function () { editing = x.id; openFolders(true); drawFolders(); } },
+      { label: 'Delete…', icon: 'trash', hint: 'Its files stay where they are', act: function () {
+        A.showMenu(px, py, [
+          { label: 'Delete "' + x.name + '"', icon: 'trash', hint: 'Its ' + count(x.files, 'file stays', 'files stay') + ' in the library and on the wall', act: function () {
+            api.editCollection('drop', x.id).then(function () {
+              if (S.lib.coll === x.id) { S.lib.coll = null; showSortButtons(); changed(); }
+              A.toast('"' + x.name + '" is deleted. Its files are still there.');
+              refreshFolders();
+            });
+          } },
+          { label: 'Keep it', icon: 'x', act: function () {} }
+        ]);
+      } }
+    ]);
   }
   function openFolders(on) {
     folderBox.hidden = !on;
@@ -235,8 +315,9 @@
   function showCounts() {
     $('#libCount').textContent = total ? count(total, 'file', 'files') : '';
     $('#libShown').textContent = results.length === total ? count(total, 'file', 'files') : results.length.toLocaleString('en') + ' of ' + total.toLocaleString('en');
-    var msg = null;
+    var msg = null, c = collNow();
     if (!folders.length) msg = 'empty';
+    else if (!results.length && c && !c.files) msg = 'emptycoll';
     else if (!results.length) msg = filtering() ? 'nomatch' : (folders.some(function (f) { return f.scanning; }) ? 'looking' : 'nomedia');
     emptyBox.hidden = !msg;
     if (!msg) return;
@@ -244,6 +325,7 @@
     var p = document.createElement('p');
     p.textContent = {
       empty: 'Your library is empty. Add the folders where you keep your videos, GIFs and pictures, or drop them here from Explorer.',
+      emptycoll: '"' + (c && c.name) + '" is empty. Right-click files and choose Add to "' + (c && c.name) + '", or drag them onto it in the list above.',
       nomatch: 'Nothing matches.', looking: 'Looking through your folders…', nomedia: 'No videos, GIFs or pictures in these folders yet.'
     }[msg];
     emptyBox.appendChild(p);
@@ -373,6 +455,53 @@
   function selectedPaths() {
     return results.filter(function (it) { return sel.has(it.id); }).map(function (it) { return it.path; });
   }
+  function selectedIds() {
+    return results.filter(function (it) { return sel.has(it.id); }).map(function (it) { return it.id; });
+  }
+
+  /* ---------- collections: adding, taking out, the order ---------- */
+  function addToColl(c, ids) {
+    api.editCollection('add', c.id, ids).then(function (n) {
+      A.toast(n > 0 ? count(n, 'file', 'files') + ' added to "' + c.name + '".' : 'Those are in "' + c.name + '" already.');
+      refreshFolders();
+    });
+  }
+  function newCollWith(ids) {
+    var n = 1, base = 'New collection', name = base;
+    while (colls.some(function (c) { return c.name === name; })) name = base + ' ' + (++n);
+    api.editCollection('make', name, ids).then(function (c) {
+      A.toast('"' + c.name + '" holds ' + count(c.files, 'file', 'files') + ' now. Rename it in the list of folders and collections (right-click it).');
+      refreshFolders();
+    });
+  }
+  function takeOut(ids) {
+    var c = collNow();
+    if (!c || !ids.length) return;
+    api.editCollection('take', c.id, ids).then(function (n) {
+      if (n > 0) A.toast(count(n, 'file', 'files') + ' taken out of "' + c.name + '". The files themselves are still there.');
+      sel.clear(); refreshFolders(); refresh();
+    });
+  }
+  function moveTo(ids, before) {
+    var c = collNow();
+    if (c) api.editCollection('move', c.id, ids, before).then(function () { refresh(); });
+  }
+  // The collection items of a file's right-click menu.
+  function collItems(ids) {
+    var c = collNow(), out = [];
+    colls.filter(function (x) { return x !== c; }).forEach(function (x) {
+      out.push({ label: 'Add to "' + x.name + '"', icon: 'playlist', act: function () { addToColl(x, ids); } });
+    });
+    out.push({ label: 'Add to a new collection', icon: 'plus', act: function () { newCollWith(ids); } });
+    if (c) {
+      out.push('-', { label: 'Take out of "' + c.name + '"', icon: 'minus', hint: 'The files stay where they are (Delete)', act: function () { takeOut(ids); } });
+      if (canReorder() && results.length > 1) {
+        out.push({ label: 'Move to the start', icon: 'prev', act: function () { moveTo(ids, results[0].id); } },
+          { label: 'Move to the end', icon: 'next', act: function () { moveTo(ids, null); } });
+      }
+    }
+    return out;
+  }
   function pick(e, id) {
     var i = index.get(id);
     if (e.shiftKey && anchor > -1) {
@@ -400,15 +529,74 @@
     if (!el) return;
     e.preventDefault();
     if (!sel.has(el.dataset.id)) pick({}, el.dataset.id);
-    host.menu(selectedPaths(), e.clientX, e.clientY);
+    host.menu(selectedPaths(), e.clientX, e.clientY, ['-'].concat(collItems(selectedIds())));
   });
+  // A drag of files carries their paths for the wall and their ids for collections (info.reorder: within this one).
   grid.addEventListener('dragstart', function (e) {
     var el = e.target.closest && e.target.closest('.lthumb');
     if (!el) return;
     if (!sel.has(el.dataset.id)) pick({}, el.dataset.id);
-    host.dragOut(e, selectedPaths());
+    host.dragOut(e, selectedPaths(), { ids: selectedIds(), reorder: canReorder() });
   });
-  root.addEventListener('dragend', function () { host.dragEnd(); });
+  root.addEventListener('dragend', function () { host.dragEnd(); setMark(null); openFolders(false); });
+
+  // Inside a collection in its own order: dropped before or after the thumbnail under the pointer (or at the end).
+  var mark = null;
+  function setMark(el, after) {
+    if (mark) mark.classList.remove('dropbefore', 'dropafter');
+    mark = el;
+    if (el) el.classList.add(after ? 'dropafter' : 'dropbefore');
+  }
+  function reordering() { return !!(A.libDrag && A.libDrag.reorder && canReorder()); }
+  grid.addEventListener('dragover', function (e) {
+    if (!reordering()) return;
+    e.preventDefault(); e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (host.overSelf) host.overSelf();
+    var el = e.target.closest && e.target.closest('.lthumb');
+    if (!el || A.libDrag.ids.indexOf(el.dataset.id) > -1) { setMark(null); return; }
+    var b = el.getBoundingClientRect();
+    setMark(el, e.clientX > b.left + b.width / 2);
+  });
+  grid.addEventListener('dragleave', function (e) { if (!grid.contains(e.relatedTarget)) setMark(null); });
+  grid.addEventListener('drop', function (e) {
+    if (!reordering()) return;
+    e.preventDefault(); e.stopPropagation();
+    var el = mark, after = !!(el && el.classList.contains('dropafter')), ids = A.libDrag.ids, before = null;
+    setMark(null);
+    if (el) {
+      var i = index.get(el.dataset.id) + (after ? 1 : 0);
+      while (i < results.length && ids.indexOf(results[i].id) > -1) i++;
+      before = i < results.length ? results[i].id : null;
+    } else if (e.target.closest && e.target.closest('.lthumb')) return;   // on the moved files themselves
+    moveTo(ids, before);
+  });
+
+  // Files dragged onto a collection in the list join it. Held over the row above, the list opens.
+  var springTimer = 0;
+  function filesDragged() { return !!(A.libDrag && A.libDrag.ids && A.libDrag.ids.length); }
+  $('#libFolderBtn').addEventListener('dragover', function (e) {
+    if (!filesDragged()) return;
+    e.preventDefault(); e.stopPropagation();
+    e.dataTransfer.dropEffect = 'none';
+    if (!springTimer && folderBox.hidden) springTimer = setTimeout(function () { springTimer = 0; openFolders(true); }, 450);
+  });
+  $('#libFolderBtn').addEventListener('dragleave', function () { clearTimeout(springTimer); springTimer = 0; });
+  folderBox.addEventListener('dragover', function (e) {
+    var b = e.target.closest && e.target.closest('.lfolder.coll');
+    if (!filesDragged()) return;
+    e.preventDefault(); e.stopPropagation();
+    e.dataTransfer.dropEffect = b && b.dataset.coll !== S.lib.coll ? 'copy' : 'none';
+    Array.prototype.forEach.call(folderBox.querySelectorAll('.lfolder.coll'), function (x) { x.classList.toggle('droptarget', x === b && b.dataset.coll !== S.lib.coll); });
+  });
+  folderBox.addEventListener('drop', function (e) {
+    var b = e.target.closest && e.target.closest('.lfolder.coll');
+    if (!filesDragged()) return;
+    e.preventDefault(); e.stopPropagation();
+    var c = b && colls.filter(function (x) { return x.id === b.dataset.coll; })[0];
+    if (c && c.id !== S.lib.coll) addToColl(c, A.libDrag.ids);
+    openFolders(false);
+  });
 
   /* ---------- keys and width ---------- */
   // Keys in the view stay there (Delete, arrows and Space must not reach the wall's selected tile). Esc closes the
@@ -428,6 +616,7 @@
     if (e.target !== grid) return;
     if (ctrl && k === 'a') { e.preventDefault(); results.forEach(function (it) { sel.add(it.id); }); paintSel(); }
     else if (e.key === 'Enter' && sel.size) { e.preventDefault(); host.put(selectedPaths()); }
+    else if (e.key === 'Delete' && sel.size && S.lib.coll) { e.preventDefault(); takeOut(selectedIds()); }
   });
   $('#libResize').addEventListener('pointerdown', function (e) {
     e.preventDefault();

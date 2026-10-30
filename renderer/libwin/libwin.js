@@ -62,25 +62,27 @@
     places: false,
     isOpen: function () { return !!A.S.lib; },
     put: function (paths) { if (paths.length) api.libraryToWall(paths); },
-    menu: function (paths, x, y) {
+    // extra: the view's own items (collections).
+    menu: function (paths, x, y, extra) {
       var n = paths.length;
       A.showMenu(x, y, [
         { label: n > 1 ? 'Put these ' + n + ' on the wall' : 'Put on the wall', icon: 'plus', hint: 'On the wall window used last', act: function () { api.libraryToWall(paths); } },
         '-',
         { label: 'Show in Explorer', icon: 'folder', disabled: n !== 1, act: function () { api.revealFile(paths[0]); } }
-      ]);
+      ].concat(extra || []));
     },
-    // A real file drag, made by the main process. Dropped back here it does nothing; the flag goes with the next move
-    // of the mouse after the drag.
-    dragOut: function (e, paths) {
+    // A real file drag, made by the main process. Here it can still land on a collection or a new place in one; the
+    // flag goes with a move of the mouse after the drag.
+    dragOut: function (e, paths, info) {
+      info = info || {};
       e.preventDefault();
-      A.libDrag = { n: paths.length };
+      A.libDrag = { n: paths.length, ids: info.ids || null, reorder: !!info.reorder, at: Date.now() };
       api.startFileDrag(paths);
     },
     dragEnd: function () { A.libDrag = null; },
     close: function () { api.openLibraryWindow(false); }
   };
-  document.addEventListener('mousemove', function () { A.libDrag = null; });
+  document.addEventListener('mousemove', function () { if (A.libDrag && Date.now() - A.libDrag.at > 500) A.libDrag = null; });
   // Ctrl+L hides this window, as it closes the drawer.
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'l') { e.preventDefault(); api.openLibraryWindow(false); }

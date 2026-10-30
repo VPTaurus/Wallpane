@@ -63,6 +63,7 @@
       if (S.cols >= 4 && S.rows >= 2) addSamples();
       A.render(); A.refreshInspector();
     }
+    A.followCollections();   // collections may have changed since the wall was saved
     A.startMusic();
     if (S.startWall) A.setClean(true);
     document.body.dataset.ready = '1';   // for the end-to-end tests

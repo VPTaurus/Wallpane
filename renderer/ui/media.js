@@ -355,18 +355,28 @@
     if (!isFiles) return null;
     if (!inside) return { ok: true, target: null, ghost: null };
     var cc = A.cellAt(e.clientX, e.clientY), oc = G.itemAt(S.items, cc.col, cc.row);
-    var n = A.libDrag ? A.libDrag.n : (e.dataTransfer && e.dataTransfer.items) ? e.dataTransfer.items.length : 1;
-    if (oc) return { ok: true, target: cc, ghost: { col: oc.col, row: oc.row, w: oc.w, h: oc.h }, label: oc.missing ? 'Reconnect' : (oc.sample ? 'Replace sample' : (A.libDrag && e.shiftKey && n > 1 ? 'Play these ' + n + ' in turn' : 'Replace')) };
-    return { ok: true, target: cc, ghost: { col: cc.col, row: cc.row, w: 1, h: 1 }, label: n > 1 ? 'Add ' + n : 'Add' };
+    var n = A.libDrag ? A.libDrag.n : (e.dataTransfer && e.dataTransfer.items) ? e.dataTransfer.items.length : 1, coll = !!(A.libDrag && A.libDrag.coll);
+    if (oc) return { ok: true, target: cc, ghost: { col: oc.col, row: oc.row, w: oc.w, h: oc.h }, label: oc.missing ? 'Reconnect' : (oc.sample ? 'Replace sample' : coll ? 'Play the collection here' : (A.libDrag && e.shiftKey && n > 1 ? 'Play these ' + n + ' in turn' : 'Replace')) };
+    return { ok: true, target: cc, ghost: { col: cc.col, row: cc.row, w: 1, h: 1 }, label: coll ? 'Play it in the empty cells' : n > 1 ? 'Add ' + n : 'Add' };
   }
 
-  // Files from Explorer, or from the library (A.LIB_TYPE: their paths).
+  // Files from Explorer, or from the library (A.LIB_TYPE: { paths } of files or a folder, or { coll, name }).
   function filesIn(dt) {
     var types = Array.prototype.slice.call((dt && dt.types) || []);
     return types.indexOf('Files') > -1 || types.indexOf(A.LIB_TYPE) > -1;
   }
-  function libPaths(dt) {
-    try { var v = JSON.parse(dt.getData(A.LIB_TYPE) || '[]'); return Array.isArray(v) ? v.filter(function (p) { return typeof p === 'string' && p; }) : []; } catch (err) { return []; }
+  function libData(dt) {
+    try { var v = JSON.parse(dt.getData(A.LIB_TYPE) || 'null'); return v && typeof v === 'object' ? v : {}; } catch (err) { return {}; }
+  }
+  // A collection from the library: the tile it lands on plays it; anywhere else it fills the empty tiles and cells, as a
+  // folder does. Either way the playlist follows the collection as it changes (ui/playlists.js).
+  function dropCollection(lib, tgt) {
+    A.api.collectionFiles(lib.coll).then(function (entries) {
+      var res = { entries: entries || [], dirs: [], skipped: 0, unsupported: {}, coll: lib.coll, title: String(lib.name || 'Collection') };
+      if (!res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
+      var on = tgt ? (tgt.free ? itemUnderPoint(tgt) : G.itemAt(S.items, tgt.col, tgt.row)) : null;
+      if (on && !on.sample) A.assignFolder(on, res); else A.fillWithFolder(res, A.readPlOpts());
+    });
   }
   window.addEventListener('dragover', function (e) {
     e.preventDefault();
@@ -391,11 +401,13 @@
     }
     var dt = e.dataTransfer;
     if (!dt || !filesIn(dt)) return;
-    var fromLib = Array.prototype.indexOf.call(dt.types || [], A.LIB_TYPE) > -1;
+    var lib = Array.prototype.indexOf.call(dt.types || [], A.LIB_TYPE) > -1 ? libData(dt) : null, fromLib = !!lib;
     var plan2 = planDrop(e, true);
-    var paths = fromLib ? libPaths(dt) : Array.prototype.slice.call(dt.files || []).map(function (f) { return A.api.pathOf(f); }).filter(Boolean);
-    if (!paths.length) { A.toast('Could not read those files. Drop files or folders from Explorer.'); return; }
     var tgt = S.mode === 'free' ? { x: e.clientX, y: e.clientY, free: true } : (plan2 && plan2.target);
+    if (lib && typeof lib.coll === 'string' && lib.coll) { dropCollection(lib, tgt); return; }
+    var paths = lib ? (Array.isArray(lib.paths) ? lib.paths : []).filter(function (p) { return typeof p === 'string' && p; })
+      : Array.prototype.slice.call(dt.files || []).map(function (f) { return A.api.pathOf(f); }).filter(Boolean);
+    if (!paths.length) { A.toast('Could not read those files. Drop files or folders from Explorer.'); return; }
     // Shift while dropping several files from the library on a tile: that tile plays them in turn.
     var inTurn = fromLib && e.shiftKey && paths.length > 1;
     A.api.expand(paths).then(function (res) {

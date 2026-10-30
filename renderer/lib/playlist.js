@@ -1,5 +1,6 @@
 // Folder playlists: one folder feeds one or more tiles. A playlist is plain data:
-// { name, files: [{ path, name, kind }], types, shuffle, secs, randomStart, maxClip, fade, gifOnce, keepView, root, order, pos, truncated }.
+// { name, files: [{ path, name, kind }], types, shuffle, secs, randomStart, maxClip, fade, gifOnce, keepView, root, coll, order, pos, truncated }.
+// root: the folder it plays, watched for new files. coll: the library collection it plays instead, which it follows.
 // keepView: a tile keeps its zoom and the position of its media when it moves on to the next file.
 // types: which kinds of file it plays ('video', 'gif', 'image'). files keeps the whole folder, so turning a kind back
 // on needs no rescan; the others are skipped.
@@ -47,7 +48,7 @@
       name: (U.baseName(dir) || dir || 'Playlist').slice(0, 60), files: files.map(fileOf),
       shuffle: !!opts.shuffle, secs: U.clamp(+opts.secs || 10, 2, 300), randomStart: !!opts.randomStart,
       maxClip: U.clamp(+opts.maxClip || 0, 0, 3600), fade: U.clamp(+opts.fade || 0, 0, 5), gifOnce: !!opts.gifOnce,
-      keepView: !!opts.keepView, types: cleanTypes(opts.types), root: root || null, order: null, pos: 0, truncated: false
+      keepView: !!opts.keepView, types: cleanTypes(opts.types), root: root || null, coll: null, order: null, pos: 0, truncated: false
     };
   }
   // The folder a playlist came from, if every file really lives inside it. Used to pick up new files.
@@ -84,9 +85,23 @@
     p.files = files; p.order = done.concat(upcoming); p.pos = done.length;
     return added.length;
   }
+  // Its collection changed: these are its files now, in the collection's order. A shuffled playlist takes the change
+  // as a folder's (refresh); one in order follows the new order, carrying on after the file it played last. Returns how
+  // many files were added, or -1 when nothing changed.
+  function follow(p, entries, rnd) {
+    var files = entries.map(fileOf);
+    if (files.length === p.files.length && files.every(function (f, i) { return f.path === p.files[i].path; })) return -1;
+    if (p.shuffle) return refresh(p, entries, rnd);
+    var had = {}, last = p.order && p.pos > 0 ? p.files[p.order[p.pos - 1]] : null, at = -1;
+    p.files.forEach(function (f) { had[f.path] = true; });
+    files.forEach(function (f, i) { if (last && f.path === last.path) at = i; });
+    var added = files.filter(function (f) { return !had[f.path]; }).length;
+    p.files = files; p.order = makeOrder(files.length, false); p.pos = at > -1 ? at + 1 : Math.min(p.pos, files.length);
+    return added;
+  }
   // The stored fields of a playlist (no runtime extras).
   function fields(p) {
-    return { name: p.name, files: p.files, types: cleanTypes(p.types), shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, keepView: !!p.keepView, root: p.root, order: p.order, pos: p.pos, truncated: !!p.truncated };
+    return { name: p.name, files: p.files, types: cleanTypes(p.types), shuffle: p.shuffle, secs: p.secs, randomStart: p.randomStart, maxClip: p.maxClip, fade: p.fade, gifOnce: p.gifOnce, keepView: !!p.keepView, root: p.root, coll: p.coll || null, order: p.order, pos: p.pos, truncated: !!p.truncated };
   }
   // A copy for undo: the order is copied, the file list is shared (it is replaced, never changed in place).
   function clone(o) {
@@ -109,7 +124,7 @@
         name: typeof p.name === 'string' ? p.name.slice(0, 60) : 'Playlist', files: files, shuffle: !!p.shuffle, secs: U.clamp(+p.secs || 10, 2, 300),
         randomStart: !!p.randomStart, maxClip: U.clamp(+p.maxClip || 0, 0, 3600), fade: U.clamp(+p.fade || 0, 0, 5), gifOnce: !!p.gifOnce, keepView: !!p.keepView,
         types: cleanTypes(p.types),
-        root: typeof p.root === 'string' ? p.root : null, order: order, pos: order ? U.clamp(p.pos | 0, 0, order.length) : 0, truncated: !!p.truncated
+        root: typeof p.root === 'string' ? p.root : null, coll: typeof p.coll === 'string' && p.coll ? p.coll : null, order: order, pos: order ? U.clamp(p.pos | 0, 0, order.length) : 0, truncated: !!p.truncated
       };
     });
     return out;
@@ -125,6 +140,6 @@
 
   return {
     MAX_FILES: MAX_FILES, TYPES: TYPES, typeOf: typeOf, cleanTypes: cleanTypes, plays: plays, playable: playable, typesLabel: typesLabel,
-    makeOrder: makeOrder, nextFile: nextFile, make: make, rootFor: rootFor, refresh: refresh, fields: fields, clone: clone, clean: clean
+    makeOrder: makeOrder, nextFile: nextFile, make: make, rootFor: rootFor, refresh: refresh, follow: follow, fields: fields, clone: clone, clean: clean
   };
 });

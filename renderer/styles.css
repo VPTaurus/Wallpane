@@ -552,6 +552,14 @@ body.clean .lib { display: none !important; }
 }
 .lfolder { display: flex; align-items: center; gap: 8px; flex: none; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; text-align: left; font-size: 13px; }
 .lfolder:hover { background: var(--panel-2); }
+.lfhead { flex: none; margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--line); font: 500 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lfolder.newcoll { color: var(--muted); }
+.lfolder.droptarget { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.lfinput { flex: none; height: 28px; margin: 0 2px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg); font-size: 13px; outline: none; }
+/* Where files dragged inside a collection will go: a bar before or after the thumbnail under the pointer. */
+.lthumb.dropbefore::before, .lthumb.dropafter::before { content: ""; position: absolute; top: 0; bottom: 0; z-index: 2; width: 4px; border-radius: 2px; background: var(--accent); }
+.lthumb.dropbefore::before { left: 0; }
+.lthumb.dropafter::before { right: 0; }
 .lfolder[aria-current="true"] { background: var(--accent-soft); font-weight: 700; }
 .lfolder > .ic { color: var(--muted); }
 .lfolder.off .lfname { color: var(--danger); }

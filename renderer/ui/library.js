@@ -107,23 +107,26 @@
   var root = $('#lib');
   A.libHost = {
     places: true,
+    dragCollections: true,
     isOpen: function () { return !root.hidden; },
     put: putOnWall,
-    menu: function (paths, x, y) {
+    // extra: the view's own items (collections).
+    menu: function (paths, x, y, extra) {
       var n = paths.length, it = A.selected(), tile = it && !it.sample ? it : null;
       A.showMenu(x, y, [
         { label: n > 1 ? 'Put these ' + n + ' on the wall' : 'Put on the wall', icon: 'plus', hint: n === 1 && tile ? 'On the selected tile' : 'Into the empty tiles first, then new ones', act: function () { putOnWall(paths); } },
         { label: n > 1 ? 'Play them in turn on the selected tile' : 'Show on the selected tile', icon: n > 1 ? 'playlist' : 'tile', disabled: !tile, hint: tile ? '' : 'Select a tile on the wall first', act: function () { onTile(tile, paths); } },
         '-',
         { label: 'Show in Explorer', icon: 'folder', disabled: n !== 1, act: function () { api.revealFile(paths[0]); } }
-      ]);
+      ].concat(extra || []));
     },
-    // The drawer fades and lets the drop through, so a tile under it can take it too; the panel covers nothing.
-    dragOut: function (e, paths) {
-      e.dataTransfer.setData(A.LIB_TYPE, JSON.stringify(paths));
-      e.dataTransfer.effectAllowed = 'copy';
-      A.libDrag = { n: paths.length };
-      if (S.lib.place === 'drawer') setTimeout(function () { root.classList.add('out'); }, 0);
+    // Files (paths) or a collection (info.coll) leave as a page drag the wall understands (ui/media.js). info.ids and
+    // info.reorder serve the view: adding to a collection, changing its order.
+    dragOut: function (e, paths, info) {
+      info = info || {};
+      e.dataTransfer.setData(A.LIB_TYPE, JSON.stringify(info.coll ? { coll: info.coll, name: info.name } : { paths: paths }));
+      e.dataTransfer.effectAllowed = 'copyMove';   // copy onto the wall, move within a collection
+      A.libDrag = { n: info.coll ? 1 : paths.length, ids: info.ids || null, reorder: !!info.reorder, coll: info.coll || null };
     },
     dragEnd: function () { root.classList.remove('out'); A.libDrag = null; },
     overSelf: function () { A.hideGhost(); A.wall.classList.remove('hot'); },
@@ -152,6 +155,11 @@
   };
   $('#libBtn').addEventListener('click', function () { A.closePops(); A.toggleLibrary(); });
   api.onLibraryWindow(function (shown) { if (S.lib.place === 'window') $('#libBtn').setAttribute('aria-pressed', String(shown)); });
+  // While a drag stays inside the drawer, it may land there (a collection, a new place in one). Once it leaves, the
+  // drawer fades and lets drops through, so a tile under it can take them too. The panel covers nothing.
+  root.addEventListener('dragleave', function (e) {
+    if (A.libDrag && S.lib.place === 'drawer' && !root.contains(e.relatedTarget)) root.classList.add('out');
+  });
 
   // A drawer over the wall, a panel beside it (which makes the wall narrower), or a window of its own.
   var PLACES = {
