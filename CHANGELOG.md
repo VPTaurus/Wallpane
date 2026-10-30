@@ -6,6 +6,7 @@
 - **GIFs as videos:** big GIFs (over 2 MB unless chosen otherwise) get a small video copy and play far more smoothly, still silent and looping.
 - **Background work** shows in the bar while it runs, with a list where each job can be stopped.
 - **Settings › Storage:** how much the cache holds, a size limit, Show folder and Clear.
+- **Sponsor on GitHub:** Settings › About has a link to Wallpane's GitHub Sponsors page. The app stays free either way.
 
 ## 1.3.0
 

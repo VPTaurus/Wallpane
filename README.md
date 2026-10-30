@@ -8,6 +8,8 @@ Wallpane used to be called Media Wall. On its first start it copies your saved w
 
 Wallpane is free software under the [GNU General Public License, version 3 or later](LICENSE).
 
+If Wallpane is useful to you, you can support its development on [GitHub Sponsors](https://github.com/sponsors/VPTaurus). It stays free either way.
+
 ## Run it
 1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
 2. In this folder: `npm install`
