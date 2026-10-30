@@ -44,7 +44,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 ## D. Previews and a smoother wall (1.6.0)
 - [ ] **D1. Hover previews** in the library: a few seconds of the video, small.
 - [ ] **D2. Timeline previews** on video tiles: hovering over the timeline shows the frame there (a strip of small frames made once per video).
-- [ ] **D3. Lighter copies (proxies).** When a tile is small and the video is big (say 4K on a quarter of a 1080p screen), the tile plays a 720p copy; full screen goes back to the original. Setting: automatic or off, with its own share of the cache.
+- [x] **D3. Lighter copies (proxies).** When a tile is small and the video is big (say 4K on a quarter of a 1080p screen), the tile plays a lighter copy; full screen goes back to the original. Setting: automatic or off. Done early, in 1.5.0, after a report of lag with two walls of 26 and 36 tiles: copies of at most 960 px and 30 fps for videos from 1440 px, on tiles up to 960 screen px (`lib/playable.js` proxyKind, `renderer/ui/playable.js`). They share the cache's limit rather than having their own share.
 - [ ] **D4. Even loudness.** Each video is measured once (EBU R128) and gets a stored gain, so a loud clip beside a quiet one plays at the same level when unmuted. Setting: on or off.
 - [ ] **D5. Skip black or silent starts.** Clips that open with black or silence start after it.
 

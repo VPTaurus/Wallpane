@@ -49,10 +49,12 @@
       // A video that does not play as it is gets a playable copy first (ui/playable.js): the copy if one is made, the
       // file itself when it should play, nothing while that is being found out.
       media.addEventListener('error', function () {
-        if (!media.getAttribute('src')) return;
+        if (!media.getAttribute('src') || A.proxyFailed(it, media)) return;
         el.classList.add('broken');
         A.didNotPlay(it);
       });
+      // A big video on a small tile plays from a lighter copy (ui/playable.js); its size is known from here on.
+      media.addEventListener('loadedmetadata', function () { A.checkProxy(it); });
       var src = A.playableSrc(it);
       if (src) media.src = src;
       watchVideo(it, el, media);
@@ -204,7 +206,12 @@
     var seek = bar.querySelector('.vseek'), vol = bar.querySelector('.vvol'), speed = bar.querySelector('.vspeed');
     var time = bar.querySelector('.vtime'), loopEl = bar.querySelector('.vloop'), dragging = false;
     function dur() { return isFinite(media.duration) ? media.duration : 0; }
-    el._syncBar = function () {
+    // Brought up to date only while it can be seen (the pointer over the tile, the tile selected, or a control in use):
+    // dozens of hidden bars changing a few times a second add up on a full wall. true: now, whatever.
+    function seen() { return el.matches(':hover') || el.classList.contains('sel') || bar.contains(document.activeElement); }
+    el.addEventListener('pointerenter', function () { el._syncBar(true); });
+    el._syncBar = function (now) {
+      if (now !== true && !seen()) return;
       var d = dur();
       time.textContent = P.fmtTime(media.currentTime) + (d ? ' / ' + P.fmtTime(d) : '');
       if (!dragging && d) seek.value = Math.round(media.currentTime / d * 1000);
@@ -237,12 +244,19 @@
       if (to != null) media.currentTime = to;
     }
     media.addEventListener('timeupdate', function () { check(media.currentTime); });
-    // Frame by frame where the browser can, so the jump back lands on time.
-    if (media.requestVideoFrameCallback) media.requestVideoFrameCallback(function cb(now, meta) {
-      if (!media.isConnected) return;
-      check(meta.mediaTime);
-      media.requestVideoFrameCallback(cb);
-    });
+    // Frame by frame where the browser can, so the jump back lands on time; only while a part loops (syncTile starts it),
+    // as a call on every frame of every video would cost a full wall dearly.
+    var framing = false;
+    el._frames = function () {
+      if (framing || !media.requestVideoFrameCallback || it.pl || !P.hasLoop(it)) return;
+      framing = true;
+      media.requestVideoFrameCallback(function cb(now, meta) {
+        if (!media.isConnected || it.pl || !P.hasLoop(it)) { framing = false; return; }
+        check(meta.mediaTime);
+        media.requestVideoFrameCallback(cb);
+      });
+    };
+    el._frames();
     media.addEventListener('ended', function () {
       if (!it.pl && P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
     });
@@ -550,6 +564,7 @@
       m.volume = it.vol == null ? 1 : it.vol;
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
       m.loop = it.loop && (it.pl || !P.hasLoop(it));   // a loop part does its own looping
+      if (el._frames) el._frames();
       if (el._syncBar) el._syncBar();
     }
     // The buttons only change when these do, so leave their markup alone otherwise (render runs on every drag step).
@@ -682,6 +697,7 @@
     A.updateHistoryButtons();
     A.scheduleSession();
     A.syncWatches();
+    A.checkProxiesLater();
   };
 
   /* ---------- play / mute / loop buttons in the bar ---------- */

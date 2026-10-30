@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const MI = require('../../lib/mediainfo');
-const { argsFor, playableKind, gifVideoKind } = require('../../lib/playable');
+const { argsFor, playableKind, gifVideoKind, proxyKind, PROXY } = require('../../lib/playable');
 const { createCache } = require('../../lib/cache');
 
 test('the arguments: copy, copy the picture, or convert, always into a .part file', () => {
@@ -75,6 +75,22 @@ test('a GIF becomes a small, silent video of the same length', { skip }, async (
   assert.equal(made.audio, null);
   assert.ok(made.duration > 1.7 && made.duration < 2.3);
   assert.ok(fs.statSync(r.path).size < fs.statSync(gif).size, 'smaller than the GIF');
+});
+
+test('a lighter copy is at most PROXY on its long side, either way round, and never larger than the original', { skip }, async () => {
+  const cache = createCache(path.join(dir, 'cache4')), kind = proxyKind({ ffmpeg: ff, cache });
+  const ctx = () => ({ signal: new AbortController().signal, progress: () => {} });
+  const cases = [['wide.mp4', '1920x1080', [PROXY, 540]], ['tall.mp4', '1080x1920', [540, PROXY]], ['small.mp4', '640x360', [640, 360]]];
+  for (const [name, size, want] of cases) {
+    const file = await clip(name, 'libx264', 'aac', 1, ['-s', size, '-pix_fmt', 'yuv420p']);
+    const r = await kind.run({ input: { file } }, ctx());
+    assert.equal(path.dirname(r.path), path.join(dir, 'cache4', 'proxies'));
+    const made = MI.describe(await ff.probeRaw(r.path));
+    assert.deepEqual([made.video.width, made.video.height], want, name);
+    assert.equal(made.audio.codec, 'aac', name + ' keeps its sound');
+    assert.equal(MI.verdict(made).action, 'none', name + ' plays');
+    assert.equal((await kind.run({ input: { file } }, ctx())).path, r.path, 'made once');
+  }
 });
 
 test('cancelling leaves no half-made file', { skip }, async () => {

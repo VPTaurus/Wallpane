@@ -210,9 +210,11 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
   display: flex; align-items: center; gap: 6px; padding: 18px 18px 12px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); border-radius: 0 0 var(--r) var(--r);
-  color: #fff; opacity: 0; transition: opacity 0.15s; pointer-events: none;
+  color: #fff; pointer-events: none;
+  /* Hidden, it is not drawn at all (dozens of see-through bars still cost a full wall); it fades in, and out. */
+  opacity: 0; visibility: hidden; transition: opacity 0.15s, visibility 0s 0.15s;
 }
-.tile:hover .vbar, .tile:focus-visible .vbar, .tile:has(:focus-visible) .vbar, .vbar:focus-within { opacity: 1; pointer-events: auto; }
+.tile:hover .vbar, .tile:focus-visible .vbar, .tile:has(:focus-visible) .vbar, .vbar:focus-within { opacity: 1; visibility: visible; transition: opacity 0.15s; pointer-events: auto; }
 .vbar > * { flex: none; }   /* only the timeline gives up room */
 .vtime { font: 400 11px/1 var(--mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .vbar .vtrack { position: relative; flex: 1 1 0; min-width: 30px; display: flex; align-items: center; height: 20px; }
@@ -244,10 +246,10 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 12px 18px; background: linear-gradient(rgba(0,0,0,0.7), transparent);   /* clear of the resize grips (.rz) */
   border-radius: var(--r) var(--r) 0 0;
-  opacity: 0; transition: opacity 0.15s; color: #fff;
+  opacity: 0; visibility: hidden; transition: opacity 0.15s, visibility 0s 0.15s; color: #fff;   /* hidden: not drawn */
 }
 /* Shown on hover, and on keyboard focus (not after a click, so a clicked tile does not keep its buttons over the media). */
-.tile:hover .hud, .tile:focus-visible .hud, .tile:has(:focus-visible) .hud { opacity: 1; }
+.tile:hover .hud, .tile:focus-visible .hud, .tile:has(:focus-visible) .hud { opacity: 1; visibility: visible; transition: opacity 0.15s; }
 .tname { font: 400 11px/1 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .hbtns { display: flex; gap: 4px; flex: none; }
 .hb { pointer-events: auto; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: rgba(0,0,0,0.55); color: #fff; padding: 0; }

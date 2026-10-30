@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('wall', {
   ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
   gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
   mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
+  mediaProxy: (p) => ipcRenderer.invoke('media:proxy', String(p)),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
@@ -85,5 +86,6 @@ contextBridge.exposeInMainWorld('wall', {
 
   // about: name, version, licence, and the app's own links (opened in the browser)
   appInfo: () => ipcRenderer.invoke('app:info'),
+  gpuInfo: () => ipcRenderer.invoke('app:gpu'),
   openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
 });

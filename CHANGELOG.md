@@ -20,6 +20,12 @@ And on the wall:
 - **A fresh start:** Wallpane starts with an empty wall and offers your last one (Restore it, or Start empty; starting empty keeps it in Saved walls as "Last wall"). Settings › General can open the last wall straight away instead. A wall that starts in wall mode still opens as it was.
 - **New wall window** is a button in the top bar now, beside Wall mode.
 
+Smoother with many tiles:
+- **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.
+- **The faster graphics card:** on a PC with two (the processor's own and an NVIDIA or AMD card), Wallpane now asks Windows for the faster one. Settings › About shows which one plays the wall, and whether it decodes the videos.
+- **Less work while playing:** a tile's controls are only kept up to date while you can see them, and only videos with a looped part are followed frame by frame.
+- **Background work** keeps only the last 100 finished jobs in its list, and a lighter copy no longer needed (a playlist moved on) is dropped before it starts.
+
 ## 1.4.0: Play anything
 
 Download **Wallpane Setup 1.4.0.exe** (installer) or **Wallpane 1.4.0.exe** (portable). Both are larger than before (about 178 and 162 MB) because FFmpeg now comes inside. Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

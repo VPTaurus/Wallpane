@@ -29,7 +29,7 @@ const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
 const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
-const { playableKind, gifVideoKind } = require('./lib/playable');
+const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
 const { imageSize } = require('./lib/imagesize');
@@ -45,6 +45,9 @@ const LINKS = {
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// A PC with two graphics chips (an Intel one in the processor and a graphics card): use the card, which decodes and
+// draws dozens of videos far better.
+app.commandLine.appendSwitch('force_high_performance_gpu');
 
 // One entry per open wall window: id (1, 2, ...) -> BrowserWindow. Window 1 keeps the original data file names.
 const wins = new Map();
@@ -143,6 +146,7 @@ function startBackground() {
   });
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
+  JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -187,6 +191,17 @@ handle('media:gifVideo', (_e, p, minBytes) => {
   const made = cache.find('converted', p, 'mp4');
   if (made) return { status: 'ready', path: made };
   const job = jobs.add({ kind: 'gifvideo', key: 'gifvideo:' + cache.keyOf(p), label: path.basename(p), input: { file: p }, priority: 'background' });
+  return { status: 'working', key: job.key };
+});
+// A lighter copy of a big video, for a small tile (lib/playable.js proxyKind): { status: 'ready', path }, or 'working'
+// with the key of the background job making one, or 'no' (no FFmpeg, or the file is gone).
+handle('media:proxy', (_e, p) => {
+  if (typeof p !== 'string' || !ffmpeg.available() || !jobs) return { status: 'no' };
+  let key;
+  try { key = cache.keyOf(p); } catch { return { status: 'no' }; }
+  const made = cache.find('proxies', p, 'mp4');
+  if (made) return { status: 'ready', path: made };
+  const job = jobs.add({ kind: 'proxy', key: 'proxy:' + key, label: path.basename(p), input: { file: p }, priority: 'background' });
   return { status: 'working', key: job.key };
 });
 handle('cache:info', () => cacheInfo());
@@ -465,6 +480,17 @@ handle('app:info', () => ({
   name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS,
   ffmpeg: ffmpegBuild ? { version: ffmpegBuild.version, by: ffmpegBuild.by, license: ffmpegBuild.license } : null
 }));
+// The graphics chip Chromium draws and decodes with, for Settings › About: { name, decode } (decode: videos are decoded
+// on it rather than by the processor), or null.
+handle('app:gpu', async () => {
+  try {
+    const info = await app.getGPUInfo('complete');
+    const dev = (info.gpuDevice || []).find((d) => d.active) || (info.gpuDevice || [])[0] || {};
+    const m = /ANGLE \([^,]+, (.+?)(?: \(0x[0-9a-f]+\))? Direct3D/i.exec((info.auxAttributes && info.auxAttributes.glRenderer) || '');
+    const name = dev.deviceString || (m && m[1]) || '';
+    return { name: name.trim() || 'Unknown', decode: /^enabled/.test(app.getGPUFeatureStatus().video_decode || '') };
+  } catch { return null; }
+});
 // Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
   if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);

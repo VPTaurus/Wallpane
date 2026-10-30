@@ -190,3 +190,40 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('a big video on a small tile plays from a lighter copy, paused or playing as it was; a 720p one keeps its file', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const make = (name, size) => ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=' + size + ':rate=25:duration=8', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', path.join(dir, name)], { timeoutMs: 60000 });
+  await make('big.mp4', '1920x1080');
+  await make('small.mp4', '1280x720');
+  const { app, page, errors, answer } = await start(dir);
+  const video = (name) => page.locator('#wall .tile[aria-label^="' + name + '"] video');
+  const src = (name) => video(name).getAttribute('src');
+  const state = (name) => video(name).evaluate((v) => ({ paused: v.paused, t: v.currentTime }));
+  try {
+    await answer([path.join(dir, 'big.mp4'), path.join(dir, 'small.mp4')]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => src('big.mp4'), { timeout: 60000 }).toMatch(/proxies/);
+    await expect.poll(async () => (await state('big.mp4')).paused).toBe(false);
+    expect(await src('small.mp4')).not.toMatch(/proxies/);
+    const kinds = await page.evaluate(() => window.wall.jobs().then((l) => l.map((j) => j.kind)));
+    expect(kinds.filter((k) => k === 'proxy')).toHaveLength(1);
+
+    // Paused, then the setting off: the original again, still paused, from about the same moment.
+    const id = await page.locator('#wall .tile[aria-label^="big.mp4"]').getAttribute('data-id');
+    await tileButton(page, id, 'play');
+    await expect.poll(async () => (await state('big.mp4')).paused).toBe(true);
+    const t = (await state('big.mp4')).t;
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.selectOption('#setProxies', 'off');
+    await page.keyboard.press('Escape');
+    await expect.poll(() => src('big.mp4')).not.toMatch(/proxies/);
+    await page.waitForTimeout(800);
+    const after = await state('big.mp4');
+    expect(after.paused).toBe(true);
+    expect(Math.abs(after.t - t)).toBeLessThan(0.5);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

@@ -298,6 +298,10 @@
                 <select id="setGifVideo"><option value="off">Off</option><option value="2">Larger than 2 MB</option><option value="10">Larger than 10 MB</option><option value="all">All GIFs</option></select>
               </div>
               <p class="note">A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.</p>
+              <div class="frow"><label for="setProxies">Lighter copies for small tiles</label>
+                <select id="setProxies"><option value="auto">On</option><option value="off">Off</option></select>
+              </div>
+              <p class="note">A large video (1440p, 4K) on a small tile plays from a lighter copy, made once in the background, so many tiles play smoothly. Full screen and large tiles play the original.</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
@@ -412,6 +416,7 @@
               <div class="about" id="aboutBox">
                 <p id="aboutLine">Wallpane</p>
                 <p class="note" id="aboutFfmpeg"></p>
+                <p class="note" id="aboutGpu"></p>
                 <div class="row" id="aboutLinks"></div>
               </div>
               <span class="lab">Your data</span>

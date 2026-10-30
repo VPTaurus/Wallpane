@@ -286,6 +286,10 @@
       $('#aboutFfmpeg').textContent = f
         ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
         : 'FFmpeg is not in this copy (npm run fetch-ffmpeg adds it), so converting files is not available.';
+      // Which graphics chip draws the wall, and whether it decodes the videos (else the processor does, far slower).
+      api.gpuInfo().then(function (g) {
+        $('#aboutGpu').textContent = g ? 'Graphics: ' + g.name + (g.decode ? ' · videos are decoded on it' : ' · videos are decoded by the processor, which is slower') : '';
+      });
       var box = $('#aboutLinks'), links = [];
       if (info.links.source) links.push(['Source code', info.links.source]);
       if (info.links.ffmpeg) links.push(['FFmpeg source', info.links.ffmpeg]);
@@ -356,6 +360,7 @@
     $('#setStartWith').value = S.startWith;
     $('#setConvert').checked = S.autoConvert;
     $('#setGifVideo').value = S.gifVideo;
+    $('#setProxies').value = S.proxies;
     $('#setResize').value = S.resizeMode;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');

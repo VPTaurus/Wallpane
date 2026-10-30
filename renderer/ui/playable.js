@@ -17,9 +17,13 @@
   // The url a new video element starts with: its copy or the file once known; the file itself when its kind
   // normally plays; nothing for AVI, WMV and the like until their copy is there.
   A.playableSrc = function (it) {
+    if (it._small && S.proxies !== 'off' && proxies[it.path]) return proxies[it.path];   // a small tile: its lighter copy
+    return fullSrc(it);
+  };
+  function fullSrc(it) {
     if (known[it.path]) return known[it.path];
     return it.path && F.convertible(it.path) ? null : it.url;
-  };
+  }
 
   function busyEl(it, make) {
     var el = A.tileEls.get(it.id);
@@ -122,7 +126,75 @@
       else setBusy(it, { text: what(it._verdict, j.progress) + (j.state === 'queued' ? ' (waiting)' : ''), hint: it._verdict ? 'Because of ' + it._verdict.why + '. Your file stays as it is.' : '', progress: j.progress });
     });
   }
-  A.onJobsChanged = function (list) { jobsNow = list; follow(); followGifs(); };
+  A.onJobsChanged = function (list) { jobsNow = list; follow(); followGifs(); followProxies(); };
+
+  /* ---------- lighter copies for small tiles ---------- */
+  // A video much bigger than its tile plays from a lighter copy (lib/playable.js proxyKind: made once in the background,
+  // kept in the cache), from the same moment; when the tile grows, or plays alone full screen, it goes back to the
+  // original. Settings › General can turn this off. Sizes are in screen pixels, so a scaled display counts right.
+  var proxies = {}, proxyJobs = {}, proxyBad = {}, bigOf = {};   // path -> copy url; job key -> path; failed; original's long side
+  var BIG = 1440, SMALL = 960, LEAVE = 1100;   // originals from BIG on; tiles up to SMALL take the copy, over LEAVE leave it
+  function tileLong(el) {
+    var r = el.getBoundingClientRect();
+    return Math.max(r.width, r.height) * (window.devicePixelRatio || 1);
+  }
+  // Swaps the element's source, carrying on from the same moment, playing or paused as it was (pause() also stops
+  // autoplay starting it). A video that has not started yet is about to play by itself, unless a swap held it before.
+  function swapSrc(m, url) {
+    if (!url || m.getAttribute('src') === url) return;
+    var t = m.currentTime, playing = !m.paused || (m.autoplay && !m.played.length && !m._held);
+    m._held = !playing;
+    m.src = url;
+    m.addEventListener('loadedmetadata', function () {
+      try { m.currentTime = t; } catch (e) { /* from the start then */ }
+      if (playing) m.play().catch(function () {}); else m.pause();
+    }, { once: true });
+  }
+  // A lighter copy that does not play: back to the original, and no copy for this file again. True when it was one.
+  A.proxyFailed = function (it, m) {
+    var copy = it.path && proxies[it.path];
+    if (!copy || m.getAttribute('src') !== copy) return false;
+    proxyBad[it.path] = true; delete proxies[it.path]; it._small = false;
+    swapSrc(m, fullSrc(it));
+    return true;
+  };
+  A.checkProxy = function (it) {
+    var el = A.tileEls.get(it.id), m = el && el._media;
+    if (!m || m.tagName !== 'VIDEO' || it.kind !== 'video' || !it.path) return;
+    var copy = proxies[it.path], using = !!copy && m.getAttribute('src') === copy;
+    if (!using && m.videoWidth) bigOf[it.path] = Math.max(m.videoWidth, m.videoHeight);
+    var want = S.proxies !== 'off' && A.hasFfmpeg && (bigOf[it.path] || 0) >= BIG && A.soloId !== it.id && tileLong(el) <= (using ? LEAVE : SMALL);
+    it._small = want;
+    if (!want) { if (using) swapSrc(m, fullSrc(it)); return; }
+    if (using) return;
+    if (copy) { swapSrc(m, copy); return; }
+    if (proxyBad[it.path] || Object.keys(proxyJobs).some(function (k) { return proxyJobs[k] === it.path; })) return;
+    api.mediaProxy(it.path).then(function (r) {
+      if (r.status === 'ready') { proxies[it.path] = U.fileUrl(r.path); A.checkProxy(it); }
+      else if (r.status === 'working') proxyJobs[r.key] = it.path;
+      else proxyBad[it.path] = true;
+    });
+  };
+  // Every video tile, a moment after the wall changed (tiles moved or resized, the window resized, full screen).
+  var proxyTimer = 0;
+  A.checkProxiesLater = function () {
+    clearTimeout(proxyTimer);
+    proxyTimer = setTimeout(function () { S.items.forEach(function (it) { if (it.kind === 'video') A.checkProxy(it); }); }, 600);
+  };
+  window.addEventListener('resize', A.checkProxiesLater);
+  // A copy still waiting for a file no small tile shows any more (a playlist moved on) is not made after all.
+  function followProxies() {
+    Object.keys(proxyJobs).forEach(function (key) {
+      var j = jobsNow.find(function (x) { return x.key === key; }), p = proxyJobs[key];
+      if (j && j.state === 'queued' && !S.items.some(function (it) { return it.path === p && it._small; })) {
+        delete proxyJobs[key]; api.cancelJob(j.id); return;
+      }
+      if (!j || j.state === 'queued' || j.state === 'running') return;
+      delete proxyJobs[key];
+      if (j.state === 'done' && j.result) proxies[p] = U.fileUrl(j.result.path); else proxyBad[p] = true;
+      S.items.forEach(function (it) { if (it.path === p) A.checkProxy(it); });
+    });
+  }
 
   /* ---------- GIF to video ---------- */
   // A GIF over the size chosen in Settings gets a video copy in the background, and plays from it once it is made.
@@ -165,6 +237,7 @@
     });
   }
   $('#setGifVideo').addEventListener('change', function () { S.gifVideo = this.value; A.savePrefs(); });
+  $('#setProxies').addEventListener('change', function () { S.proxies = this.value; A.savePrefs(); A.checkProxiesLater(); });
 
   // Settings › General: convert on its own, or only when asked.
   $('#setConvert').addEventListener('change', function () { S.autoConvert = this.checked; A.savePrefs(); });
