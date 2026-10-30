@@ -646,10 +646,10 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await page.locator('#clock24').setChecked(true);
   await expect(page.locator('#clock')).not.toHaveText(/M$/);
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).clock24).toBe(true);
-  // Stopwatch
+  // Stopwatch (not ticked for the bar, so it runs in the popover only)
   await page.click('#swGo');
-  await expect(page.locator('#swChip')).toBeVisible();
   await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
+  await expect(page.locator('#swChip')).toBeHidden();
   await page.click('#swLap');
   await expect(page.locator('#swLaps li')).toHaveCount(1);
   await page.click('#swGo');                                   // pause
@@ -658,15 +658,13 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#swTime')).toHaveText(held);
   await page.click('#swReset');
   await expect(page.locator('#swTime')).toHaveText('0:00.0');
-  await expect(page.locator('#swChip')).toBeHidden();
-  // Timer: 2 seconds
+  // Timer: 2 seconds (not in the bar either; it still rings)
   await page.locator('#tmSet').fill('0:02');
   await page.click('#tmGo');
-  await expect(page.locator('#tmChip')).toBeVisible();
-  await expect(page.locator('#tmChip')).toHaveClass(/\bdone\b/, { timeout: 6000 });
+  await expect(page.locator('#tmTime')).toHaveClass(/\bdone\b/, { timeout: 6000 });
   await expect(toast()).toContainText('is up');
-  await page.click('#tmReset');
   await expect(page.locator('#tmChip')).toBeHidden();
+  await page.click('#tmReset');
   await expect(page.locator('#tmTime')).toHaveText('0:02');
   // "In the bar": the stopwatch and timer stay in the bar with a start/pause button; the clock can go (its icon stays).
   await page.locator('#showSw').check();
@@ -691,23 +689,30 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await page.click('#tmCtl');
   await expect(page.locator('#tmChip')).not.toHaveClass(/\bdone\b/);
   await expect(page.locator('#tmChipT')).toHaveText('0:02');
-  // A chip's time opens the popover; back to only the clock in the bar.
+  // A chip's time opens the popover. Unticking takes them off the bar and resets them: the stopwatch (paused with
+  // time on it) and a running timer.
   await page.click('#swOpen');
   await expect(page.locator('#popT')).toBeVisible();
-  await page.click('#swReset');
+  await expect(page.locator('#swTime')).not.toHaveText('0:00.0');
+  await page.click('#tmGo');
+  await expect(page.locator('#tmGo')).toHaveText('Pause');
   await page.locator('#showSw').uncheck();
   await page.locator('#showTm').uncheck();
   await page.locator('#showClock').check();
   await expect(page.locator('#swChip')).toBeHidden();
   await expect(page.locator('#tmChip')).toBeHidden();
+  await expect(page.locator('#swTime')).toHaveText('0:00.0');
+  await expect(page.locator('#tmGo')).toHaveText('Start');
+  await expect(page.locator('#tmTime')).toHaveText('0:02');
   await expect(page.locator('#clock')).toBeVisible();
-  // Counter: + and − in the popover; in the bar its + adds one and a right-click takes one away. Kept for next time.
+  // Counter: + and − in the popover; in the bar its + adds one and a right-click takes one away. Kept for next time;
+  // unticking resets it.
+  await page.locator('#showCt').check();
   await page.click('#ctPlus');
   await page.click('#ctPlus');
   await expect(page.locator('#ctNum')).toHaveText('2');
   await page.click('#ctMinus');
   await expect(page.locator('#ctNum')).toHaveText('1');
-  await expect(page.locator('#ctChip')).toBeVisible();          // not at 0, so it shows without the tick
   await page.keyboard.press('Escape');
   await page.click('#ctCtl');
   await page.click('#ctCtl');
@@ -716,8 +721,10 @@ test('time in the bar: clock, stopwatch with laps, and a timer that rings', asyn
   await expect(page.locator('#ctChipT')).toHaveText('2');
   await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(2);
   await page.click('#ctOpen');
-  await page.click('#ctReset');
+  await page.locator('#showCt').uncheck();
   await expect(page.locator('#ctChip')).toBeHidden();
+  await expect(page.locator('#ctNum')).toHaveText('0');
+  await expect.poll(() => JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8')).counter).toBe(0);
   await page.keyboard.press('Escape');
 });
 

@@ -1,7 +1,7 @@
 // The time in the bar: a clock, a stopwatch and a countdown timer that keep running in the background (also in wall
-// mode), and a counter. The popover's "In the bar" boxes choose what the bar always shows: the clock (else a small
+// mode), and a counter. The popover's "In the bar" boxes alone choose what the bar shows: the clock (else a small
 // clock icon, so the popover can still be opened), and chips for the others with a button each (start/pause, or +1
-// for the counter). A stopwatch or timer in use, or a counter not at 0, shows anyway.
+// for the counter). Unticking the stopwatch, timer or counter also resets it.
 (function (A) {
   'use strict';
   if (!A) return;
@@ -43,20 +43,20 @@
     setText('clock', C.fmtClock(d, h24(), false));
     setFlags('clock', { hidden: !bar.clock });
     setFlags('clockIcon', { hidden: bar.clock });
-    // The stopwatch chip: when ticked, or while in use; dimmed while it is not running.
+    // The stopwatch chip: when ticked; dimmed while it is not running.
     var swMs = C.elapsed(sw, now), swOn = C.running(sw);
-    setFlags('swChip', { hidden: !bar.sw && !swOn && !swMs, dim: !swOn });
+    setFlags('swChip', { hidden: !bar.sw, dim: !swOn });
     setText('swChipT', C.fmt(swMs, false));
     setCtl('swCtl', swOn ? 'pause' : 'play', swOn ? 'Pause the stopwatch' : (swMs ? 'Resume the stopwatch' : 'Start the stopwatch'));
     // The timer: counts down, and rings once at zero.
     var tmOn = C.running(tm), left = C.left(tm, now), tmUsed = C.elapsed(tm, now) > 0;
     if (tmOn && left <= 0) { C.pause(tm, now); tmOn = false; tmDone = true; ring(); }
-    setFlags('tmChip', { hidden: !bar.tm && !tmOn && !tmDone && !tmUsed, dim: !tmOn && !tmDone, done: tmDone });
+    setFlags('tmChip', { hidden: !bar.tm, dim: !tmOn && !tmDone, done: tmDone });
     setText('tmChipT', C.fmtLeft(left));
     setCtl('tmCtl', tmDone ? 'reset' : tmOn ? 'pause' : 'play',
       tmDone ? 'Reset the timer' : tmOn ? 'Pause the timer' : (tmUsed ? 'Resume the timer' : 'Start the timer'));
-    // The counter: when ticked, or while it is not at 0.
-    setFlags('ctChip', { hidden: !bar.ct && !S.counter });
+    // The counter: when ticked.
+    setFlags('ctChip', { hidden: !bar.ct });
     setText('ctChipT', String(S.counter));
     if (popOpen()) {
       setText('bigClock', C.fmtClock(d, h24(), true));
@@ -113,8 +113,18 @@
     shown = {};
     renderLaps(); tick();
   };
+  // Unticking takes it off the bar and resets it (the clock just goes).
+  var resetters = {
+    sw: function () { C.reset(sw); renderLaps(); },
+    tm: function () { setTimer(tm.total); },
+    ct: function () { S.counter = 0; }
+  };
   [['showClock', 'clock'], ['showSw', 'sw'], ['showTm', 'tm'], ['showCt', 'ct']].forEach(function (p) {
-    $('#' + p[0]).addEventListener('change', function () { S.timeBar[p[1]] = this.checked; A.savePrefs(); tick(); });
+    $('#' + p[0]).addEventListener('change', function () {
+      S.timeBar[p[1]] = this.checked;
+      if (!this.checked && resetters[p[1]]) resetters[p[1]]();
+      A.savePrefs(); tick();
+    });
   });
   // A chip's time opens (or closes) the popover.
   ['swOpen', 'tmOpen', 'ctOpen'].forEach(function (id) {
