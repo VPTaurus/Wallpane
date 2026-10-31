@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('wall', {
   gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
   mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
   mediaProxy: (p) => ipcRenderer.invoke('media:proxy', String(p)),
+  mediaStrip: (p, secs) => ipcRenderer.invoke('media:strip', String(p), +secs || 0),
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),

@@ -13,6 +13,7 @@ In the library:
 - **Every file gets its thumbnail:** a file whose details were read while thumbnails were being made no longer waits for a restart, or for you to scroll to it.
 
 On the wall:
+- **Timeline previews:** with the pointer over a video tile's timeline, the frame there and its time show above it. The small frames are made the first time (from the video's key frames, so even a film takes seconds) and kept in the cache.
 - **Adding to a full wall:** Settings › General › When the wall is full can now take the media anyway. Each new file gets a tile shaped like it, and Fill the wall arranges every tile again with the new ones last (up to 64 tiles). This works for the library, Add and drops; one Ctrl+Z undoes it. The default still just says the wall is full.
 
 ## 1.5.0: The library

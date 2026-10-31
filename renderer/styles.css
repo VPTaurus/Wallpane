@@ -226,6 +226,10 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 @container (max-width: 260px) { .vbar .vtime { display: none; } }
 @container (max-width: 190px) { .vbar .vspeed { display: none; } }
 .tile.repos .vbar { display: none; }
+/* Over the timeline: the frame under the pointer and its time (ui/tiles.js). */
+.vpeek { position: absolute; bottom: calc(100% - 10px); left: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px; border-radius: 6px; background: rgba(0, 0, 0, 0.8); pointer-events: none; }
+.vpeek .vpic { border-radius: 3px; background-repeat: no-repeat; }
+.vpeek span { padding: 0 3px 1px; font: 500 11px/1 var(--mono); font-variant-numeric: tabular-nums; }
 .tile.repos.panning { cursor: grabbing; }
 .tile.repos .hud, .tile.repos .rz { display: none; }
 .repobar {

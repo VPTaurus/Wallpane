@@ -35,6 +35,7 @@ const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders')
 const { imageSize } = require('./lib/imagesize');
 const { createThumbs } = require('./lib/thumbs');
 const { createPreviews } = require('./lib/previews');
+const { createStrips } = require('./lib/strips');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -113,6 +114,7 @@ const appSettings = { cacheLimitGB: 10, hoverPreviews: true };   // app-wide set
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
 let library = null, libFolders = null, thumbs = null, previews = null;   // the library, its folders on disk, thumbnails, hover previews
+let strips = null;   // timeline pictures for video tiles
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
@@ -139,6 +141,7 @@ function startBackground() {
   } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
   previews = createPreviews({ cache, ffmpeg });
+  strips = createStrips({ cache, ffmpeg });
   library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
   const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
   thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
@@ -210,6 +213,9 @@ handle('media:proxy', (_e, p) => {
   const job = jobs.add({ kind: 'proxy', key: 'proxy:' + key, label: path.basename(p), input: { file: p }, priority: 'background' });
   return { status: 'working', key: job.key };
 });
+// Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
+// { path, count, every, cols, rows } once made (now, if needed), or null.
+handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
 handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {
   if (CACHE_LIMITS.includes(gb)) {

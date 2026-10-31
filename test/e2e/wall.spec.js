@@ -228,6 +228,35 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('over a video tile\'s timeline: the time under the pointer, and the frame there from a strip made once', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'twenty.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25:duration=20', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  const peek = page.locator('#wall .vpeek');
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="twenty.mp4"]');
+    await expect.poll(() => tile.locator('video').evaluate((v) => v.duration)).toBeGreaterThan(19);
+    await tile.hover();
+    const box = await tile.locator('.vtrack').boundingBox();
+    const at = (f) => page.mouse.move(box.x + box.width * f, box.y + box.height / 2);
+    await at(0.75);
+    await expect(peek).toBeVisible();
+    await expect(peek.locator('span')).toHaveText('0:15');
+    // Once the strip is there, the frame shows: the 16th of 20, in the second row (10 to a row).
+    await expect.poll(async () => { await at(0.76); await at(0.75); return peek.locator('.vpic').evaluate((p) => !p.hidden && p.style.backgroundImage); }, { timeout: 20000 }).toMatch(/strip20\.webp/);
+    const [x, y, w, h] = await peek.locator('.vpic').evaluate((p) => p.style.backgroundPosition.split(' ').map(parseFloat).concat(p.getBoundingClientRect().width, p.getBoundingClientRect().height));
+    expect(Math.abs(x + 5 * w)).toBeLessThan(0.5);   // column 6
+    expect(Math.abs(y + h)).toBeLessThan(0.5);       // row 2
+    await page.mouse.move(box.x + box.width / 2, box.y - 60);
+    await expect(peek).toBeHidden();
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('a big video on a small tile plays from a lighter copy, paused or playing as it was; a 720p one keeps its file', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const make = (name, size) => ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=' + size + ':rate=25:duration=8', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', path.join(dir, name)], { timeoutMs: 60000 });

@@ -189,6 +189,23 @@
     return el;
   }
 
+  /* ---------- the frame under the pointer, over a video's timeline ---------- */
+  // A strip of small frames from across the video (lib/strips.js), asked for the first time the pointer comes onto
+  // its timeline and made once; until it is there, or without FFmpeg, the timeline shows just the time.
+  var strips = {};   // file path -> 'asking', or { url, count, every, cols, rows, fw, fh } (fw, fh: one frame's size)
+  function wantStrip(it, d) {
+    var p = it.path;
+    if (!p || !(d > 0) || strips[p] || !A.hasFfmpeg) return;
+    strips[p] = 'asking';
+    A.api.mediaStrip(p, d).then(function (r) {
+      if (!r) { delete strips[p]; return; }   // none, or passed over for another: asked again next time
+      var img = new Image(), url = U.fileUrl(r.path);
+      img.onload = function () { strips[p] = Object.assign({ url: url, fw: img.naturalWidth / r.cols, fh: img.naturalHeight / r.rows }, r); };
+      img.onerror = function () { delete strips[p]; };
+      img.src = url;
+    }, function () { delete strips[p]; });
+  }
+
   /* ---------- video playback: the control bar, volume, speed, and a part that loops ---------- */
   // A bar along the bottom of a video tile: play, time, a timeline that shows the looped part, mute, volume, speed.
   function buildBar(it, el, media) {
@@ -225,6 +242,32 @@
       if (document.activeElement !== speed) speed.value = String(it.speed || 1);
     };
     ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked'].forEach(function (ev) { media.addEventListener(ev, el._syncBar); });
+    // Over the timeline: the frame under the pointer and its time.
+    var track = bar.querySelector('.vtrack'), peek = null;
+    function showPeek(e) {
+      var d = dur();
+      if (!d) return;
+      var r = track.getBoundingClientRect(), t = clamp((e.clientX - r.left) / r.width, 0, 1) * d;
+      if (!peek) { peek = document.createElement('div'); peek.className = 'vpeek'; peek.innerHTML = '<div class="vpic"></div><span></span>'; bar.appendChild(peek); }
+      var s = strips[it.path], pic = peek.firstChild;
+      pic.hidden = !(s && s.url);
+      if (s && s.url) {
+        // At most 160 px on its long side, and half the tile.
+        var k = Math.min(160, el.clientWidth / 2, el.clientHeight / 2) / Math.max(s.fw, s.fh), w = s.fw * k, h = s.fh * k;
+        var i = Math.min(s.count - 1, Math.floor(t / s.every));
+        pic.style.width = w + 'px'; pic.style.height = h + 'px';
+        pic.style.backgroundImage = 'url("' + s.url + '")';
+        pic.style.backgroundSize = (s.cols * w) + 'px ' + (s.rows * h) + 'px';
+        pic.style.backgroundPosition = (-(i % s.cols) * w) + 'px ' + (-Math.floor(i / s.cols) * h) + 'px';
+      }
+      peek.lastChild.textContent = P.fmtTime(t);
+      peek.hidden = false;
+      var b = bar.getBoundingClientRect();
+      peek.style.left = clamp(e.clientX - b.left - peek.offsetWidth / 2, 4, b.width - peek.offsetWidth - 4) + 'px';
+    }
+    track.addEventListener('pointerenter', function () { wantStrip(it, dur()); });
+    track.addEventListener('pointermove', showPeek);
+    track.addEventListener('pointerleave', function () { if (peek) peek.hidden = true; });
     seek.addEventListener('pointerdown', function () { dragging = true; });
     seek.addEventListener('input', function () { var d = dur(); if (d) media.currentTime = seek.value / 1000 * d; });
     seek.addEventListener('change', function () { dragging = false; });
