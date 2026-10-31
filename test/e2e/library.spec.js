@@ -142,3 +142,44 @@ test('videos: their length on the thumbnail, the Videos, length and shape filter
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('hover previews: a resting pointer plays a few seconds of a video, or the GIF; moving away stops it; Settings › Library turns them off', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const media = path.join(dir, 'Hover');
+  fs.mkdirSync(media);
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25:duration=30', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', path.join(media, 'clip.mp4')], { timeoutMs: 120000 });
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=200x150:rate=10:duration=1', path.join(media, 'dance.gif')], { timeoutMs: 60000 });
+  fs.writeFileSync(path.join(media, 'still.png'), png(160, 90, [90, 90, 90]));
+  const { app, page, errors } = await start();
+  const prev = (name) => thumb(page, name).locator('.lprev');
+  try {
+    await page.evaluate((p) => window.wall.addLibraryFolder(p), media);
+    await detailsRead(page);
+    await page.keyboard.press('Control+l');
+    await expect(thumbs(page)).toHaveCount(3);
+
+    await thumb(page, 'clip.mp4').hover();
+    await expect(prev('clip.mp4')).toHaveCount(1, { timeout: 15000 });
+    await expect.poll(() => prev('clip.mp4').evaluate((v) => v.tagName === 'VIDEO' && !v.paused && v.readyState >= 2 && v.duration > 5 && v.duration < 7)).toBe(true);
+    expect(await prev('clip.mp4').getAttribute('src')).toMatch(/previews/);
+    await page.locator('#libSearch').hover();
+    await expect(prev('clip.mp4')).toHaveCount(0);
+
+    await thumb(page, 'dance.gif').hover();
+    await expect(prev('dance.gif')).toHaveAttribute('src', /dance\.gif$/);
+    await thumb(page, 'still.png').hover();
+    await page.waitForTimeout(800);
+    await expect(page.locator('#libGrid .lprev')).toHaveCount(0);   // a picture has none
+
+    await page.keyboard.press('Control+l');
+    await page.click('#settingsBtn');
+    await page.click('#tabLibrary');
+    await page.locator('#setLibPreview').uncheck();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+l');
+    await thumb(page, 'clip.mp4').hover();
+    await page.waitForTimeout(1000);
+    await expect(page.locator('#libGrid .lprev')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

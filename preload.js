@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('wall', {
   onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
   libraryThumbs: (ids) => ipcRenderer.invoke('library:thumbs', Array.isArray(ids) ? ids.map(String) : []),
   onLibraryThumbs: (cb) => { ipcRenderer.on('library:thumbsMade', (_e, made) => cb(made)); },
+  libraryPreview: (id) => ipcRenderer.invoke('library:preview', String(id)),
+  libraryPreviewsOn: (on) => ipcRenderer.invoke('library:previewsOn', typeof on === 'boolean' ? on : null),
   // the library window: shown or hidden (null turns it round); its files for the wall window used last; real file drags
   openLibraryWindow: (show) => ipcRenderer.invoke('library:openWindow', typeof show === 'boolean' ? show : null),
   onLibraryWindow: (cb) => { ipcRenderer.on('library:window', (_e, shown) => cb(!!shown)); },

@@ -34,6 +34,7 @@ const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
 const { imageSize } = require('./lib/imagesize');
 const { createThumbs } = require('./lib/thumbs');
+const { createPreviews } = require('./lib/previews');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -108,10 +109,10 @@ handle('store:reveal', () => {
 // One of each for the whole app, made when it is ready (the data folder is known then). The kinds of job are added by
 // the features that use them (making files playable, thumbnails, …). Unfinished jobs are saved to jobs.json.
 const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
-const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
+const appSettings = { cacheLimitGB: 10, hoverPreviews: true };   // app-wide settings, not one window's (app.json)
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
-let library = null, libFolders = null, thumbs = null;   // the library, its folders on disk and its thumbnails
+let library = null, libFolders = null, thumbs = null, previews = null;   // the library, its folders on disk, thumbnails, hover previews
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
@@ -131,8 +132,13 @@ function saveJobs(pending) {
   jobsSaveTimer = setTimeout(() => { jobsSaveTimer = null; files.writeJsonAtomic(jobsFile(), jobsPending).catch(() => { /* not critical */ }); }, 500);
 }
 function startBackground() {
-  try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
+  try {
+    const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8'));
+    if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB;
+    if (j.hoverPreviews === false) appSettings.hoverPreviews = false;
+  } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
+  previews = createPreviews({ cache, ffmpeg });
   library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
   const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
   thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
@@ -260,6 +266,24 @@ handle('library:editCollection', (_e, op, a, b, c) => {
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
 handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });
+// Hover previews (lib/previews.js): what a thumbnail plays while the pointer rests on it. { kind: 'video', path } (a
+// short clip, made now if needed), { kind: 'gif', path } (the GIF itself), or null (off in Settings › Library, a
+// picture, no FFmpeg, or FFmpeg could not make one). on(true|false) sets that setting; it returns whether they are on.
+handle('library:preview', async (_e, id) => {
+  if (!appSettings.hoverPreviews || typeof id !== 'string') return null;
+  const e = library.get(id);
+  if (!e) return null;
+  if (e.kind === 'gif') return { kind: 'gif', path: e.path };
+  const p = await previews.get(e);
+  return p ? { kind: 'video', path: p } : null;
+});
+handle('library:previewsOn', (_e, on) => {
+  if (typeof on === 'boolean' && on !== appSettings.hoverPreviews) {
+    appSettings.hoverPreviews = on;
+    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+  }
+  return appSettings.hoverPreviews;
+});
 
 /* ---------- the library window (Settings › Library › Show the library as: a window of its own) ---------- */
 // One for the whole app, made when first shown. Closing it only hides it; it goes with the last wall window. Its place

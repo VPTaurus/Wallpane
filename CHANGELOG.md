@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0 (in the works): Previews
+
+- **Hover previews in the library:** rest the pointer on a video's thumbnail and it plays a few seconds from across the video, small and silent (made the first time, in about half a second, and kept in the cache); a GIF's thumbnail plays the GIF. Settings › Library can turn them off.
+
 ## 1.5.0: The library
 
 Download **Wallpane Setup 1.5.0.exe** (installer) or **Wallpane 1.5.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
