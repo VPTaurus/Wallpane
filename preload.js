@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('wall', {
   ensurePlayable: (p, opts) => ipcRenderer.invoke('media:ensurePlayable', String(p), opts || {}),
   gifVideo: (p, minBytes) => ipcRenderer.invoke('media:gifVideo', String(p), +minBytes || 0),
   mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
+  mediaProxy: (p) => ipcRenderer.invoke('media:proxy', String(p)),
+  mediaStrip: (p, secs) => ipcRenderer.invoke('media:strip', String(p), +secs || 0),
+  loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
+  onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
+  openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),
+  onOpenings: (cb) => { ipcRenderer.on('media:openingsMade', (_e, made) => cb(made)); },
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),
@@ -52,6 +58,8 @@ contextBridge.exposeInMainWorld('wall', {
   onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
   libraryThumbs: (ids) => ipcRenderer.invoke('library:thumbs', Array.isArray(ids) ? ids.map(String) : []),
   onLibraryThumbs: (cb) => { ipcRenderer.on('library:thumbsMade', (_e, made) => cb(made)); },
+  libraryPreview: (id) => ipcRenderer.invoke('library:preview', String(id)),
+  libraryPreviewsOn: (on) => ipcRenderer.invoke('library:previewsOn', typeof on === 'boolean' ? on : null),
   // the library window: shown or hidden (null turns it round); its files for the wall window used last; real file drags
   openLibraryWindow: (show) => ipcRenderer.invoke('library:openWindow', typeof show === 'boolean' ? show : null),
   onLibraryWindow: (cb) => { ipcRenderer.on('library:window', (_e, shown) => cb(!!shown)); },
@@ -85,5 +93,8 @@ contextBridge.exposeInMainWorld('wall', {
 
   // about: name, version, licence, and the app's own links (opened in the browser)
   appInfo: () => ipcRenderer.invoke('app:info'),
+  gpuInfo: () => ipcRenderer.invoke('app:gpu'),
+  pace: (p) => ipcRenderer.invoke('app:pace', typeof p === 'string' ? p : null),
+  relaunch: () => ipcRenderer.invoke('app:relaunch'),
   openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
 });

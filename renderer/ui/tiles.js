@@ -49,10 +49,12 @@
       // A video that does not play as it is gets a playable copy first (ui/playable.js): the copy if one is made, the
       // file itself when it should play, nothing while that is being found out.
       media.addEventListener('error', function () {
-        if (!media.getAttribute('src')) return;
+        if (!media.getAttribute('src') || A.proxyFailed(it, media)) return;
         el.classList.add('broken');
         A.didNotPlay(it);
       });
+      // A big video on a small tile plays from a lighter copy (ui/playable.js); its size is known from here on.
+      media.addEventListener('loadedmetadata', function () { A.checkProxy(it); });
       var src = A.playableSrc(it);
       if (src) media.src = src;
       watchVideo(it, el, media);
@@ -187,6 +189,23 @@
     return el;
   }
 
+  /* ---------- the frame under the pointer, over a video's timeline ---------- */
+  // A strip of small frames from across the video (lib/strips.js), asked for the first time the pointer comes onto
+  // its timeline and made once; until it is there, or without FFmpeg, the timeline shows just the time.
+  var strips = {};   // file path -> 'asking', or { url, count, every, cols, rows, fw, fh } (fw, fh: one frame's size)
+  function wantStrip(it, d) {
+    var p = it.path;
+    if (!p || !(d > 0) || strips[p] || !A.hasFfmpeg) return;
+    strips[p] = 'asking';
+    A.api.mediaStrip(p, d).then(function (r) {
+      if (!r) { delete strips[p]; return; }   // none, or passed over for another: asked again next time
+      var img = new Image(), url = U.fileUrl(r.path);
+      img.onload = function () { strips[p] = Object.assign({ url: url, fw: img.naturalWidth / r.cols, fh: img.naturalHeight / r.rows }, r); };
+      img.onerror = function () { delete strips[p]; };
+      img.src = url;
+    }, function () { delete strips[p]; });
+  }
+
   /* ---------- video playback: the control bar, volume, speed, and a part that loops ---------- */
   // A bar along the bottom of a video tile: play, time, a timeline that shows the looped part, mute, volume, speed.
   function buildBar(it, el, media) {
@@ -204,7 +223,12 @@
     var seek = bar.querySelector('.vseek'), vol = bar.querySelector('.vvol'), speed = bar.querySelector('.vspeed');
     var time = bar.querySelector('.vtime'), loopEl = bar.querySelector('.vloop'), dragging = false;
     function dur() { return isFinite(media.duration) ? media.duration : 0; }
-    el._syncBar = function () {
+    // Brought up to date only while it can be seen (the pointer over the tile, the tile selected, or a control in use):
+    // dozens of hidden bars changing a few times a second add up on a full wall. true: now, whatever.
+    function seen() { return el.matches(':hover') || el.classList.contains('sel') || bar.contains(document.activeElement); }
+    el.addEventListener('pointerenter', function () { el._syncBar(true); });
+    el._syncBar = function (now) {
+      if (now !== true && !seen()) return;
       var d = dur();
       time.textContent = P.fmtTime(media.currentTime) + (d ? ' / ' + P.fmtTime(d) : '');
       if (!dragging && d) seek.value = Math.round(media.currentTime / d * 1000);
@@ -218,6 +242,32 @@
       if (document.activeElement !== speed) speed.value = String(it.speed || 1);
     };
     ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked'].forEach(function (ev) { media.addEventListener(ev, el._syncBar); });
+    // Over the timeline: the frame under the pointer and its time.
+    var track = bar.querySelector('.vtrack'), peek = null;
+    function showPeek(e) {
+      var d = dur();
+      if (!d) return;
+      var r = track.getBoundingClientRect(), t = clamp((e.clientX - r.left) / r.width, 0, 1) * d;
+      if (!peek) { peek = document.createElement('div'); peek.className = 'vpeek'; peek.innerHTML = '<div class="vpic"></div><span></span>'; bar.appendChild(peek); }
+      var s = strips[it.path], pic = peek.firstChild;
+      pic.hidden = !(s && s.url);
+      if (s && s.url) {
+        // At most 160 px on its long side, and half the tile.
+        var k = Math.min(160, el.clientWidth / 2, el.clientHeight / 2) / Math.max(s.fw, s.fh), w = s.fw * k, h = s.fh * k;
+        var i = Math.min(s.count - 1, Math.floor(t / s.every));
+        pic.style.width = w + 'px'; pic.style.height = h + 'px';
+        pic.style.backgroundImage = 'url("' + s.url + '")';
+        pic.style.backgroundSize = (s.cols * w) + 'px ' + (s.rows * h) + 'px';
+        pic.style.backgroundPosition = (-(i % s.cols) * w) + 'px ' + (-Math.floor(i / s.cols) * h) + 'px';
+      }
+      peek.lastChild.textContent = P.fmtTime(t);
+      peek.hidden = false;
+      var b = bar.getBoundingClientRect();
+      peek.style.left = clamp(e.clientX - b.left - peek.offsetWidth / 2, 4, b.width - peek.offsetWidth - 4) + 'px';
+    }
+    track.addEventListener('pointerenter', function () { wantStrip(it, dur()); });
+    track.addEventListener('pointermove', showPeek);
+    track.addEventListener('pointerleave', function () { if (peek) peek.hidden = true; });
     seek.addEventListener('pointerdown', function () { dragging = true; });
     seek.addEventListener('input', function () { var d = dur(); if (d) media.currentTime = seek.value / 1000 * d; });
     seek.addEventListener('change', function () { dragging = false; });
@@ -237,16 +287,27 @@
       if (to != null) media.currentTime = to;
     }
     media.addEventListener('timeupdate', function () { check(media.currentTime); });
-    // Frame by frame where the browser can, so the jump back lands on time.
-    if (media.requestVideoFrameCallback) media.requestVideoFrameCallback(function cb(now, meta) {
-      if (!media.isConnected) return;
-      check(meta.mediaTime);
-      media.requestVideoFrameCallback(cb);
-    });
+    // Frame by frame where the browser can, so the jump back lands on time; only while a part loops (syncTile starts it),
+    // as a call on every frame of every video would cost a full wall dearly.
+    var framing = false;
+    el._frames = function () {
+      if (framing || !media.requestVideoFrameCallback || it.pl || !P.hasLoop(it)) return;
+      framing = true;
+      media.requestVideoFrameCallback(function cb(now, meta) {
+        if (!media.isConnected || it.pl || !P.hasLoop(it)) { framing = false; return; }
+        check(meta.mediaTime);
+        media.requestVideoFrameCallback(cb);
+      });
+    };
+    el._frames();
+    // A looped part, or an opening to skip, loops here (syncTile turns the element's own looping off for them).
     media.addEventListener('ended', function () {
-      if (!it.pl && P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
+      if (it.pl) return;
+      if (P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
+      else if (it.loop && !media.loop) { media.currentTime = A.openingOf(it, media); media.play().catch(function () {}); }
     });
     media.addEventListener('loadedmetadata', function () {
+      if (media._swap) return;   // the same video from another file (ui/playable.js): it carries on where it was
       if (!isFinite(media.duration)) {
         // Some files (recorded in a browser, for one) only learn their length at the end: look there once, then come back.
         var back = function () {
@@ -257,6 +318,7 @@
         media.addEventListener('durationchange', back);
         media.currentTime = 1e101;
       } else if (!it.pl && it.loopA) media.currentTime = it.loopA;
+      else if (!it.pl) { var s = A.openingOf(it, media); if (s) media.currentTime = s; }   // after a black or silent opening
     });
   }
   // A video tile's video element (not a GIF's video copy).
@@ -547,9 +609,10 @@
       var rate = it.speed || 1;
       // One tile full screen: it is heard and the others are quiet (Settings › General), until full screen ends.
       m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
-      m.volume = it.vol == null ? 1 : it.vol;
+      m.volume = (it.vol == null ? 1 : it.vol) * A.levelOf(it);   // even loudness (ui/playable.js)
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
-      m.loop = it.loop && (it.pl || !P.hasLoop(it));   // a loop part does its own looping
+      m.loop = it.loop && (it.pl || (!P.hasLoop(it) && !A.openingOf(it, m)));   // a loop part, or a skipped opening, loops itself
+      if (el._frames) el._frames();
       if (el._syncBar) el._syncBar();
     }
     // The buttons only change when these do, so leave their markup alone otherwise (render runs on every drag step).
@@ -682,6 +745,8 @@
     A.updateHistoryButtons();
     A.scheduleSession();
     A.syncWatches();
+    A.checkProxiesLater();
+    A.measureLater();
   };
 
   /* ---------- play / mute / loop buttons in the bar ---------- */

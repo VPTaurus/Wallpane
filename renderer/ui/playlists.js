@@ -70,12 +70,16 @@
       if (best && S.playlists[it.pl] === p) PL.bringForward(p, best.path);
     }, function () { /* in line as it is */ });
   }
+  // Where a playlist's video starts: at random, or after a black or silent opening (ui/playable.js). Not again when
+  // the same video comes from another file (a lighter copy): it carries on where it was.
   A.applyClipStart = function (it, media) {
-    var p = it.pl && S.playlists[it.pl];
+    if (media._swap) return;
+    var p = it.pl && S.playlists[it.pl], t0 = 0;
     it._t0 = 0;
-    if (!p || it.pinned || !p.randomStart || !isFinite(media.duration)) return;
-    var room = media.duration - (p.maxClip || 10);
-    if (room > 1) { it._t0 = Math.random() * room; try { media.currentTime = it._t0; } catch (e) { it._t0 = 0; } }
+    if (!p || it.pinned || !isFinite(media.duration)) return;
+    if (p.randomStart) { var room = media.duration - (p.maxClip || 10); if (room > 1) t0 = Math.random() * room; }
+    else t0 = A.openingOf(it, media);
+    if (t0) { it._t0 = t0; try { media.currentTime = t0; } catch (e) { it._t0 = 0; } }
   };
   A.clipTick = function (it, media) {
     var p = it.pl && S.playlists[it.pl];

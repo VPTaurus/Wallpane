@@ -68,6 +68,33 @@ test('cancel a waiting or a running job; a failure is reported', async () => {
   assert.deepEqual(q.list(), []);
 });
 
+test('a transient job is not saved, and leaves the list when cancelled before it started', async () => {
+  const c = controllable();
+  c.kinds.now = { heavy: true, transient: true, run: c.kinds.big.run };
+  let saved = [];
+  const q = createJobs({ kinds: c.kinds, save: (p) => { saved = p; } });
+  q.add({ kind: 'big', key: 'busy' });
+  const w = q.add({ kind: 'now', key: 'n1' });
+  q.add({ kind: 'now', key: 'n2' });
+  await tick();
+  assert.deepEqual(saved.map((s) => s.key), ['busy']);
+  assert.ok(q.cancel(w.id));
+  await assert.rejects(w.promise, (e) => e.code === 'CANCELLED');
+  assert.deepEqual(q.list().map((j) => j.key), ['busy', 'n2']);
+});
+
+test('only the last KEEP jobs that ended stay listed', async () => {
+  const { KEEP } = require('../../lib/jobs');
+  const kinds = { k: { heavy: false, run: async () => 1 } };
+  const q = createJobs({ kinds, limits: { light: 4 } });
+  for (let i = 0; i < KEEP + 30; i++) q.add({ kind: 'k', key: 'k' + i });
+  await q.idle();
+  await tick();
+  const keys = q.list().map((j) => j.key);
+  assert.equal(keys.length, KEEP);
+  assert.equal(keys[0], 'k30', 'the oldest went first');
+});
+
 test('progress is reported a few times a second, not on every step', async () => {
   let reports = 0;
   const kinds = { k: { heavy: true, run: async (job, ctx) => { for (let i = 1; i <= 100; i++) { ctx.progress(i / 100); await tick(1); } } } };

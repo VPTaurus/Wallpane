@@ -190,6 +190,9 @@
     A.savePrefs();
   };
   $('#setLibSide').addEventListener('change', function () { A.setLibrarySide(this.value); });
+  // Hover previews: one setting for the whole app (the library window follows it too), kept by the main process.
+  api.libraryPreviewsOn().then(function (on) { $('#setLibPreview').checked = on; });
+  $('#setLibPreview').addEventListener('change', function () { api.libraryPreviewsOn(this.checked); });
 
   // After the saved settings are read: the library as it was left.
   A.initLibrary = function () {

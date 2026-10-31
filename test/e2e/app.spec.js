@@ -517,7 +517,9 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await card.locator('#insLoopA').press('Tab');
   await card.locator('#insLoopB').fill('1.5');
   await card.locator('#insLoopB').press('Tab');
-  await expect(tile.locator('.vloop')).toBeVisible();
+  // The timeline shows the part (the bar itself shows while the pointer is over the tile, which here it may not be).
+  await expect(tile.locator('.vloop')).not.toHaveAttribute('hidden');
+  await expect(tile.locator('.vloop')).toHaveAttribute('style', /width: [1-9]/);
   await card.locator('#insSpeed').selectOption('1');
   await video.evaluate((v) => v.play());
   const times = [];

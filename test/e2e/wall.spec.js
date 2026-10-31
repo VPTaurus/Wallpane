@@ -161,6 +161,43 @@ test('the start: an empty wall offers the last one, which comes back, or stays i
   } finally { for (const a of apps) await a.close().catch(() => {}); }
 });
 
+test('a full wall says so, or with the setting takes the file anyway and fills the wall again; one Ctrl+Z undoes it', async () => {
+  const data = path.join(dir, 'data');
+  fs.mkdirSync(data);
+  fs.writeFileSync(path.join(data, 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(data, 'prefs.json'), JSON.stringify({ cols: 2, rows: 2 }));
+  const wide = [0, 1, 2, 3].map((i) => { const p = path.join(dir, 'wide ' + i + '.png'); fs.writeFileSync(p, png(160, 90, [40 * i, 90, 160])); return p; });
+  const tall = path.join(dir, 'tall.png');
+  fs.writeFileSync(tall, png(90, 160, [200, 60, 60]));
+  const { app, page, errors, answer } = await start(dir);
+  const add = async (p) => { await answer(p); await page.click('#addBtn'); await page.click('#addFiles'); };
+  const freeMode = () => page.locator('#modeSeg [data-mode="free"]').getAttribute('aria-pressed');
+  try {
+    await add(wide);
+    await expect(tiles(page)).toHaveCount(4);
+    await add(tall);
+    await expect(toast(page)).toContainText('did not fit');
+    await expect(toast(page)).toContainText('When the wall is full');
+    await expect(tiles(page)).toHaveCount(4);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.selectOption('#setFullWall', 'fill');
+    await page.keyboard.press('Escape');
+    await add(tall);
+    await expect(toast(page)).toContainText('The wall was full, so a new tile joined it.');
+    await expect(tiles(page)).toHaveCount(5);
+    expect(await freeMode()).toBe('true');
+    const box = await page.locator('#wall .tile[aria-label^="tall.png"]').boundingBox();
+    expect(box.height).toBeGreaterThan(box.width);   // shaped like its picture
+
+    await page.keyboard.press('Control+z');
+    await expect(tiles(page)).toHaveCount(4);
+    expect(await freeMode()).toBe('false');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('minimized, the wall pauses, and plays on when the window is back', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4');
@@ -187,6 +224,172 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
     await page.waitForTimeout(800);
     expect(await playing()).toBe(true);
     await win('restore');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('drawing pace: the rate kept in app.json applies from the start; Settings says so and what the next start brings', async () => {
+  // One 60 Hz screen here, so Automatic would change nothing: a rate worked out earlier (30) stands in for a slower
+  // second screen.
+  const data = path.join(dir, 'data');
+  fs.mkdirSync(data);
+  fs.writeFileSync(path.join(data, 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(data, 'app.json'), JSON.stringify({ pace: 'auto', paceHz: 30 }));
+  const fps = (page) => page.evaluate(() => new Promise((res) => {
+    let n = 0; const t0 = performance.now();
+    (function f() { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); })();
+  }));
+  // The pace only applies where the graphics chip paces the drawing: without one (CI machines), Chromium draws by its
+  // own timer, so the rates are measured only with one. Loosely, and the second against the first.
+  const paces = (app) => app.evaluate(({ app }) => /^enabled/.test(app.getGPUFeatureStatus().gpu_compositing || ''));
+  let s = await start(dir), paced, hw;
+  try {
+    hw = await paces(s.app);
+    if (hw) {
+      await s.page.waitForTimeout(2000);   // past the start's own work
+      paced = await fps(s.page);
+      expect(paced).toBeGreaterThan(15);
+      expect(paced).toBeLessThan(40);
+    }
+    await s.page.click('#settingsBtn');
+    await s.page.click('#tabWall');
+    await expect(s.page.locator('#setPace')).toHaveValue('auto');
+    await expect(s.page.locator('#paceNote')).toContainText('Drawing now at 30 frames a second');
+    await expect(s.page.locator('#paceNote')).toContainText("Restart Wallpane to draw at the main display's pace");
+    await expect(s.page.locator('#paceRow')).toBeVisible();
+    await expect.poll(() => JSON.parse(fs.readFileSync(path.join(data, 'app.json'), 'utf8')).paceHz).toBe(0);   // the screens as they are now
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+  s = await start(dir);
+  try {
+    if (hw) {
+      await s.page.waitForTimeout(2000);
+      expect(await fps(s.page)).toBeGreaterThan(paced * 1.4);   // the screens' own pace again (60 here, against 30)
+    }
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+});
+
+test('even loudness: a loud video plays quieter, a quiet one keeps its level; Settings › General turns it off', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // FFmpeg's tone at four times its level is about -9.8 LUFS; as it is, about -21.8.
+  const make = (name, af) => ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6' + af,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', path.join(dir, name)], { timeoutMs: 60000 });
+  await make('loud.mp4', ',volume=4');
+  await make('quiet.mp4', '');
+  const { app, page, errors, answer } = await start(dir);
+  const vol = (name) => page.locator('#wall .tile[aria-label^="' + name + '"] video').evaluate((v) => v.volume);
+  try {
+    await answer([path.join(dir, 'loud.mp4'), path.join(dir, 'quiet.mp4')]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    // -18 LUFS is 8.2 dB below -9.8: a volume of about 0.39.
+    await expect.poll(() => vol('loud.mp4'), { timeout: 20000 }).toBeLessThan(0.45);
+    expect(await vol('loud.mp4')).toBeGreaterThan(0.33);
+    expect(await vol('quiet.mp4')).toBe(1);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.locator('#setEvenLoud').uncheck();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => vol('loud.mp4')).toBe(1);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('a video that opens on black starts after it, also when it loops; Settings › General turns it off', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'dark start.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-filter_complex', 'color=c=black:s=320x180:d=2:r=25[b];testsrc=s=320x180:d=4:r=25[t];[b][t]concat=n=2:v=1:a=0[v]',
+    '-map', '[v]', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  const v = page.locator('#wall .tile[aria-label^="dark start.mp4"] video');
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.evaluate((p) => window.wall.openings([p]).then((r) => r[p] && r[p].black), clip), { timeout: 20000 }).toBe(2);
+    await expect.poll(() => v.evaluate((m) => m.loop)).toBe(false);   // it loops itself, from the end of the black
+    expect(await v.evaluate((m) => m.currentTime)).toBeGreaterThanOrEqual(1.7);
+    // Near the end: it comes round to 2 s, not to the black at 0.
+    const back = await v.evaluate((m) => new Promise((res) => {
+      m.addEventListener('ended', () => setTimeout(() => res(m.currentTime), 150), { once: true });
+      m.currentTime = m.duration - 0.3;
+    }));
+    expect(back).toBeGreaterThanOrEqual(1.9);
+    expect(back).toBeLessThan(3);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.locator('#setSkipOpen').uncheck();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => v.evaluate((m) => m.loop)).toBe(true);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('over a video tile\'s timeline: the time under the pointer, and the frame there from a strip made once', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'twenty.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25:duration=20', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  const peek = page.locator('#wall .vpeek');
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="twenty.mp4"]');
+    await expect.poll(() => tile.locator('video').evaluate((v) => v.duration)).toBeGreaterThan(19);
+    await tile.hover();
+    const box = await tile.locator('.vtrack').boundingBox();
+    const at = (f) => page.mouse.move(box.x + box.width * f, box.y + box.height / 2);
+    await at(0.75);
+    await expect(peek).toBeVisible();
+    await expect(peek.locator('span')).toHaveText('0:15');
+    // Once the strip is there, the frame shows: the 16th of 20, in the second row (10 to a row).
+    await expect.poll(async () => { await at(0.76); await at(0.75); return peek.locator('.vpic').evaluate((p) => !p.hidden && p.style.backgroundImage); }, { timeout: 20000 }).toMatch(/strip20\.webp/);
+    const [x, y, w, h] = await peek.locator('.vpic').evaluate((p) => p.style.backgroundPosition.split(' ').map(parseFloat).concat(p.getBoundingClientRect().width, p.getBoundingClientRect().height));
+    expect(Math.abs(x + 5 * w)).toBeLessThan(0.5);   // column 6
+    expect(Math.abs(y + h)).toBeLessThan(0.5);       // row 2
+    await page.mouse.move(box.x + box.width / 2, box.y - 60);
+    await expect(peek).toBeHidden();
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('a big video on a small tile plays from a lighter copy, paused or playing as it was; a 720p one keeps its file', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const make = (name, size) => ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=' + size + ':rate=25:duration=8', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', path.join(dir, name)], { timeoutMs: 60000 });
+  await make('big.mp4', '1920x1080');
+  await make('small.mp4', '1280x720');
+  const { app, page, errors, answer } = await start(dir);
+  const video = (name) => page.locator('#wall .tile[aria-label^="' + name + '"] video');
+  const src = (name) => video(name).getAttribute('src');
+  const state = (name) => video(name).evaluate((v) => ({ paused: v.paused, t: v.currentTime }));
+  try {
+    await answer([path.join(dir, 'big.mp4'), path.join(dir, 'small.mp4')]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => src('big.mp4'), { timeout: 60000 }).toMatch(/proxies/);
+    await expect.poll(async () => (await state('big.mp4')).paused).toBe(false);
+    expect(await src('small.mp4')).not.toMatch(/proxies/);
+    const kinds = await page.evaluate(() => window.wall.jobs().then((l) => l.map((j) => j.kind)));
+    expect(kinds.filter((k) => k === 'proxy')).toHaveLength(1);
+
+    // Paused, then the setting off: the original again, still paused, from about the same moment.
+    const id = await page.locator('#wall .tile[aria-label^="big.mp4"]').getAttribute('data-id');
+    await tileButton(page, id, 'play');
+    await expect.poll(async () => (await state('big.mp4')).paused).toBe(true);
+    const t = (await state('big.mp4')).t;
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.selectOption('#setProxies', 'off');
+    await page.keyboard.press('Escape');
+    await expect.poll(() => src('big.mp4')).not.toMatch(/proxies/);
+    await page.waitForTimeout(800);
+    const after = await state('big.mp4');
+    expect(after.paused).toBe(true);
+    expect(Math.abs(after.t - t)).toBeLessThan(0.5);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });

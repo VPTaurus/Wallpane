@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.6.0: Previews and a smoother wall
+
+Download **Wallpane Setup 1.6.0.exe** (installer) or **Wallpane 1.6.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Big walls play more smoothly, the library and the timeline show what is in a video before you play it, and videos sound alike and start where the picture does. Everything is made from your own files, on your computer, and kept in Wallpane's cache.
+
+Smoother with many tiles:
+- **Smooth on a slower screen:** Windows paces every window by the main display, so beside a faster main display (say 1440p at 165 Hz) a wall on a 60 Hz screen juddered. Wallpane now draws at the slowest screen's rate when your screens differ, from the next start after it notices (it tells you once). Settings › Wall mode › Drawing pace can keep the main display's pace, or use 60 frames a second.
+- **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.
+- **The faster graphics card:** on a PC with two (the processor's own and an NVIDIA or AMD card), Wallpane now asks Windows for the faster one. Settings › About shows which one plays the wall, and whether it decodes the videos.
+- **Less work while playing:** a tile's controls are only kept up to date while you can see them, and only videos with a looped part are followed frame by frame.
+- **Background work** keeps only the last 100 finished jobs in its list, and a lighter copy no longer needed (a playlist moved on) is dropped before it starts.
+
+In the library:
+- **Hover previews:** rest the pointer on a video's thumbnail and it plays a few seconds from across the video, small and silent (made the first time, in about half a second, and kept in the cache); a GIF's thumbnail plays the GIF. Settings › Library can turn them off.
+- **Every file gets its thumbnail:** a file whose details were read while thumbnails were being made no longer waits for a restart, or for you to scroll to it.
+
+On the wall:
+- **Skip black openings:** a video that opens on a black picture starts after it, also each time it loops; a heard one also skips an opening silence. Each video's first seconds are looked at once, in the background. Settings › General can turn it off.
+- **Even loudness:** each video's loudness is measured once, from its sound alone, and a loud one plays quieter, so a loud clip and a quiet one sound alike when you turn their sound on. Quiet videos keep their own level, and each tile's volume still applies. Settings › General can turn it off.
+- **Timeline previews:** with the pointer over a video tile's timeline, the frame there and its time show above it. The small frames are made the first time (from the video's key frames, so even a film takes seconds) and kept in the cache.
+- **Saving is safer:** the wall and its settings are always saved in the order they changed. Before, on a PC where antivirus holds a file up for a moment, an older state could overwrite a newer one.
+- **Adding to a full wall:** Settings › General › When the wall is full can now take the media anyway. Each new file gets a tile shaped like it, and Fill the wall arranges every tile again with the new ones last (up to 64 tiles). This works for the library, Add and drops; one Ctrl+Z undoes it. The default still just says the wall is full.
+
 ## 1.5.0: The library
 
 Download **Wallpane Setup 1.5.0.exe** (installer) or **Wallpane 1.5.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

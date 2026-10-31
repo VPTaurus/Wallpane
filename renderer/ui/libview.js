@@ -444,6 +444,49 @@
   }
   api.onLibraryThumbs(function (m) { Object.keys(m).forEach(function (id) { setThumb(id, m[id]); }); });
 
+  /* ---------- hover previews ---------- */
+  // While the pointer rests on a video's thumbnail, it plays a few seconds of the video (a small clip lib/previews.js
+  // makes the first time; a thin bar runs along the thumbnail's foot meanwhile); a GIF's plays the GIF. Settings ›
+  // Library can turn them off (the main process then answers with nothing).
+  var HOVER = 400, hoverEl = null, hoverTimer = 0, preview = null;
+  function stopPreview() {
+    clearTimeout(hoverTimer); hoverTimer = 0;
+    if (hoverEl) hoverEl.classList.remove('lwait');
+    hoverEl = null;
+    if (!preview) return;
+    if (preview.tagName === 'VIDEO') { preview.removeAttribute('src'); preview.load(); }   // stops decoding at once
+    preview.remove(); preview = null;
+  }
+  function startPreview(el) {
+    stopPreview();
+    var it = results[index.get(el.dataset.id)];
+    if (!it || (it.kind !== 'video' && it.kind !== 'gif')) return;
+    hoverEl = el;
+    hoverTimer = setTimeout(function () {
+      hoverTimer = 0;
+      if (it.kind === 'video') el.classList.add('lwait');
+      api.libraryPreview(it.id).then(function (r) {
+        if (hoverEl !== el) return;
+        el.classList.remove('lwait');
+        if (!r || !el.isConnected) return;
+        var m = r.kind === 'gif' ? new Image() : document.createElement('video');
+        m.className = 'lprev'; m.draggable = false;
+        if (m.tagName === 'VIDEO') { m.muted = true; m.loop = true; m.autoplay = true; m.playsInline = true; } else m.alt = '';
+        m.addEventListener('error', function () { if (preview === m) { m.remove(); preview = null; } });
+        m.src = U.fileUrl(r.path);
+        el.insertBefore(m, el.querySelector('.lbadge'));
+        preview = m;
+      });
+    }, HOVER);
+  }
+  grid.addEventListener('pointerover', function (e) {
+    var el = e.target.closest && e.target.closest('.lthumb');
+    if (el === hoverEl) return;
+    if (el && e.pointerType !== 'touch' && !A.libDrag) startPreview(el); else stopPreview();
+  });
+  grid.addEventListener('pointerleave', stopPreview);
+  grid.addEventListener('pointerdown', function (e) { if (e.button !== 0) stopPreview(); });
+
   // The library changed (a scan, details read, a folder added or removed): drawn again at most once a second.
   var changeTimer = 0;
   api.onLibrary(function () {
@@ -538,6 +581,7 @@
   grid.addEventListener('dragstart', function (e) {
     var el = e.target.closest && e.target.closest('.lthumb');
     if (!el) return;
+    stopPreview();
     if (!sel.has(el.dataset.id)) pick({}, el.dataset.id);
     host.dragOut(e, selectedPaths(), { ids: selectedIds(), reorder: canReorder() });
   });

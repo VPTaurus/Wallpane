@@ -286,18 +286,30 @@
               <p class="note" id="loginNote"></p>
               <span class="lab">Tiles</span>
               <label class="check"><input type="checkbox" id="setSoloSound"> A tile shown full screen (double-click) plays its sound; the others go quiet until it ends</label>
+              <label class="check"><input type="checkbox" id="setEvenLoud"> Even loudness: loud videos play quieter, so a loud clip and a quiet one sound alike</label>
+              <p class="note">Each video's loudness is measured once, from its sound alone, in the background. Quiet videos keep their own level; your volume for each tile still applies on top.</p>
+              <label class="check"><input type="checkbox" id="setSkipOpen"> Skip black openings: a video that opens on a black picture starts after it (and, when you hear it, after an opening silence)</label>
+              <p class="note">Each video's first seconds are looked at once, in the background. Also when it loops; not for a playlist that starts at random, or a tile with a looped part.</p>
               <label class="check"><input type="checkbox" id="setFillShapes"> After Fill the wall or Fit to media, playlists pick files shaped like their tile first</label>
               <label class="check"><input type="checkbox" id="setPauseMin"> Pause the wall while its window is minimized (background music keeps playing)</label>
               <div class="frow"><label for="setResize">Growing a tile</label>
                 <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
               </div>
               <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
+              <div class="frow"><label for="setFullWall">When the wall is full</label>
+                <select id="setFullWall"><option value="say">Say so</option><option value="fill">Add and fill the wall again</option></select>
+              </div>
+              <p class="note">Media added to a full wall (from the library, Add or a drop) can get new tiles anyway: Fill the wall then arranges every tile again, the new ones last, and tiles are placed freely by the pixel. Up to 64 tiles; more files play in turn on the new tiles.</p>
               <label class="check"><input type="checkbox" id="setConvert"> Make a playable copy of videos that do not play as they are (AVI, WMV, AC3 or DTS sound, …)</label>
               <p class="note">The copy goes to Wallpane's cache (Storage); your own file is never changed. Without this, such a tile waits until you right-click it and choose Make playable.</p>
               <div class="frow"><label for="setGifVideo">GIFs as videos</label>
                 <select id="setGifVideo"><option value="off">Off</option><option value="2">Larger than 2 MB</option><option value="10">Larger than 10 MB</option><option value="all">All GIFs</option></select>
               </div>
               <p class="note">A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.</p>
+              <div class="frow"><label for="setProxies">Lighter copies for small tiles</label>
+                <select id="setProxies"><option value="auto">On</option><option value="off">Off</option></select>
+              </div>
+              <p class="note">A large video (1440p, 4K) on a small tile plays from a lighter copy, made once in the background, so many tiles play smoothly. Full screen and large tiles play the original.</p>
               <span class="lab">Clock</span>
               <div class="frow"><label for="setClock">Time format</label>
                 <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
@@ -321,6 +333,12 @@
               <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
               <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
               <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
+              <span class="lab">Drawing pace</span>
+              <div class="frow"><label for="setPace">Draw at</label>
+                <select id="setPace"><option value="auto">Automatic: the slowest screen's rate</option><option value="main">The main display's rate</option><option value="60">60 frames a second</option></select>
+              </div>
+              <p class="note" id="paceNote"></p>
+              <div class="row" id="paceRow" hidden><button class="btn" id="paceRestart" type="button"><span data-icon="reset"></span>Restart Wallpane</button></div>
               <span class="lab">On a TV or projector</span>
               <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button></div>
               <p class="note">Shows the wall on a TV, projector or stick that Windows can cast to (Miracast). The button opens Windows' display settings: under Multiple displays, click Connect next to "Connect to a wireless display" (Win+K does the same), pick the TV, and choose Extend so it is a display of its own. Then pick it under Show on and start wall mode.</p>
@@ -359,6 +377,8 @@
                 <select id="setLibSide"><option value="left">Left</option><option value="right">Right</option></select>
               </div>
               <p class="note">The drawer leaves the wall as it is and fades while you drag from it. The panel makes the wall narrower while it is open. The window suits a second screen: drag files from it onto any wall window. Library in the bar, or Ctrl+L, opens and closes it.</p>
+              <label class="check"><input type="checkbox" id="setLibPreview"> Play a few seconds of a video (or the GIF) while the pointer rests on its thumbnail</label>
+              <p class="note">A small, silent clip from across the video, made the first time and kept in the cache (Storage). Here and in the library window.</p>
               <div class="libfolders" id="libFolders"></div>
               <div class="row">
                 <button class="btn" id="libAdd" type="button"><span data-icon="plus"></span>Add folder…</button>
@@ -412,6 +432,7 @@
               <div class="about" id="aboutBox">
                 <p id="aboutLine">Wallpane</p>
                 <p class="note" id="aboutFfmpeg"></p>
+                <p class="note" id="aboutGpu"></p>
                 <div class="row" id="aboutLinks"></div>
               </div>
               <span class="lab">Your data</span>

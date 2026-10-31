@@ -29,11 +29,16 @@ const ffmpeg = require('./lib/ffmpeg').create(FFMPEG_DIR);
 const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
-const { playableKind, gifVideoKind } = require('./lib/playable');
+const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
 const { imageSize } = require('./lib/imagesize');
 const { createThumbs } = require('./lib/thumbs');
+const { createPreviews } = require('./lib/previews');
+const { createStrips } = require('./lib/strips');
+const { createLoudness } = require('./lib/loudness');
+const { createOpenings } = require('./lib/openings');
+const { PACES, autoPace, paceHzOf } = require('./lib/pace');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -45,6 +50,13 @@ const LINKS = {
 // Keep videos playing when another window covers the wall, and let a restored wall start with sound on.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// A PC with two graphics chips (an Intel one in the processor and a graphics card): use the card, which decodes and
+// draws dozens of videos far better.
+app.commandLine.appendSwitch('force_high_performance_gpu');
+// The pace Wallpane draws at (lib/pace.js). The switch only works from the start, so the rate comes from app.json:
+// chosen there, or worked out from the screens last time (checkPace).
+const startPace = (() => { try { return paceHzOf(JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'app.json'), 'utf8'))); } catch { return 0; } })();
+if (startPace) app.commandLine.appendSwitch('fake-vsync-rate', String(startPace));
 
 // One entry per open wall window: id (1, 2, ...) -> BrowserWindow. Window 1 keeps the original data file names.
 const wins = new Map();
@@ -105,10 +117,13 @@ handle('store:reveal', () => {
 // One of each for the whole app, made when it is ready (the data folder is known then). The kinds of job are added by
 // the features that use them (making files playable, thumbnails, …). Unfinished jobs are saved to jobs.json.
 const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
-const appSettings = { cacheLimitGB: 10 };         // app-wide settings, not one window's (app.json)
+// App-wide settings, not one window's (app.json). paceHz: what Automatic drawing pace worked out from the screens.
+const appSettings = { cacheLimitGB: 10, hoverPreviews: true, pace: 'auto', paceHz: 0 };
+function saveAppSettings() { files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ }); }
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
-let library = null, libFolders = null, thumbs = null;   // the library, its folders on disk and its thumbnails
+let library = null, libFolders = null, thumbs = null, previews = null;   // the library, its folders on disk, thumbnails, hover previews
+let strips = null, loudness = null, openings = null;   // timeline pictures for video tiles; each video's loudness and opening
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
@@ -128,8 +143,24 @@ function saveJobs(pending) {
   jobsSaveTimer = setTimeout(() => { jobsSaveTimer = null; files.writeJsonAtomic(jobsFile(), jobsPending).catch(() => { /* not critical */ }); }, 500);
 }
 function startBackground() {
-  try { const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8')); if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB; } catch { /* defaults */ }
+  try {
+    const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8'));
+    if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB;
+    if (j.hoverPreviews === false) appSettings.hoverPreviews = false;
+    if (PACES.includes(j.pace)) appSettings.pace = j.pace;
+    if (+j.paceHz > 0) appSettings.paceHz = Math.round(+j.paceHz);
+  } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
+  previews = createPreviews({ cache, ffmpeg });
+  strips = createStrips({ cache, ffmpeg });
+  loudness = createLoudness({
+    ffmpeg, cache, file: path.join(dataDir(), 'loudness.json'),
+    notify: (made) => { for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('media:loudnessMade', made); }
+  });
+  openings = createOpenings({
+    ffmpeg, cache, file: path.join(dataDir(), 'openings.json'),
+    notify: (made) => { for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('media:openingsMade', made); }
+  });
   library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
   const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
   thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
@@ -143,6 +174,7 @@ function startBackground() {
   });
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
+  JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -189,11 +221,31 @@ handle('media:gifVideo', (_e, p, minBytes) => {
   const job = jobs.add({ kind: 'gifvideo', key: 'gifvideo:' + cache.keyOf(p), label: path.basename(p), input: { file: p }, priority: 'background' });
   return { status: 'working', key: job.key };
 });
+// A lighter copy of a big video, for a small tile (lib/playable.js proxyKind): { status: 'ready', path }, or 'working'
+// with the key of the background job making one, or 'no' (no FFmpeg, or the file is gone).
+handle('media:proxy', (_e, p) => {
+  if (typeof p !== 'string' || !ffmpeg.available() || !jobs) return { status: 'no' };
+  let key;
+  try { key = cache.keyOf(p); } catch { return { status: 'no' }; }
+  const made = cache.find('proxies', p, 'mp4');
+  if (made) return { status: 'ready', path: made };
+  const job = jobs.add({ kind: 'proxy', key: 'proxy:' + key, label: path.basename(p), input: { file: p }, priority: 'background' });
+  return { status: 'working', key: job.key };
+});
+// Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
+// { path, count, every, cols, rows } once made (now, if needed), or null.
+handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
+// Even loudness (lib/loudness.js): the videos a wall shows. { path: lufs | null } for those measured already; the rest
+// are measured one at a time and arrive through 'media:loudnessMade'.
+handle('media:loudness', (e, paths) => (loudness ? loudness.want(e.sender.id, paths) : {}));
+// Black or silent openings (lib/openings.js), the same way: { path: { black, silence } }, the rest through
+// 'media:openingsMade'.
+handle('media:openings', (e, paths) => (openings ? openings.want(e.sender.id, paths) : {}));
 handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {
   if (CACHE_LIMITS.includes(gb)) {
     appSettings.cacheLimitGB = gb;
-    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+    saveAppSettings();
     cache.clean(gb * 1e9);
   }
   return cacheInfo();
@@ -245,6 +297,49 @@ handle('library:editCollection', (_e, op, a, b, c) => {
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
 handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });
+// Hover previews (lib/previews.js): what a thumbnail plays while the pointer rests on it. { kind: 'video', path } (a
+// short clip, made now if needed), { kind: 'gif', path } (the GIF itself), or null (off in Settings › Library, a
+// picture, no FFmpeg, or FFmpeg could not make one). on(true|false) sets that setting; it returns whether they are on.
+handle('library:preview', async (_e, id) => {
+  if (!appSettings.hoverPreviews || typeof id !== 'string') return null;
+  const e = library.get(id);
+  if (!e) return null;
+  if (e.kind === 'gif') return { kind: 'gif', path: e.path };
+  const p = await previews.get(e);
+  return p ? { kind: 'video', path: p } : null;
+});
+/* ---------- drawing pace (see startPace) ---------- */
+// What Automatic draws at with the screens as they are, kept for the next start (the switch cannot change while
+// Wallpane runs).
+function checkPace() {
+  const hz = autoPace(screen.getAllDisplays().map((d) => d.displayFrequency), screen.getPrimaryDisplay().displayFrequency);
+  if (hz !== appSettings.paceHz) { appSettings.paceHz = hz; saveAppSettings(); }
+}
+// { pace, now (the rate drawn at, 0: the main display's), next (after a restart), main, slow (Hz), portable }
+function paceInfo() {
+  const rates = screen.getAllDisplays().map((d) => Math.round(d.displayFrequency || 0)).filter((f) => f >= 20);
+  return { pace: appSettings.pace, now: startPace, next: paceHzOf(appSettings), main: Math.round(screen.getPrimaryDisplay().displayFrequency || 0),
+    slow: rates.length ? Math.min(...rates) : 0, portable: !!process.env.PORTABLE_EXECUTABLE_FILE };
+}
+handle('app:pace', (_e, p) => {
+  if (PACES.includes(p) && p !== appSettings.pace) { appSettings.pace = p; saveAppSettings(); }
+  return paceInfo();
+});
+// Restarts the installed app (or the development one). The portable .exe is not restarted: its launcher removes the
+// unpacked app when this one quits, so the page asks to start it again instead.
+handle('app:relaunch', () => {
+  if (process.env.PORTABLE_EXECUTABLE_FILE) return false;
+  app.relaunch();
+  app.quit();
+  return true;
+});
+handle('library:previewsOn', (_e, on) => {
+  if (typeof on === 'boolean' && on !== appSettings.hoverPreviews) {
+    appSettings.hoverPreviews = on;
+    saveAppSettings();
+  }
+  return appSettings.hoverPreviews;
+});
 
 /* ---------- the library window (Settings › Library › Show the library as: a window of its own) ---------- */
 // One for the whole app, made when first shown. Closing it only hides it; it goes with the last wall window. Its place
@@ -465,6 +560,17 @@ handle('app:info', () => ({
   name: app.getName(), version: app.getVersion(), license: pkg.license, links: LINKS,
   ffmpeg: ffmpegBuild ? { version: ffmpegBuild.version, by: ffmpegBuild.by, license: ffmpegBuild.license } : null
 }));
+// The graphics chip Chromium draws and decodes with, for Settings › About: { name, decode } (decode: videos are decoded
+// on it rather than by the processor), or null.
+handle('app:gpu', async () => {
+  try {
+    const info = await app.getGPUInfo('complete');
+    const dev = (info.gpuDevice || []).find((d) => d.active) || (info.gpuDevice || [])[0] || {};
+    const m = /ANGLE \([^,]+, (.+?)(?: \(0x[0-9a-f]+\))? Direct3D/i.exec((info.auxAttributes && info.auxAttributes.glRenderer) || '');
+    const name = dev.deviceString || (m && m[1]) || '';
+    return { name: name.trim() || 'Unknown', decode: /^enabled/.test(app.getGPUFeatureStatus().video_decode || '') };
+  } catch { return null; }
+});
 // Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
   if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
@@ -729,6 +835,8 @@ if (!app.requestSingleInstanceLock()) {
     app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
+    checkPace();
+    ['display-added', 'display-removed', 'display-metrics-changed'].forEach((ev) => screen.on(ev, checkPace));
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
     // The library loads and checks its folders once the wall is up, so a big one never slows the start.

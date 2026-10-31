@@ -286,6 +286,10 @@
       $('#aboutFfmpeg').textContent = f
         ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
         : 'FFmpeg is not in this copy (npm run fetch-ffmpeg adds it), so converting files is not available.';
+      // Which graphics chip draws the wall, and whether it decodes the videos (else the processor does, far slower).
+      api.gpuInfo().then(function (g) {
+        $('#aboutGpu').textContent = g ? 'Graphics: ' + g.name + (g.decode ? ' · videos are decoded on it' : ' · videos are decoded by the processor, which is slower') : '';
+      });
       var box = $('#aboutLinks'), links = [];
       if (info.links.source) links.push(['Source code', info.links.source]);
       if (info.links.ffmpeg) links.push(['FFmpeg source', info.links.ffmpeg]);
@@ -346,17 +350,22 @@
     A.refreshHideSettings();
     A.refreshStorage();
     A.refreshLibrary();
+    A.refreshPace();
     fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
+    $('#setEvenLoud').checked = S.evenLoud;
+    $('#setSkipOpen').checked = S.skipOpen;
     $('#setFillShapes').checked = S.fillShapes;
     $('#setPauseMin').checked = S.pauseMin;
     $('#setStartWith').value = S.startWith;
     $('#setConvert').checked = S.autoConvert;
     $('#setGifVideo').value = S.gifVideo;
+    $('#setProxies').value = S.proxies;
     $('#setResize').value = S.resizeMode;
+    $('#setFullWall').value = S.fullWall;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');
       cb.disabled = !r.supported; cb.checked = !!r.on;
@@ -392,6 +401,32 @@
   });
   $('#setResize').addEventListener('change', function () { S.resizeMode = this.value === 'squeeze' ? 'squeeze' : 'even'; A.savePrefs(); });
   $('#setStartWall').addEventListener('change', function () { S.startWall = this.checked; A.savePrefs(); });
+  /* ---------- drawing pace (main.js startPace) ---------- */
+  // Windows paces every window by the main display: beside a faster one, a wall on a 60 Hz screen judders unless
+  // Wallpane draws at that screen's rate. The pace is set as Wallpane starts, so a change waits for a restart.
+  function paceWords(hz) { return hz ? hz + ' frames a second' : "the main display's pace"; }
+  function showPace(i) {
+    $('#setPace').value = i.pace;
+    var mixed = i.slow && i.main && i.slow < i.main - 1;
+    var t = (mixed ? 'Your main display runs at ' + i.main + ' Hz and the slowest screen at ' + i.slow + ' Hz: Windows paces every window by the main display, so a wall on the slower screen judders unless Wallpane draws at its rate. '
+      : 'Your screens run at the same rate, so Automatic draws as Windows does. ') + 'Drawing now at ' + paceWords(i.now) + '.';
+    var later = i.next !== i.now;
+    if (later) t += ' ' + (i.portable ? 'Close Wallpane and start it again' : 'Restart Wallpane') + ' to draw at ' + paceWords(i.next) + '.';
+    $('#paceNote').textContent = t;
+    $('#paceRow').hidden = !later || i.portable;
+  }
+  A.refreshPace = function () { api.pace().then(showPace); };
+  $('#setPace').addEventListener('change', function () { api.pace(this.value).then(showPace); });
+  $('#paceRestart').addEventListener('click', function () { api.relaunch(); });
+  // As the first window opens (ui/boot.js): screens that need another pace than the one Wallpane started with.
+  A.paceHint = function () {
+    api.pace().then(function (i) {
+      if (i.pace === 'auto' && i.next && i.next !== i.now) {
+        A.toast('Your screens run at different rates. ' + (i.portable ? 'Start Wallpane again' : 'Restart Wallpane') + ' once and a wall on the ' + i.next + ' Hz screen plays smoothly (Settings › Wall mode › Drawing pace).');
+      }
+    });
+  };
+
   $('#setAwake').addEventListener('change', function () {
     S.awake = this.checked; A.savePrefs();
     if (document.body.classList.contains('clean')) api.keepAwake(S.awake);
