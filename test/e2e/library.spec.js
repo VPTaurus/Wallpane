@@ -39,8 +39,12 @@ test('3,000 pictures: only the rows on screen are in the page, and the end and a
     let h = -1;
     await expect.poll(async () => { const n = await page.locator('#libGrid').evaluate((g) => g.scrollHeight); const same = n === h; h = n; return same; }, { intervals: [300] }).toBe(true);
 
+    // To the end, again if the rows were done again meanwhile (a slow machine still reading the library can do that).
     const t0 = Date.now();
-    await page.locator('#libGrid').evaluate((g) => { g.scrollTop = g.scrollHeight; });
+    await expect.poll(async () => {
+      await page.locator('#libGrid').evaluate((g) => { g.scrollTop = g.scrollHeight; });
+      return thumb(page, 'pic 2999.png').count();
+    }, { intervals: [100], timeout: 3000 }).toBe(1);
     await expect(thumb(page, 'pic 2999.png')).toBeVisible();
     expect(Date.now() - t0).toBeLessThan(3000);
     expect(await thumbs(page).count()).toBeLessThan(400);
