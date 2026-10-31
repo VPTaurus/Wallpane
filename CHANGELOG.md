@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.6.0 (in the works): Previews and a smoother wall
+## 1.6.0: Previews and a smoother wall
+
+Download **Wallpane Setup 1.6.0.exe** (installer) or **Wallpane 1.6.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Big walls play more smoothly, the library and the timeline show what is in a video before you play it, and videos sound alike and start where the picture does. Everything is made from your own files, on your computer, and kept in Wallpane's cache.
 
 Smoother with many tiles:
 - **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.

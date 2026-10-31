@@ -20,8 +20,8 @@ If Wallpane is useful to you, you can support its development on [GitHub Sponsor
 `npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
 
 ### Releases
-1. Raise `version` in `package.json` (`npm version 1.5.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
-2. On GitHub: Releases › Draft a new release › tag `v1.5.0` (the same version) on `main`, paste the changelog section, Publish.
+1. Raise `version` in `package.json` (`npm version 1.6.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
+2. On GitHub: Releases › Draft a new release › tag `v1.6.0` (the same version) on `main`, paste the changelog section, Publish.
 3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
 
 ### FFmpeg inside Wallpane
