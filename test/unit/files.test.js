@@ -104,3 +104,25 @@ test('writeJsonAtomic leaves a whole file and no temporary files, even with save
   assert.deepEqual(JSON.parse(fs.readFileSync(f, 'utf8')), { sync: true });
   assert.deepEqual(fs.readdirSync(path.dirname(f)), ['store.json']);
 });
+
+test('the latest save wins, even when Windows holds up an older one; a save made at once wins over one under way', async (t) => {
+  const dir = tempDir(), f = path.join(dir, 'prefs.json'), rename = fs.promises.rename;
+  t.after(() => { fs.promises.rename = rename; fs.rmSync(dir, { recursive: true, force: true }); });
+  // The first two renames are refused for a moment, as antivirus does.
+  let refused = 0;
+  fs.promises.rename = async (a, b) => {
+    if (refused < 2) { refused++; throw Object.assign(new Error('busy'), { code: 'EPERM' }); }
+    return rename(a, b);
+  };
+  await Promise.all([0, 1, 2, 1, 2].map((counter) => files.writeJsonAtomic(f, { counter })));
+  assert.deepEqual(JSON.parse(fs.readFileSync(f, 'utf8')), { counter: 2 }, 'the last one, not the one held up');
+  assert.deepEqual(fs.readdirSync(dir), ['prefs.json']);
+
+  refused = 0;
+  const late = files.writeJsonAtomic(f, { counter: 5 });   // held up twice
+  await new Promise((r) => setTimeout(r, 10));
+  files.writeJsonAtomicSync(f, { counter: 7 });             // the window closes meanwhile
+  await late;
+  assert.deepEqual(JSON.parse(fs.readFileSync(f, 'utf8')), { counter: 7 });
+  assert.deepEqual(fs.readdirSync(dir), ['prefs.json']);
+});

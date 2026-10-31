@@ -239,13 +239,18 @@ test('drawing pace: the rate kept in app.json applies from the start; Settings s
     let n = 0; const t0 = performance.now();
     (function f() { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); })();
   }));
-  // Rates measured loosely, and the second against the first: CI machines have no graphics card and are slow.
-  let s = await start(dir), paced;
+  // The pace only applies where the graphics chip paces the drawing: without one (CI machines), Chromium draws by its
+  // own timer, so the rates are measured only with one. Loosely, and the second against the first.
+  const paces = (app) => app.evaluate(({ app }) => /^enabled/.test(app.getGPUFeatureStatus().gpu_compositing || ''));
+  let s = await start(dir), paced, hw;
   try {
-    await s.page.waitForTimeout(2000);   // past the start's own work
-    paced = await fps(s.page);
-    expect(paced).toBeGreaterThan(15);
-    expect(paced).toBeLessThan(40);
+    hw = await paces(s.app);
+    if (hw) {
+      await s.page.waitForTimeout(2000);   // past the start's own work
+      paced = await fps(s.page);
+      expect(paced).toBeGreaterThan(15);
+      expect(paced).toBeLessThan(40);
+    }
     await s.page.click('#settingsBtn');
     await s.page.click('#tabWall');
     await expect(s.page.locator('#setPace')).toHaveValue('auto');
@@ -257,8 +262,10 @@ test('drawing pace: the rate kept in app.json applies from the start; Settings s
   } finally { await s.app.close(); }
   s = await start(dir);
   try {
-    await s.page.waitForTimeout(2000);
-    expect(await fps(s.page)).toBeGreaterThan(paced * 1.4);   // the screens' own pace again (60 here, against 30)
+    if (hw) {
+      await s.page.waitForTimeout(2000);
+      expect(await fps(s.page)).toBeGreaterThan(paced * 1.4);   // the screens' own pace again (60 here, against 30)
+    }
     expect(s.errors).toEqual([]);
   } finally { await s.app.close(); }
 });
