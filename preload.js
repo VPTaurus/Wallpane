@@ -94,5 +94,7 @@ contextBridge.exposeInMainWorld('wall', {
   // about: name, version, licence, and the app's own links (opened in the browser)
   appInfo: () => ipcRenderer.invoke('app:info'),
   gpuInfo: () => ipcRenderer.invoke('app:gpu'),
+  pace: (p) => ipcRenderer.invoke('app:pace', typeof p === 'string' ? p : null),
+  relaunch: () => ipcRenderer.invoke('app:relaunch'),
   openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
 });

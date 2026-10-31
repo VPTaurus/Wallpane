@@ -38,6 +38,7 @@ const { createPreviews } = require('./lib/previews');
 const { createStrips } = require('./lib/strips');
 const { createLoudness } = require('./lib/loudness');
 const { createOpenings } = require('./lib/openings');
+const { PACES, autoPace, paceHzOf } = require('./lib/pace');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -52,6 +53,10 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // A PC with two graphics chips (an Intel one in the processor and a graphics card): use the card, which decodes and
 // draws dozens of videos far better.
 app.commandLine.appendSwitch('force_high_performance_gpu');
+// The pace Wallpane draws at (lib/pace.js). The switch only works from the start, so the rate comes from app.json:
+// chosen there, or worked out from the screens last time (checkPace).
+const startPace = (() => { try { return paceHzOf(JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'app.json'), 'utf8'))); } catch { return 0; } })();
+if (startPace) app.commandLine.appendSwitch('fake-vsync-rate', String(startPace));
 
 // One entry per open wall window: id (1, 2, ...) -> BrowserWindow. Window 1 keeps the original data file names.
 const wins = new Map();
@@ -112,7 +117,9 @@ handle('store:reveal', () => {
 // One of each for the whole app, made when it is ready (the data folder is known then). The kinds of job are added by
 // the features that use them (making files playable, thumbnails, …). Unfinished jobs are saved to jobs.json.
 const CACHE_LIMITS = [2, 5, 10, 20, 50, 100];   // GB
-const appSettings = { cacheLimitGB: 10, hoverPreviews: true };   // app-wide settings, not one window's (app.json)
+// App-wide settings, not one window's (app.json). paceHz: what Automatic drawing pace worked out from the screens.
+const appSettings = { cacheLimitGB: 10, hoverPreviews: true, pace: 'auto', paceHz: 0 };
+function saveAppSettings() { files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ }); }
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
 let library = null, libFolders = null, thumbs = null, previews = null;   // the library, its folders on disk, thumbnails, hover previews
@@ -140,6 +147,8 @@ function startBackground() {
     const j = JSON.parse(fs.readFileSync(appSettingsFile(), 'utf8'));
     if (CACHE_LIMITS.includes(j.cacheLimitGB)) appSettings.cacheLimitGB = j.cacheLimitGB;
     if (j.hoverPreviews === false) appSettings.hoverPreviews = false;
+    if (PACES.includes(j.pace)) appSettings.pace = j.pace;
+    if (+j.paceHz > 0) appSettings.paceHz = Math.round(+j.paceHz);
   } catch { /* defaults */ }
   cache = createCache(path.join(dataDir(), 'cache'));
   previews = createPreviews({ cache, ffmpeg });
@@ -236,7 +245,7 @@ handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {
   if (CACHE_LIMITS.includes(gb)) {
     appSettings.cacheLimitGB = gb;
-    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+    saveAppSettings();
     cache.clean(gb * 1e9);
   }
   return cacheInfo();
@@ -299,10 +308,35 @@ handle('library:preview', async (_e, id) => {
   const p = await previews.get(e);
   return p ? { kind: 'video', path: p } : null;
 });
+/* ---------- drawing pace (see startPace) ---------- */
+// What Automatic draws at with the screens as they are, kept for the next start (the switch cannot change while
+// Wallpane runs).
+function checkPace() {
+  const hz = autoPace(screen.getAllDisplays().map((d) => d.displayFrequency), screen.getPrimaryDisplay().displayFrequency);
+  if (hz !== appSettings.paceHz) { appSettings.paceHz = hz; saveAppSettings(); }
+}
+// { pace, now (the rate drawn at, 0: the main display's), next (after a restart), main, slow (Hz), portable }
+function paceInfo() {
+  const rates = screen.getAllDisplays().map((d) => Math.round(d.displayFrequency || 0)).filter((f) => f >= 20);
+  return { pace: appSettings.pace, now: startPace, next: paceHzOf(appSettings), main: Math.round(screen.getPrimaryDisplay().displayFrequency || 0),
+    slow: rates.length ? Math.min(...rates) : 0, portable: !!process.env.PORTABLE_EXECUTABLE_FILE };
+}
+handle('app:pace', (_e, p) => {
+  if (PACES.includes(p) && p !== appSettings.pace) { appSettings.pace = p; saveAppSettings(); }
+  return paceInfo();
+});
+// Restarts the installed app (or the development one). The portable .exe is not restarted: its launcher removes the
+// unpacked app when this one quits, so the page asks to start it again instead.
+handle('app:relaunch', () => {
+  if (process.env.PORTABLE_EXECUTABLE_FILE) return false;
+  app.relaunch();
+  app.quit();
+  return true;
+});
 handle('library:previewsOn', (_e, on) => {
   if (typeof on === 'boolean' && on !== appSettings.hoverPreviews) {
     appSettings.hoverPreviews = on;
-    files.writeJsonAtomic(appSettingsFile(), appSettings).catch(() => { /* not critical */ });
+    saveAppSettings();
   }
   return appSettings.hoverPreviews;
 });
@@ -801,6 +835,8 @@ if (!app.requestSingleInstanceLock()) {
     app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
     screen.on('display-added', tellDisplays);
     screen.on('display-removed', tellDisplays);
+    checkPace();
+    ['display-added', 'display-removed', 'display-metrics-changed'].forEach((ev) => screen.on(ev, checkPace));
     state.open.forEach((id) => createWindow(id));
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(1); });
     // The library loads and checks its folders once the wall is up, so a big one never slows the start.

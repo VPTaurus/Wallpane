@@ -228,6 +228,40 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('drawing pace: the rate kept in app.json applies from the start; Settings says so and what the next start brings', async () => {
+  // One 60 Hz screen here, so Automatic would change nothing: a rate worked out earlier (30) stands in for a slower
+  // second screen.
+  const data = path.join(dir, 'data');
+  fs.mkdirSync(data);
+  fs.writeFileSync(path.join(data, 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(data, 'app.json'), JSON.stringify({ pace: 'auto', paceHz: 30 }));
+  const fps = (page) => page.evaluate(() => new Promise((res) => {
+    let n = 0; const t0 = performance.now();
+    (function f() { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); })();
+  }));
+  let s = await start(dir);
+  try {
+    await s.page.waitForTimeout(2000);   // past the start's own work
+    const f = await fps(s.page);
+    expect(f).toBeGreaterThan(25);
+    expect(f).toBeLessThan(35);
+    await s.page.click('#settingsBtn');
+    await s.page.click('#tabWall');
+    await expect(s.page.locator('#setPace')).toHaveValue('auto');
+    await expect(s.page.locator('#paceNote')).toContainText('Drawing now at 30 frames a second');
+    await expect(s.page.locator('#paceNote')).toContainText("Restart Wallpane to draw at the main display's pace");
+    await expect(s.page.locator('#paceRow')).toBeVisible();
+    await expect.poll(() => JSON.parse(fs.readFileSync(path.join(data, 'app.json'), 'utf8')).paceHz).toBe(0);   // the screens as they are now
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+  s = await start(dir);
+  try {
+    await s.page.waitForTimeout(2000);
+    expect(await fps(s.page)).toBeGreaterThan(45);   // the screens' own pace again
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+});
+
 test('even loudness: a loud video plays quieter, a quiet one keeps its level; Settings › General turns it off', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   // FFmpeg's tone at four times its level is about -9.8 LUFS; as it is, about -21.8.

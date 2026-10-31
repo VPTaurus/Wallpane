@@ -333,6 +333,12 @@
               <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
               <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
               <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
+              <span class="lab">Drawing pace</span>
+              <div class="frow"><label for="setPace">Draw at</label>
+                <select id="setPace"><option value="auto">Automatic: the slowest screen's rate</option><option value="main">The main display's rate</option><option value="60">60 frames a second</option></select>
+              </div>
+              <p class="note" id="paceNote"></p>
+              <div class="row" id="paceRow" hidden><button class="btn" id="paceRestart" type="button"><span data-icon="reset"></span>Restart Wallpane</button></div>
               <span class="lab">On a TV or projector</span>
               <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button></div>
               <p class="note">Shows the wall on a TV, projector or stick that Windows can cast to (Miracast). The button opens Windows' display settings: under Multiple displays, click Connect next to "Connect to a wireless display" (Win+K does the same), pick the TV, and choose Extend so it is a display of its own. Then pick it under Show on and start wall mode.</p>

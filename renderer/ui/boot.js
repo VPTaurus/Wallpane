@@ -71,6 +71,7 @@
     A.followCollections();   // collections may have changed since the wall was saved
     A.startMusic();
     if (S.startWall) A.setClean(true);
+    if (A.winId === 1) setTimeout(A.paceHint, 2500);   // after the start's own messages (ui/controls.js)
     document.body.dataset.ready = '1';   // for the end-to-end tests
   }
   A.render();
