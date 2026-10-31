@@ -13,7 +13,7 @@
     api: api, $: $,
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
-      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, evenLoud: true, resizeMode: 'even', fullWall: 'say', autoConvert: true, gifVideo: '2', proxies: 'auto', fillShapes: true, pauseMin: true, startWith: 'offer',
+      playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, evenLoud: true, skipOpen: true, resizeMode: 'even', fullWall: 'say', autoConvert: true, gifVideo: '2', proxies: 'auto', fillShapes: true, pauseMin: true, startWith: 'offer',
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0,                                                    // the counter in the clock popover
@@ -52,7 +52,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -68,6 +68,7 @@
     if (typeof p.clock24 === 'boolean') S.clock24 = p.clock24;   // null: as Windows shows the time
     if (p.soloSound === false) S.soloSound = false;
     if (p.evenLoud === false) S.evenLoud = false;       // loud videos play quieter, so all sound alike
+    if (p.skipOpen === false) S.skipOpen = false;       // videos start after a black or silent opening
     if (p.fillShapes === false) S.fillShapes = false;   // Fill the wall: playlists then pick files shaped like their tile
     if (p.pauseMin === false) S.pauseMin = false;       // the wall rests while its window is minimized
     if (['last', 'empty'].indexOf(p.startWith) > -1) S.startWith = p.startWith;   // the last wall: offered by default

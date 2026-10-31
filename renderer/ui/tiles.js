@@ -300,10 +300,14 @@
       });
     };
     el._frames();
+    // A looped part, or an opening to skip, loops here (syncTile turns the element's own looping off for them).
     media.addEventListener('ended', function () {
-      if (!it.pl && P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
+      if (it.pl) return;
+      if (P.hasLoop(it)) { media.currentTime = it.loopA || 0; media.play().catch(function () {}); }
+      else if (it.loop && !media.loop) { media.currentTime = A.openingOf(it, media); media.play().catch(function () {}); }
     });
     media.addEventListener('loadedmetadata', function () {
+      if (media._swap) return;   // the same video from another file (ui/playable.js): it carries on where it was
       if (!isFinite(media.duration)) {
         // Some files (recorded in a browser, for one) only learn their length at the end: look there once, then come back.
         var back = function () {
@@ -314,6 +318,7 @@
         media.addEventListener('durationchange', back);
         media.currentTime = 1e101;
       } else if (!it.pl && it.loopA) media.currentTime = it.loopA;
+      else if (!it.pl) { var s = A.openingOf(it, media); if (s) media.currentTime = s; }   // after a black or silent opening
     });
   }
   // A video tile's video element (not a GIF's video copy).
@@ -606,7 +611,7 @@
       m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
       m.volume = (it.vol == null ? 1 : it.vol) * A.levelOf(it);   // even loudness (ui/playable.js)
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
-      m.loop = it.loop && (it.pl || !P.hasLoop(it));   // a loop part does its own looping
+      m.loop = it.loop && (it.pl || (!P.hasLoop(it) && !A.openingOf(it, m)));   // a loop part, or a skipped opening, loops itself
       if (el._frames) el._frames();
       if (el._syncBar) el._syncBar();
     }
@@ -741,7 +746,7 @@
     A.scheduleSession();
     A.syncWatches();
     A.checkProxiesLater();
-    A.loudnessLater();
+    A.measureLater();
   };
 
   /* ---------- play / mute / loop buttons in the bar ---------- */

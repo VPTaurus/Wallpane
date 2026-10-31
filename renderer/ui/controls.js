@@ -356,6 +356,7 @@
     $('#setClock').value = typeof S.clock24 === 'boolean' ? (S.clock24 ? '24' : '12') : '';
     $('#setSoloSound').checked = S.soloSound;
     $('#setEvenLoud').checked = S.evenLoud;
+    $('#setSkipOpen').checked = S.skipOpen;
     $('#setFillShapes').checked = S.fillShapes;
     $('#setPauseMin').checked = S.pauseMin;
     $('#setStartWith').value = S.startWith;

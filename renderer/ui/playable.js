@@ -140,12 +140,14 @@
   }
   // Swaps the element's source, carrying on from the same moment, playing or paused as it was (pause() also stops
   // autoplay starting it). A video that has not started yet is about to play by itself, unless a swap held it before.
+  // m._swap tells the tile's own loadedmetadata (where it starts, a playlist's clip) that this is the same video.
   function swapSrc(m, url) {
     if (!url || m.getAttribute('src') === url) return;
     var t = m.currentTime, playing = !m.paused || (m.autoplay && !m.played.length && !m._held);
-    m._held = !playing;
+    m._held = !playing; m._swap = true;
     m.src = url;
     m.addEventListener('loadedmetadata', function () {
+      m._swap = false;
       try { m.currentTime = t; } catch (e) { /* from the start then */ }
       if (playing) m.play().catch(function () {}); else m.pause();
     }, { once: true });
@@ -209,18 +211,47 @@
     var changed = Object.keys(m || {}).filter(function (p) { var was = levels[p]; levels[p] = m[p]; return was !== m[p]; });
     if (changed.length && S.items.some(function (it) { return changed.indexOf(it.path) > -1; })) A.render();
   }
-  // The videos on the wall, a moment after it changed.
-  var loudTimer = 0;
-  A.loudnessLater = function () {
-    clearTimeout(loudTimer);
-    loudTimer = setTimeout(function () {
-      if (!S.evenLoud) return;
-      var paths = S.items.filter(function (it) { return it.kind === 'video' && it.path && !it.missing; }).map(function (it) { return it.path; });
-      api.loudness(paths).then(heard);
-    }, 600);
-  };
   api.onLoudness(heard);
   $('#setEvenLoud').addEventListener('change', function () { S.evenLoud = this.checked; A.savePrefs(); A.render(); });
+
+  /* ---------- black or silent openings ---------- */
+  // Each video on the wall is looked at once (lib/openings.js): a tile starts it after a black opening, or after a
+  // silent one while it is heard, also when it loops (not a playlist with a random start, nor a tile with a looped
+  // part, which start where they say). Settings › General can turn it off.
+  var openings = {};   // path -> { black, silence } (where each opening ends, in seconds), or null
+  // Where this tile's video m starts: 0 when there is no opening, it is off, or the opening is over a third of the
+  // video (then it is the video).
+  A.openingOf = function (it, m) {
+    var o = S.skipOpen && openings[it.path];
+    if (!o) return 0;
+    var s = Math.max(o.black || 0, m && !m.muted ? o.silence || 0 : 0);
+    return s >= 0.3 && !(m && isFinite(m.duration) && s > m.duration / 3) ? s : 0;
+  };
+  function opened(m) {
+    var paths = Object.keys(m || {});
+    paths.forEach(function (p) { openings[p] = m[p]; });
+    // A tile already playing its opening moves on to its start.
+    S.items.forEach(function (it) {
+      var v = paths.indexOf(it.path) > -1 && A.videoOf(it), p = it.pl && S.playlists[it.pl];
+      if (!v || it.loopA || (p && (p.randomStart || it.pinned))) return;
+      var s = A.openingOf(it, v);
+      if (s && v.currentTime < s - 0.25) { v.currentTime = s; if (p) it._t0 = s; }
+    });
+    if (paths.length) A.render();
+  }
+  api.onOpenings(opened);
+  $('#setSkipOpen').addEventListener('change', function () { S.skipOpen = this.checked; A.savePrefs(); A.render(); });
+
+  // The videos on the wall, a moment after it changed: their loudness and openings.
+  var measureTimer = 0;
+  A.measureLater = function () {
+    clearTimeout(measureTimer);
+    measureTimer = setTimeout(function () {
+      var paths = S.items.filter(function (it) { return it.kind === 'video' && it.path && !it.missing; }).map(function (it) { return it.path; });
+      if (S.evenLoud) api.loudness(paths).then(heard);
+      if (S.skipOpen) api.openings(paths).then(opened);
+    }, 600);
+  };
 
   /* ---------- GIF to video ---------- */
   // A GIF over the size chosen in Settings gets a video copy in the background, and plays from it once it is made.

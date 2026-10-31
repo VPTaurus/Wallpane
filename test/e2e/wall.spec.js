@@ -255,6 +255,37 @@ test('even loudness: a loud video plays quieter, a quiet one keeps its level; Se
   } finally { await app.close(); }
 });
 
+test('a video that opens on black starts after it, also when it loops; Settings › General turns it off', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'dark start.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-filter_complex', 'color=c=black:s=320x180:d=2:r=25[b];testsrc=s=320x180:d=4:r=25[t];[b][t]concat=n=2:v=1:a=0[v]',
+    '-map', '[v]', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  const v = page.locator('#wall .tile[aria-label^="dark start.mp4"] video');
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.evaluate((p) => window.wall.openings([p]).then((r) => r[p] && r[p].black), clip), { timeout: 20000 }).toBe(2);
+    await expect.poll(() => v.evaluate((m) => m.loop)).toBe(false);   // it loops itself, from the end of the black
+    expect(await v.evaluate((m) => m.currentTime)).toBeGreaterThanOrEqual(1.7);
+    // Near the end: it comes round to 2 s, not to the black at 0.
+    const back = await v.evaluate((m) => new Promise((res) => {
+      m.addEventListener('ended', () => setTimeout(() => res(m.currentTime), 150), { once: true });
+      m.currentTime = m.duration - 0.3;
+    }));
+    expect(back).toBeGreaterThanOrEqual(1.9);
+    expect(back).toBeLessThan(3);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.locator('#setSkipOpen').uncheck();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => v.evaluate((m) => m.loop)).toBe(true);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('over a video tile\'s timeline: the time under the pointer, and the frame there from a strip made once', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'twenty.mp4');
