@@ -68,6 +68,42 @@ test('a thumbnail asked for while the background round is already making it stil
   fs.rmSync(d, { recursive: true, force: true });
 });
 
+test('a file whose details are read while the background round runs gets its thumbnail in that round', async () => {
+  const open = [];
+  const fake = {
+    available: () => true,
+    run: (tool, args) => new Promise((res) => { open.push(() => { fs.writeFileSync(args[args.length - 1], 'webp'); res({ code: 0 }); }); })
+  };
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-thumblate-')), media = path.join(d, 'media');
+  const cache = createCache(path.join(d, 'cache'));
+  const library = createLibrary({ file: path.join(d, 'library.json'), delay: 1e6, maxWait: 1e6 });
+  library.addFolder(media);
+  library.sync(media, [{ path: path.join(media, 'a.png'), size: 1, mtime: 1 }, { path: path.join(media, 'b.png'), size: 2, mtime: 2 }]);
+  const [a, b] = ['a.png', 'b.png'].map((n) => library.find(path.join(media, n)).id);
+  library.setInfo(a, { w: 10, h: 10 });          // b's details are not read yet
+  let th = null;
+  const jobs = createJobs({ kinds: { libthumbs: { heavy: false, run: (j, ctx) => th.kind.run(j, ctx) } } });
+  th = createThumbs({ library, cache, ffmpeg: fake, jobs });
+  th.queue();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(open.length, 1, 'only a, so far');
+  library.setInfo(b, { w: 10, h: 10 });          // read now, while a is being made
+  th.queue();                                    // the same round, already running
+  open[0]();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(open.length, 2, 'b too, before the round ends');
+  open[1]();
+  await jobs.idle();
+  assert.equal(Object.keys(th.want([a, b])).length, 2);
+  fs.rmSync(d, { recursive: true, force: true });
+});
+
+// Until no job runs or waits, and none follows a moment later: a job that ends (reading details) queues the next
+// (thumbnails) only then, so idle() alone can come back in between, under load.
+async function settle(jobs) {
+  const busy = () => jobs.list().some((j) => j.state === 'queued' || j.state === 'running');
+  do { await jobs.idle(); await new Promise((r) => setTimeout(r, 200)); } while (busy());
+}
 async function make(out, args) {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   await ff.run('ffmpeg', ['-y', '-v', 'error'].concat(args, [out]), { timeoutMs: 60000 });
@@ -114,7 +150,7 @@ test('thumbnails of a whole library folder: asked-for ones arrive first, then th
 
   // Asked for before the background round: none is there yet, and they come through notify.
   assert.deepEqual(th.want([id('big.png'), id('anim.gif'), 'nonsense']), {});
-  await jobs.idle(); await jobs.idle();
+  await settle(jobs);
   const heard = Object.assign({}, ...told);
   assert.ok(heard[id('big.png')] && heard[id('anim.gif')], 'the windows heard about the ones they asked for');
 
@@ -137,7 +173,7 @@ test('thumbnails of a whole library folder: asked-for ones arrive first, then th
   const before = all[id('small.png')];
   await make(path.join(media, 'small.png'), ['-f', 'lavfi', '-i', 'testsrc=size=60x80:rate=1:duration=1', '-frames:v', '1']);
   await lf.rescan(media);
-  await jobs.idle(); await jobs.idle();
+  await settle(jobs);
   const after = th.want([id('small.png')])[id('small.png')];
   assert.ok(after && after !== before);
   assert.deepEqual(await sizeOf(after), [60, 80]);
