@@ -19,6 +19,7 @@ And on the wall:
 - **Minimized, the wall rests:** videos pause and playlists wait until the window is back (Settings › General; background music keeps playing).
 - **A fresh start:** Wallpane starts with an empty wall and offers your last one (Restore it, or Start empty; starting empty keeps it in Saved walls as "Last wall"). Settings › General can open the last wall straight away instead. A wall that starts in wall mode still opens as it was.
 - **New wall window** is a button in the top bar now, beside Wall mode.
+- **Adding to a full wall:** Settings › General › When the wall is full can now take the media anyway. Each new file gets a tile shaped like it, and Fill the wall arranges every tile again with the new ones last (up to 64 tiles). This works for the library, Add and drops; one Ctrl+Z undoes it. The default still just says the wall is full.
 
 Smoother with many tiles:
 - **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.

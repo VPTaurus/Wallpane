@@ -161,6 +161,43 @@ test('the start: an empty wall offers the last one, which comes back, or stays i
   } finally { for (const a of apps) await a.close().catch(() => {}); }
 });
 
+test('a full wall says so, or with the setting takes the file anyway and fills the wall again; one Ctrl+Z undoes it', async () => {
+  const data = path.join(dir, 'data');
+  fs.mkdirSync(data);
+  fs.writeFileSync(path.join(data, 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(data, 'prefs.json'), JSON.stringify({ cols: 2, rows: 2 }));
+  const wide = [0, 1, 2, 3].map((i) => { const p = path.join(dir, 'wide ' + i + '.png'); fs.writeFileSync(p, png(160, 90, [40 * i, 90, 160])); return p; });
+  const tall = path.join(dir, 'tall.png');
+  fs.writeFileSync(tall, png(90, 160, [200, 60, 60]));
+  const { app, page, errors, answer } = await start(dir);
+  const add = async (p) => { await answer(p); await page.click('#addBtn'); await page.click('#addFiles'); };
+  const freeMode = () => page.locator('#modeSeg [data-mode="free"]').getAttribute('aria-pressed');
+  try {
+    await add(wide);
+    await expect(tiles(page)).toHaveCount(4);
+    await add(tall);
+    await expect(toast(page)).toContainText('did not fit');
+    await expect(toast(page)).toContainText('When the wall is full');
+    await expect(tiles(page)).toHaveCount(4);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.selectOption('#setFullWall', 'fill');
+    await page.keyboard.press('Escape');
+    await add(tall);
+    await expect(toast(page)).toContainText('The wall was full, so a new tile joined it.');
+    await expect(tiles(page)).toHaveCount(5);
+    expect(await freeMode()).toBe('true');
+    const box = await page.locator('#wall .tile[aria-label^="tall.png"]').boundingBox();
+    expect(box.height).toBeGreaterThan(box.width);   // shaped like its picture
+
+    await page.keyboard.press('Control+z');
+    await expect(tiles(page)).toHaveCount(4);
+    expect(await freeMode()).toBe('false');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('minimized, the wall pauses, and plays on when the window is back', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4');

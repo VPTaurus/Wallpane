@@ -362,6 +362,7 @@
     $('#setGifVideo').value = S.gifVideo;
     $('#setProxies').value = S.proxies;
     $('#setResize').value = S.resizeMode;
+    $('#setFullWall').value = S.fullWall;
     api.loginItem().then(function (r) {
       var cb = $('#setLogin');
       cb.disabled = !r.supported; cb.checked = !!r.on;
