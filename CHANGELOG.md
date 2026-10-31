@@ -1,8 +1,19 @@
 # Changelog
 
-## 1.6.0 (in the works): Previews
+## 1.6.0 (in the works): Previews and a smoother wall
 
-- **Hover previews in the library:** rest the pointer on a video's thumbnail and it plays a few seconds from across the video, small and silent (made the first time, in about half a second, and kept in the cache); a GIF's thumbnail plays the GIF. Settings › Library can turn them off.
+Smoother with many tiles:
+- **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.
+- **The faster graphics card:** on a PC with two (the processor's own and an NVIDIA or AMD card), Wallpane now asks Windows for the faster one. Settings › About shows which one plays the wall, and whether it decodes the videos.
+- **Less work while playing:** a tile's controls are only kept up to date while you can see them, and only videos with a looped part are followed frame by frame.
+- **Background work** keeps only the last 100 finished jobs in its list, and a lighter copy no longer needed (a playlist moved on) is dropped before it starts.
+
+In the library:
+- **Hover previews:** rest the pointer on a video's thumbnail and it plays a few seconds from across the video, small and silent (made the first time, in about half a second, and kept in the cache); a GIF's thumbnail plays the GIF. Settings › Library can turn them off.
+- **Every file gets its thumbnail:** a file whose details were read while thumbnails were being made no longer waits for a restart, or for you to scroll to it.
+
+On the wall:
+- **Adding to a full wall:** Settings › General › When the wall is full can now take the media anyway. Each new file gets a tile shaped like it, and Fill the wall arranges every tile again with the new ones last (up to 64 tiles). This works for the library, Add and drops; one Ctrl+Z undoes it. The default still just says the wall is full.
 
 ## 1.5.0: The library
 
@@ -23,13 +34,6 @@ And on the wall:
 - **Minimized, the wall rests:** videos pause and playlists wait until the window is back (Settings › General; background music keeps playing).
 - **A fresh start:** Wallpane starts with an empty wall and offers your last one (Restore it, or Start empty; starting empty keeps it in Saved walls as "Last wall"). Settings › General can open the last wall straight away instead. A wall that starts in wall mode still opens as it was.
 - **New wall window** is a button in the top bar now, beside Wall mode.
-- **Adding to a full wall:** Settings › General › When the wall is full can now take the media anyway. Each new file gets a tile shaped like it, and Fill the wall arranges every tile again with the new ones last (up to 64 tiles). This works for the library, Add and drops; one Ctrl+Z undoes it. The default still just says the wall is full.
-
-Smoother with many tiles:
-- **Lighter copies for small tiles:** a large video (1440p, 4K) on a small tile now plays from a lighter copy (at most 960 pixels and 30 frames a second), made once in the background and kept in the cache. It carries on from the same moment, playing or paused as it was; a tile made large, or shown full screen, plays the original again. On a test wall of 30 1080p videos the copies played every frame with fewer dropped and less processor time. Settings › General can turn them off.
-- **The faster graphics card:** on a PC with two (the processor's own and an NVIDIA or AMD card), Wallpane now asks Windows for the faster one. Settings › About shows which one plays the wall, and whether it decodes the videos.
-- **Less work while playing:** a tile's controls are only kept up to date while you can see them, and only videos with a looped part are followed frame by frame.
-- **Background work** keeps only the last 100 finished jobs in its list, and a lighter copy no longer needed (a playlist moved on) is dropped before it starts.
 
 ## 1.4.0: Play anything
 
