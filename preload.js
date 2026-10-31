@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('wall', {
   mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
   mediaProxy: (p) => ipcRenderer.invoke('media:proxy', String(p)),
   mediaStrip: (p, secs) => ipcRenderer.invoke('media:strip', String(p), +secs || 0),
+  loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
+  onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   watchFolders: (roots) => ipcRenderer.invoke('fs:watch', roots),
   onFolderChanged: (cb) => { ipcRenderer.on('fs:changed', (_e, root) => cb(String(root))); },
   openFiles: (multiple) => ipcRenderer.invoke('dialog:files', !!multiple),

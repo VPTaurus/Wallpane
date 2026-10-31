@@ -196,6 +196,32 @@
     });
   }
 
+  /* ---------- even loudness ---------- */
+  // Each video on the wall is measured once (lib/loudness.js), and one louder than TARGET plays that much quieter, so a
+  // loud clip beside a quiet one sounds alike when unmuted. Only ever quieter: a page cannot play a video louder than
+  // it is, so a quiet one keeps its own level. On top of the tile's own volume. Settings › General can turn it off.
+  var levels = {}, TARGET = -18;   // path -> its loudness in LUFS (null: no sound, or not measured)
+  A.levelOf = function (it) {
+    var l = S.evenLoud ? levels[it.path] : null;
+    return l == null || l <= TARGET ? 1 : Math.pow(10, (TARGET - l) / 20);
+  };
+  function heard(m) {
+    var changed = Object.keys(m || {}).filter(function (p) { var was = levels[p]; levels[p] = m[p]; return was !== m[p]; });
+    if (changed.length && S.items.some(function (it) { return changed.indexOf(it.path) > -1; })) A.render();
+  }
+  // The videos on the wall, a moment after it changed.
+  var loudTimer = 0;
+  A.loudnessLater = function () {
+    clearTimeout(loudTimer);
+    loudTimer = setTimeout(function () {
+      if (!S.evenLoud) return;
+      var paths = S.items.filter(function (it) { return it.kind === 'video' && it.path && !it.missing; }).map(function (it) { return it.path; });
+      api.loudness(paths).then(heard);
+    }, 600);
+  };
+  api.onLoudness(heard);
+  $('#setEvenLoud').addEventListener('change', function () { S.evenLoud = this.checked; A.savePrefs(); A.render(); });
+
   /* ---------- GIF to video ---------- */
   // A GIF over the size chosen in Settings gets a video copy in the background, and plays from it once it is made.
   var gifs = {}, gifJobs = {}, gifBad = {};   // GIF path -> its copy's url; job key -> GIF path; copies that failed

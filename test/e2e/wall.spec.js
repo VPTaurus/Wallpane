@@ -228,6 +228,33 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('even loudness: a loud video plays quieter, a quiet one keeps its level; Settings › General turns it off', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // FFmpeg's tone at four times its level is about -9.8 LUFS; as it is, about -21.8.
+  const make = (name, af) => ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6' + af,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', path.join(dir, name)], { timeoutMs: 60000 });
+  await make('loud.mp4', ',volume=4');
+  await make('quiet.mp4', '');
+  const { app, page, errors, answer } = await start(dir);
+  const vol = (name) => page.locator('#wall .tile[aria-label^="' + name + '"] video').evaluate((v) => v.volume);
+  try {
+    await answer([path.join(dir, 'loud.mp4'), path.join(dir, 'quiet.mp4')]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    // -18 LUFS is 8.2 dB below -9.8: a volume of about 0.39.
+    await expect.poll(() => vol('loud.mp4'), { timeout: 20000 }).toBeLessThan(0.45);
+    expect(await vol('loud.mp4')).toBeGreaterThan(0.33);
+    expect(await vol('quiet.mp4')).toBe(1);
+
+    await page.click('#settingsBtn');
+    await page.click('#tabGeneral');
+    await page.locator('#setEvenLoud').uncheck();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => vol('loud.mp4')).toBe(1);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('over a video tile\'s timeline: the time under the pointer, and the frame there from a strip made once', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'twenty.mp4');

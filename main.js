@@ -36,6 +36,7 @@ const { imageSize } = require('./lib/imagesize');
 const { createThumbs } = require('./lib/thumbs');
 const { createPreviews } = require('./lib/previews');
 const { createStrips } = require('./lib/strips');
+const { createLoudness } = require('./lib/loudness');
 
 // Links the page may open in the browser (About and support). Nothing else leaves the app.
 const LINKS = {
@@ -114,7 +115,7 @@ const appSettings = { cacheLimitGB: 10, hoverPreviews: true };   // app-wide set
 const JOB_KINDS = {};
 let cache = null, jobs = null, jobsSaveTimer = null, jobsPending = [];
 let library = null, libFolders = null, thumbs = null, previews = null;   // the library, its folders on disk, thumbnails, hover previews
-let strips = null;   // timeline pictures for video tiles
+let strips = null, loudness = null;   // timeline pictures for video tiles; each video's loudness
 function appSettingsFile() { return path.join(dataDir(), 'app.json'); }
 function jobsFile() { return path.join(dataDir(), 'jobs.json'); }
 function cacheInfo() { return Object.assign(cache.info(), { limitGB: appSettings.cacheLimitGB }); }
@@ -142,6 +143,10 @@ function startBackground() {
   cache = createCache(path.join(dataDir(), 'cache'));
   previews = createPreviews({ cache, ffmpeg });
   strips = createStrips({ cache, ffmpeg });
+  loudness = createLoudness({
+    ffmpeg, cache, file: path.join(dataDir(), 'loudness.json'),
+    notify: (made) => { for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('media:loudnessMade', made); }
+  });
   library = createLibrary({ file: path.join(dataDir(), 'library.json'), convertible: ffmpeg.available(), notify: tellLibrary });
   const jobsLater = { add: (spec) => jobs && jobs.add(spec) };
   thumbs = createThumbs({ library, cache, ffmpeg, jobs: jobsLater, notify: tellThumbs });
@@ -216,6 +221,9 @@ handle('media:proxy', (_e, p) => {
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.
 handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
+// Even loudness (lib/loudness.js): the videos a wall shows. { path: lufs | null } for those measured already; the rest
+// are measured one at a time and arrive through 'media:loudnessMade'.
+handle('media:loudness', (e, paths) => (loudness ? loudness.want(e.sender.id, paths) : {}));
 handle('cache:info', () => cacheInfo());
 handle('cache:setLimit', (_e, gb) => {
   if (CACHE_LIMITS.includes(gb)) {
