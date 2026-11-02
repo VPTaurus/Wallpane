@@ -1,12 +1,18 @@
 # Changelog
 
-## 1.6.1 (in the works)
+## 1.6.5: GIFs and a tidier wall
 
+Download **Wallpane Setup 1.6.5.exe** (installer) or **Wallpane 1.6.5.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Make a GIF from any looped part of a video. The top bar, the menus, Settings and Properties are tidier, with shorter words. A wall that plays videos is saved again while it plays. (1.6.1 was never published: everything since 1.6.0 is here.)
+
+New:
 - **Make a GIF of a looped part:** once a video tile loops a part, Properties › Playback and the tile's right-click menu offer **Make a GIF…**.
   - **Choices:** the width (320 to 800 px), frames a second (10 to 25), the whole frame or what the tile shows (its shape, zoom and position), and the tile's speed if it plays faster or slower.
   - **Before you save:** the dialog shows the GIF's size and roughly how big the file will be, and refuses a part longer than a minute.
   - **Saving:** FFmpeg makes the GIF in the background, next to the video by default, with a progress bar you can stop. Then **Show in Explorer** or **Put on the wall**. The video is never changed.
-- **A wall with videos is saved again while it plays.** In 1.6.0 such a wall redrew itself every half second or so, which kept putting off its save until the window closed: after a crash or a power cut, recent changes were lost. It now redraws only when something changes, and saves within a second of a change.
+
+Tidier:
 - **The same words everywhere:** saved walls (no more "presets"), **Play a folder…** (was Own folder) and **Show in Explorer** in a tile's menu and Properties, the Playlist popover's choices as in Properties, and shorter notes in Saved walls, Playlist and the clock, with a **?** for the rest.
 - **A shorter Arrange menu:** **Fill the wall** and **Layouts…**, which now holds the ready-made layouts, Rows and columns, and your own. Fit to media and Auto-arrange (Pack tiles) are gone. Tested on thousands of walls, Fit to media could not reshape a full grid, so it only shuffled the tiles. With spare cells it still left 17–23% bars where Fill the wall leaves none and keeps the order. Pack tiles left gaps in the middle on about half of the walls with gaps, and now and then shrank a wide tile to one cell. Fit tile to media, for one tile, stays in the tile's menu and Properties. Layouts keep their shape: frames you have no tile for become empty tiles (before, a big empty frame fell apart into single cells), and they work while tiles are placed freely too, putting them back on the grid. The ready-made layouts' pictures show again (since 1.5.0 the library's thumbnail style had broken them). Cell shape is set on the grid only, and "New tiles show" moved to Settings › Tiles.
 - **Clearer Settings:** short names, and a **?** beside each that explains it on hover, instead of long notes. General is split up: **Tiles** (growing a tile, a full wall, shape-matched playlists) and **Video** (sound, black openings, pausing when minimized, playable copies, GIFs, lighter copies, the drawing pace, which moved here from Wall mode).
@@ -18,6 +24,9 @@
 - **Clip length is a choice** in Properties and the Playlist popover: the whole clip, 10 s, 20 s, 30 s, 1, 2 or 5 minutes.
 - **Quieter empty cells:** a faint + that lights up under the pointer, with "Drop or click" only then.
 - **Repeat and Stay on this file:** a tile with one video has **Repeat** (on, or play it once), a tile playing a folder has **Stay on this file** (the pin), in its buttons, its right-click menu and Properties alike; pictures and GIFs no longer show a loop button that did nothing. "Loop a part" keeps its name.
+
+Fixed and lighter:
+- **A wall with videos is saved again while it plays.** In 1.6.0 such a wall redrew itself every half second or so, which kept putting off its save until the window closed: after a crash or a power cut, recent changes were lost. It now redraws only when something changes, and saves within a second of a change.
 - **Less work at rest:** the clock in the bar ticks once a second (four times while a stopwatch or timer runs, ten while its popover shows tenths), and no longer asks Windows for its time format on every tick.
 
 ## 1.6.0: Previews and a smoother wall
