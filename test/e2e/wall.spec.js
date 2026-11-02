@@ -177,11 +177,11 @@ test('a full wall says so, or with the setting takes the file anyway and fills t
     await expect(tiles(page)).toHaveCount(4);
     await add(tall);
     await expect(toast(page)).toContainText('did not fit');
-    await expect(toast(page)).toContainText('When the wall is full');
+    await expect(toast(page)).toContainText('Settings › Tiles › Full wall');
     await expect(tiles(page)).toHaveCount(4);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabTiles');
     await page.selectOption('#setFullWall', 'fill');
     await page.keyboard.press('Escape');
     await add(tall);
@@ -217,7 +217,7 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
 
     // With the setting off, it keeps playing.
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setPauseMin').uncheck();
     await page.keyboard.press('Escape');
     await win('minimize');
@@ -301,10 +301,10 @@ test('drawing pace: the rate kept in app.json applies from the start; Settings s
       expect(paced).toBeLessThan(40);
     }
     await s.page.click('#settingsBtn');
-    await s.page.click('#tabWall');
+    await s.page.click('#tabVideo');
     await expect(s.page.locator('#setPace')).toHaveValue('auto');
-    await expect(s.page.locator('#paceNote')).toContainText('Drawing now at 30 frames a second');
-    await expect(s.page.locator('#paceNote')).toContainText("Restart Wallpane to draw at the main display's pace");
+    await expect(s.page.locator('#paceNote')).toContainText('Now: 30 frames a second');
+    await expect(s.page.locator('#paceNote')).toContainText("Restart for the main display's pace");
     await expect(s.page.locator('#paceRow')).toBeVisible();
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(data, 'app.json'), 'utf8')).paceHz).toBe(0);   // the screens as they are now
     expect(s.errors).toEqual([]);
@@ -338,7 +338,7 @@ test('even loudness: a loud video plays quieter, a quiet one keeps its level; Se
     expect(await vol('quiet.mp4')).toBe(1);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setEvenLoud').uncheck();
     await page.keyboard.press('Escape');
     await expect.poll(() => vol('loud.mp4')).toBe(1);
@@ -369,7 +369,7 @@ test('a video that opens on black starts after it, also when it loops; Settings 
     expect(back).toBeLessThan(3);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setSkipOpen').uncheck();
     await page.keyboard.press('Escape');
     await expect.poll(() => v.evaluate((m) => m.loop)).toBe(true);
@@ -431,7 +431,7 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
     await expect.poll(async () => (await state('big.mp4')).paused).toBe(true);
     const t = (await state('big.mp4')).t;
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.selectOption('#setProxies', 'off');
     await page.keyboard.press('Escape');
     await expect.poll(() => src('big.mp4')).not.toMatch(/proxies/);

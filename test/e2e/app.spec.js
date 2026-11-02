@@ -60,7 +60,8 @@ async function answerDialogs(p, save) {
 const toast = () => page.locator('#toast');
 // A data file as the app saved it, or {} while it is not there yet (polls then simply try again).
 const saved = (name) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', name + '.json'), 'utf8')); } catch { return {}; } };
-// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Library', 'Storage', 'Keys' or 'About'.
+// Opens Settings (if it is not open) at a section: 'General', 'Tiles', 'Video', 'Wall', 'Hide', 'Library', 'Storage',
+// 'Keys' or 'About'.
 async function settingsAt(sec) {
   if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
   await page.click('#tab' + sec);
@@ -224,14 +225,23 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await expect.poll(() => saved('prefs').clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
-  // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
-  await expect(page.locator('#setSoloSound')).toBeChecked();
-  await expect(page.locator('#setResize')).toHaveValue('even');
-  // Arrow keys move between the sections.
+  // A ? explains its setting while the pointer rests on it.
+  await page.locator('#secGeneral .tip').first().hover();
+  await expect(page.locator('#tipBox')).toBeVisible();
+  await expect(page.locator('#tipBox')).toContainText('starts when you sign in');
+  await page.mouse.move(5, 5);
+  await expect(page.locator('#tipBox')).toBeHidden();
+  // Arrow keys move between the sections: Tiles (growing a tile shrinks the ones beside it evenly), Video (full
+  // screen plays its sound), then Wall mode.
   await page.focus('#tabGeneral');
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('#secWall')).toBeVisible();
+  await expect(page.locator('#secTiles')).toBeVisible();
   await expect(page.locator('#secGeneral')).toBeHidden();
+  await expect(page.locator('#setResize')).toHaveValue('even');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#setSoloSound')).toBeChecked();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#secWall')).toBeVisible();
   await page.click('#setStartWall');
   await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
@@ -611,7 +621,7 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   // GIF to video: with "All GIFs" chosen, a GIF tile plays from a video copy, silent and looping, and is still a GIF.
   const gif = path.join(conv, 'dance.gif');
   await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=240x180:rate=10:duration=2', gif], { timeoutMs: 60000 });
-  await settingsAt('General');
+  await settingsAt('Video');
   await page.locator('#setGifVideo').selectOption('all');
   await page.keyboard.press('Escape');
   await answerDialogs(gif);

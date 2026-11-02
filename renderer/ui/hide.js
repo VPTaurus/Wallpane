@@ -181,9 +181,9 @@
   function hideNote(text) {
     var k = K.label(cfg.key);
     $('#hideNote').textContent = text || (cfg.ok
-      ? 'Press ' + k + ' in any program: every wall window ' + (cfg.cover === 'away' ? 'goes away' : 'is covered') + ', its sound goes off and videos pause. Press it again to come back. Starting Wallpane again also brings it back.'
-      : 'Another program already uses ' + k + ', so it works only while Wallpane is the active window. Click the key to pick another.') +
-      (!text && cfg.mouse && cfg.cover === 'away' ? ' With Nothing shown there is no window to click, so only the key brings them back.' : '');
+      ? k + ' works in any program; press it again, or start Wallpane again, to come back.'
+      : 'Another program already uses ' + k + ', so it works only while Wallpane is active. Click the key to pick another.') +
+      (!text && cfg.mouse && cfg.cover === 'away' ? ' With Nothing shown, only the key brings the windows back.' : '');
   }
   function showSettings() {
     var b = $('#hideKey');

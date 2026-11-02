@@ -608,7 +608,7 @@
     if (m.tagName === 'VIDEO' && it.kind !== 'video') { m.muted = true; m.loop = true; }   // a GIF's video copy
     else if (m.tagName === 'VIDEO') {
       var rate = it.speed || 1;
-      // One tile full screen: it is heard and the others are quiet (Settings › General), until full screen ends.
+      // One tile full screen: it is heard and the others are quiet (Settings › Video), until full screen ends.
       m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
       m.volume = (it.vol == null ? 1 : it.vol) * A.levelOf(it);   // even loudness (ui/playable.js)
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }

@@ -90,6 +90,20 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex: none; }
 .check:has(input:disabled) { opacity: 0.55; cursor: default; }
+/* A setting: its short name, and a ? whose explanation shows on hover or focus (ui/controls.js, .tipbox). */
+.srow { display: flex; align-items: center; gap: 8px; }
+.flab { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tip {
+  flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel); color: var(--muted);
+  font: 700 11px/1 var(--ui); cursor: help;
+}
+.tip:hover, .tip:focus-visible { color: var(--accent); border-color: var(--accent); }
+.tipbox {
+  position: fixed; z-index: 100; max-width: 300px; padding: 8px 10px; border-radius: 8px;
+  background: var(--fg); color: var(--panel); font: 400 12px/1.45 var(--ui); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); pointer-events: none;
+}
+.ssec .note:empty { display: none; }
 
 /* ---------- control bar: buttons in groups, each on a soft rounded ground; quiet buttons, one accent action (Add) ----
    Left: the wall's contents (Add, Clear, Undo, Redo), its layout, playback; right: the time, what the wall plays

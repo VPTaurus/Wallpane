@@ -184,7 +184,7 @@
   };
 
   /* ---------- adding to a full wall ---------- */
-  // Settings › General › When the wall is full › Add and fill the wall again: files that did not fit get tiles of their
+  // Settings › Tiles › Full wall › Add and refill: files that did not fit get tiles of their
   // own, shaped like their media, and Fill the wall arranges every tile again with the new ones last (on the grid it
   // switches to Free layout, as Fill the wall does). At most MAX_TILES tiles on the wall, and FORCE_MAX new ones at a
   // time; the files beyond play in turn on the new tiles. Part of the adding's undo step. Returns whether it took over
@@ -214,7 +214,7 @@
   // The end of the "did not fit" message: the way to make room, and the setting that would have.
   function fullHint(how) {
     if (S.fullWall === 'fill' && S.items.length >= MAX_TILES) return 'The wall has ' + MAX_TILES + ' tiles, the most it takes by itself.';
-    return how + ' (Or Settings › General › When the wall is full: Add and fill the wall again.)';
+    return how + ' (Or Settings › Tiles › Full wall: Add and refill.)';
   }
   // More files than room on the wall (grid or Free): the new tiles become a playlist of all of them, so the rest play
   // in turn, carrying on after the files the tiles show now. Returns whether it made one.
@@ -577,7 +577,7 @@
     return out;
   }
   // After Fill the wall or Fit to media every tile has its media's shape: the playlists on the wall then pick files
-  // shaped like their tiles first, so the shapes keep fitting (Settings › General can leave them be). Returns how many
+  // shaped like their tiles first, so the shapes keep fitting (Settings › Tiles can leave them be). Returns how many
   // playlists started to.
   function shapePlaylists() {
     if (!S.fillShapes) return 0;

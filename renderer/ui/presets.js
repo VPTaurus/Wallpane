@@ -230,7 +230,7 @@
   });
 
   /* ---------- the last wall, offered at the start ---------- */
-  // The wall starts empty and offers the last one (Settings › General › When Wallpane starts). While the offer stands
+  // The wall starts empty and offers the last one (Settings › General › On start). While the offer stands
   // and the wall is still empty, the last wall is not saved over. Starting empty, or putting something on the empty
   // wall, keeps it in Saved walls as "Last wall".
   var LAST = 'Last wall', offered = null;   // { rec (cleaned), raw (as it was saved) } while the offer stands

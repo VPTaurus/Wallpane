@@ -131,7 +131,7 @@
   /* ---------- lighter copies for small tiles ---------- */
   // A video much bigger than its tile plays from a lighter copy (lib/playable.js proxyKind: made once in the background,
   // kept in the cache), from the same moment; when the tile grows, or plays alone full screen, it goes back to the
-  // original. Settings › General can turn this off. Sizes are in screen pixels, so a scaled display counts right.
+  // original. Settings › Video can turn this off. Sizes are in screen pixels, so a scaled display counts right.
   var proxies = {}, proxyJobs = {}, proxyBad = {}, bigOf = {};   // path -> copy url; job key -> path; failed; original's long side
   var BIG = 1440, SMALL = 960, LEAVE = 1100;   // originals from BIG on; tiles up to SMALL take the copy, over LEAVE leave it
   function tileLong(el) {
@@ -201,7 +201,7 @@
   /* ---------- even loudness ---------- */
   // Each video on the wall is measured once (lib/loudness.js), and one louder than TARGET plays that much quieter, so a
   // loud clip beside a quiet one sounds alike when unmuted. Only ever quieter: a page cannot play a video louder than
-  // it is, so a quiet one keeps its own level. On top of the tile's own volume. Settings › General can turn it off.
+  // it is, so a quiet one keeps its own level. On top of the tile's own volume. Settings › Video can turn it off.
   var levels = {}, TARGET = -18;   // path -> its loudness in LUFS (null: no sound, or not measured)
   A.levelOf = function (it) {
     var l = S.evenLoud ? levels[it.path] : null;
@@ -217,7 +217,7 @@
   /* ---------- black or silent openings ---------- */
   // Each video on the wall is looked at once (lib/openings.js): a tile starts it after a black opening, or after a
   // silent one while it is heard, also when it loops (not a playlist with a random start, nor a tile with a looped
-  // part, which start where they say). Settings › General can turn it off.
+  // part, which start where they say). Settings › Video can turn it off.
   var openings = {};   // path -> { black, silence } (where each opening ends, in seconds), or null
   // Where this tile's video m starts: 0 when there is no opening, it is off, or the opening is over a third of the
   // video (then it is the video).
@@ -306,6 +306,6 @@
   $('#setGifVideo').addEventListener('change', function () { S.gifVideo = this.value; A.savePrefs(); });
   $('#setProxies').addEventListener('change', function () { S.proxies = this.value; A.savePrefs(); A.checkProxiesLater(); });
 
-  // Settings › General: convert on its own, or only when asked.
+  // Settings › Video: convert on its own, or only when asked.
   $('#setConvert').addEventListener('change', function () { S.autoConvert = this.checked; A.savePrefs(); });
 })(window.MW.app);
