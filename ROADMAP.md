@@ -53,6 +53,21 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **P1. Fixes from testing 1.6.0** on the big walls (two windows of 26 and 36 tiles, a 60 Hz screen beside a faster main display): whatever the test turns up comes first.
 - [x] **P2. Code optimization.** A pass over the code for speed and weight, measured before and after with the benchmark wall (36 tiles): the start (time to the first frame), memory per wall window, work per frame with many tiles, the main process's file and FFmpeg work, the messages between the windows and the main process (job lists, library changes), and code nothing uses any more. Done (first pass): an idle wall with videos redrew every 0.6 s (an answer about openings set off the next question) and so never saved until it closed; fixed, with a test that fails on the old code (34 calls to the main process in 10 s down to 0, 13 redraws in 8 s down to 0). The clock ticks as often as it shows something new. The start is within 0.1 s of a bare Electron window (1 s more to build 36 tiles); the page's own JavaScript is 97% idle while 30 videos play, so what is left is the graphics card's work (memory: about 1 GB in the GPU process for 30 videos, 10 MB of page heap). A scan found no code nothing uses.
 - [ ] **P3. UI tweaks.** Small improvements to how it looks and feels, from the test and from going through each part in turn: the top bar, tiles and their controls, Properties, the right-click menus, Settings, the library, wall mode.
+- [ ] **P4. Take Fit to media and Pack tiles out of Arrange** (decided 2026-11-02; planned, not started). The Arrange menu keeps **Fill the wall** and **Layouts…**, without group headings.
+  - **Why:** both were tested on thousands of random walls.
+    - **Fit to media** can't change any shape on a full grid (as many tiles as cells, like 36 on 6 × 6). There it only moves every tile somewhere else, sorted by shape, and switches it to Whole frame. With spare cells it cuts bars from about 30% of the tile area to 17–23%, but it still moves every tile. Fill the wall does the job better: no bars, 0–6% cropped, and the tiles keep their order.
+    - **Pack tiles** rebuilds the layout from scratch. On about half the walls with gaps it leaves gaps in the middle, and on about 1 in 130 it shrinks a wide tile to one cell although everything fitted. Layouts…, Fill the wall and dragging already close gaps.
+  - **What stays:** **Fit tile to media** for one tile (the right-click menu's Display group and Properties: `A.fitTilesToMedia`), which works well. Also `G.arrange` in `geometry.js`: it is no longer behind a button, but a saved wall whose grid layout doesn't fit uses it to repair itself (`A.applyRecord` in `presets.js`), and it keeps its tests.
+  - **What goes:**
+    - **Page:** `#fitMediaBtn`, `#arrangeBtn`, the two group headings (`index.html`), and their hints and disabled states in `tiles.js` render.
+    - **Code:** the Pack tiles handler and `fitToMedia()` in `media.js`. `mediaAspect` and `shapePlaylists` stay, because Fill the wall and Fit tile to media use them.
+    - **Library:** `renderer/lib/fit.js` and its `<script>` tag, and the FIT tests in `test/unit/freegeo-fit.test.js`. That file keeps its free-layout tests.
+  - **Tests:** remove the "Arrange > Fit to media" e2e test and the checks on the two buttons in the Free layout test. The e2e tests run in order, so check that the tests after it don't rely on the shapes Fit to media gave the tiles. Add a check that the Arrange menu shows only Fill the wall and Layouts….
+  - **Words:**
+    - **Settings:** the Settings › Tiles tip for Playlists match tile shapes ("After Fill the wall").
+    - **README:** the top bar's Arrange paragraph, the Playlist paragraph ("Fill the wall and Fit to media switch Shapes on"), the Fit to media line under Layout, and the `renderer/lib/` list.
+    - **Other docs:** the 1.6.1 Arrange entry in CHANGELOG (say both are gone and what to use instead), and the passing mention in `docs/library-design.md`.
+  - **Saved walls:** nothing to migrate. Tiles that Fit to media shaped keep their places and their Whole frame setting.
 
 ## E. Library, part 2 (1.7.0)
 - [ ] **E1. Tags, ratings and favourites**, also for many files at once.
