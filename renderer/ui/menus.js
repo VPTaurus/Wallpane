@@ -63,7 +63,7 @@
       items.push({ label: 'Reposition and zoom', hint: 'Drag the media; scroll to zoom', icon: 'move', act: function () { A.startRepos(it); } });
       if (!V.isDefault(it)) items.push({ label: 'Reset position and zoom', icon: 'reset', act: function () { A.resetView(it); } });
       items.push({ label: it.fit === 'cover' ? 'Show the whole frame' : 'Fill the tile', icon: 'fit', act: function () { it.fit = it.fit === 'cover' ? 'contain' : 'cover'; it.fitSet = true; A.render(); A.refreshInspector(); } },
-        { label: 'Fit tile to media', hint: 'No bars, nothing cropped', icon: 'fit', act: function () { A.fitTilesToMedia([it]); } });
+        { label: 'Fit tile to media', hint: 'No bars, nothing cropped' + (S.mode === 'free' ? '' : '; switches to Free (pixels)'), icon: 'fit', act: function () { A.fitTilesToMedia([it]); } });
     }
     items.push('-');
     if (media && it.kind === 'video') {

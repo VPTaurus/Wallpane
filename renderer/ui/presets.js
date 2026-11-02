@@ -177,18 +177,31 @@
   }
   function layoutThumb(L) {
     var cells = L.f.map(function (f) { return '<i style="grid-column:' + (f[0] + 1) + ' / span ' + f[2] + ';grid-row:' + (f[1] + 1) + ' / span ' + f[3] + '"></i>'; }).join('');
-    return '<span class="lthumb" style="grid-template-columns:repeat(' + L.cols + ',1fr);grid-template-rows:repeat(' + L.rows + ',1fr)">' + cells + '</span>';
+    return '<span class="laythumb" style="grid-template-columns:repeat(' + L.cols + ',1fr);grid-template-rows:repeat(' + L.rows + ',1fr)">' + cells + '</span>';
   }
+  // The tiles move into the layout's frames in reading order. Frames left over become empty tiles, so the layout keeps
+  // its shape (as Rows and columns does); tiles beyond its frames take the cells the frames leave empty. It is a grid
+  // layout, so a wall placed freely goes back on the grid. Sample tiles make way.
+  function freeOrder(a, b) { return ((a.fy || 0) - (b.fy || 0)) || ((a.fx || 0) - (b.fx || 0)); }
   function applyLayout(L) {
-    var slots = G.layoutSlots(L);
-    if (S.items.length > slots.length) {
-      A.toast('This layout has ' + slots.length + ' cells but the wall has ' + S.items.length + ' tiles. Remove some tiles or pick a bigger layout.');
+    var slots = G.layoutSlots(L), keep = S.items.filter(function (i) { return !i.sample; });
+    if (keep.length > slots.length) {
+      A.toast('This layout has ' + slots.length + ' places but the wall has ' + keep.length + ' tiles. Remove some tiles or pick a bigger layout.');
       return false;
     }
     A.pushHistory();
-    S.items.slice().sort(U.readingOrder).forEach(function (it, i) { var g = slots[i]; it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; });
-    S.cols = L.cols; S.rows = L.rows;
+    var wasFree = S.mode === 'free', order = keep.sort(wasFree ? freeOrder : U.readingOrder), empties = 0;
+    while (order.length < L.f.length) { order.push(A.makeEmptyItem({ col: 0, row: 0, w: 1, h: 1 })); empties++; }
+    S.items = order.slice();
+    if (S.sel && !A.itemById(S.sel)) S.sel = null;
+    order.forEach(function (it, i) { var g = slots[i]; it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; });
+    S.mode = 'grid'; S.cols = L.cols; S.rows = L.rows;
+    A.autoFill(false);   // a running folder playlist fills the new empty tiles
     A.savePrefs(); A.render(); A.refreshInspector();
+    var msg = [];
+    if (wasFree) msg.push('The tiles are on the grid again, in the layout’s frames.');
+    if (empties) msg.push(empties + (empties === 1 ? ' frame is an empty tile' : ' frames are empty tiles') + ': drop media on them, or add a folder as a playlist.');
+    if (msg.length) A.toast(msg.join(' '));
     return true;
   }
   A.renderLayouts = function () {

@@ -159,10 +159,13 @@ test('Fit tile to media gives a tile the exact shape of its image', async () => 
   await expect(toast()).toContainText('exact shape of its media');
   const box = await tall.boundingBox();
   expect(Math.abs(box.width / box.height - 90 / 160)).toBeLessThan(0.01);
+  // Placed freely now: Pack tiles and Fit to media need the grid (Fill the wall does it freely); Layouts still work.
   await page.click('#arrangeMenuBtn');
   await expect(page.locator('#arrangeBtn')).toBeDisabled();
-  await page.click('#fitMediaBtn');
-  await expect(toast()).toContainText('6 tiles now have the exact shape');
+  await expect(page.locator('#fitMediaBtn')).toBeDisabled();
+  await expect(page.locator('#fitHint')).toContainText('use Fill the wall');
+  await expect(page.locator('#layoutBtn')).toBeEnabled();
+  await page.keyboard.press('Escape');
   await page.click('#modeSeg [data-mode="grid"]');
   await expect(toast()).toContainText('Back on the grid');
 });
@@ -283,6 +286,7 @@ test('right-click on empty wall makes an empty tile, which then takes media', as
 
 test('Rows and columns: 3 tiles in the first row and 4 in the second', async () => {
   await page.click('#arrangeMenuBtn');
+  await page.click('#layoutBtn');
   await page.click('#rowsBtn');
   await expect(page.locator('#popB')).toBeVisible();
   while (await page.locator('#bLines .bline').count() > 2) await page.locator('#bLines [data-b="del"]').last().click();

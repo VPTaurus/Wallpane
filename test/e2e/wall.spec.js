@@ -228,6 +228,36 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('layouts keep their frames: leftover frames become empty tiles; applied while placed freely, the tiles go back on the grid', async () => {
+  const pic = path.join(dir, 'pic.png');
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  const items = () => page.evaluate(() => window.MW.app.S.items.map((i) => (i.kind === 'empty' ? 'empty' : i.name) + ' ' + i.w + '×' + i.h));
+  const layout = async (name) => { await page.click('#arrangeMenuBtn'); await page.click('#layoutBtn'); await page.locator('#lgrid .lbtn', { hasText: name }).click(); };
+  try {
+    await answer(pic);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect(tiles(page)).toHaveCount(1);
+    // Each ready-made layout shows its frames (in 1.5.0 and 1.6.0 the library's thumbnail style broke these pictures).
+    await page.click('#arrangeMenuBtn'); await page.click('#layoutBtn');
+    const pic6 = await page.locator('#lgrid .lbtn', { hasText: 'Two big' }).locator('.laythumb i').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4; }));
+    expect(pic6).toEqual([true, true, true, true, true, true]);
+    await page.keyboard.press('Escape');
+    // Two big: two 2×2 frames and four 1×1. One picture: the second big frame stays a 2×2 frame, as an empty tile.
+    await layout('Two big');
+    await expect(toast(page)).toContainText('5 frames are empty tiles');
+    expect((await items()).sort()).toEqual(['empty 1×1', 'empty 1×1', 'empty 1×1', 'empty 1×1', 'empty 2×2', 'pic.png 2×2']);
+    // Placed freely, Layouts still works and puts the tiles back on the grid: 3 × 3 takes the six and adds three.
+    await page.click('#modeSeg [data-mode="free"]');
+    await layout('3 × 3');
+    await expect(toast(page)).toContainText('on the grid again');
+    await expect(page.locator('#gridLabel')).toHaveText('3 × 3');
+    expect(await items()).toHaveLength(9);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('a single video has Repeat, a picture has neither Repeat nor Pin, a playlist tile has Pin', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), folder = path.join(dir, 'Two');

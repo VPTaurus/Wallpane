@@ -50,10 +50,7 @@
           <div class="frow"><label for="aspect">Cell shape</label>
             <select id="aspect"><option value="fill">Fill the window</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">Square</option><option value="9:16">9:16 portrait</option></select>
           </div>
-          <div class="frow"><label for="fit">New tiles show</label>
-            <select id="fit"><option value="cover">Fill the cell</option><option value="contain">The whole frame</option></select>
-          </div>
-          <p class="note" id="gridNote" hidden>Columns and rows apply when tiles snap to the grid.</p>
+          <p class="note" id="gridNote" hidden>Columns, rows and cell shape are set on the grid; placed freely, the wall keeps the shape they gave it.</p>
         </div>
       </div>
       <div class="seg modeseg" id="modeSeg" role="group" aria-label="How tiles are placed">
@@ -61,13 +58,16 @@
         <button type="button" data-mode="free" aria-pressed="false" title="Free (pixels): place and size every tile by the pixel"><span class="long">Free (pixels)</span><span class="short">Free</span></button>
       </div>
       <div class="popwrap">
-        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fit, auto-arrange, rows and columns, frame layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
+        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: match media shapes, pack tiles, layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
+        <!-- Two kinds of arranging: tiles that take their media's shape, and tiles moved into other places or frames. The
+             hints say when a command only works on the grid, or switches the wall to Free (ui/tiles.js render). -->
         <div class="pop menu" id="popArr" hidden>
-          <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles so their media fills them</small></span></button>
-          <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small>Every tile keeps its media's shape, and together they fill the wall edge to edge</small></span></button>
-          <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Auto-arrange</b><small id="arrangeHint">Pack all tiles from the top left</small></span></button>
-          <button class="mi" id="rowsBtn" type="button"><span data-icon="rows"></span><span><b>Rows and columns…</b><small>A different number of tiles in each row</small></span></button>
-          <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Frame layouts…</b><small id="layoutHint">Move the tiles into ready-made frames</small></span></button>
+          <span class="lab">Match media shapes</span>
+          <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles in whole cells so their media fills them</small></span></button>
+          <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small id="fillHint">Every tile keeps its media's shape; rows fill the wall edge to edge</small></span></button>
+          <span class="lab">Rearrange</span>
+          <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Pack tiles</b><small id="arrangeHint">Close the gaps, from the top left</small></span></button>
+          <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Layouts…</b><small id="layoutHint">Ready-made, rows and columns, or your own</small></span></button>
         </div>
         <div class="pop" id="popB" hidden>
           <span class="lab">Rows and columns</span>
@@ -82,16 +82,20 @@
           <button class="btn pri" id="bApply" type="button">Apply to the wall</button>
           <p class="note">Your tiles move into the new frames in reading order; frames left over become empty tiles, ready for media or a playlist.</p>
         </div>
+        <!-- Layouts: frames your tiles move into, in reading order (frames left over become empty tiles). Ready-made
+             ones, frames built from rows and columns (ui/builder.js), and your own saved ones. -->
         <div class="pop" id="popL" hidden>
-          <span class="lab">Frame layouts</span>
+          <span class="lab">Ready-made</span>
           <div class="lgrid" id="lgrid"></div>
+          <span class="lab">Rows and columns</span>
+          <div class="row"><button class="btn" id="rowsBtn" type="button"><span data-icon="rows"></span>Build rows and columns…</button><button class="tip" type="button" aria-label="About rows and columns" data-tip="Choose how many tiles each row (or column) has, for example 3 above 4. When the rows do not line up on one grid, the tiles are placed freely.">?</button></div>
           <span class="lab">Your layouts</span>
           <div class="plist" id="ulist"></div>
           <form class="save" id="layoutForm">
             <input id="layoutName" type="text" maxlength="40" placeholder="Name this layout" autocomplete="off" aria-label="Layout name">
             <button class="btn pri" type="submit">Save current</button>
           </form>
-          <p class="note">A layout moves your current tiles into new frames, keeping their order from left to right and top to bottom. It does not change which media you have.</p>
+          <p class="note" id="layoutNote">Your tiles move into the frames in reading order; frames left over become empty tiles. Which media you have stays the same.</p>
         </div>
       </div>
     </div>
@@ -305,6 +309,9 @@
               </div>
               <div class="frow"><span class="flab"><label for="setFullWall">Full wall</label><button class="tip" type="button" aria-label="About Full wall" data-tip="Media added to a full wall (from the library, Add or a drop): say it does not fit, or give it new tiles and arrange every tile again with Fill the wall, the new ones last (tiles are then placed freely). Up to 64 tiles; more files play in turn.">?</button></span>
                 <select id="setFullWall"><option value="say">Say it is full</option><option value="fill">Add and refill</option></select>
+              </div>
+              <div class="frow"><span class="flab"><label for="fit">New tiles</label><button class="tip" type="button" aria-label="About New tiles" data-tip="How media fits a new tile: filling it (a little may be cropped), or whole, with bars where the shapes differ. Tiles you have not changed follow it; a tile's own fit button changes just that tile.">?</button></span>
+                <select id="fit"><option value="cover">Fill the tile</option><option value="contain">Whole picture</option></select>
               </div>
               <div class="srow"><label class="check"><input type="checkbox" id="setFillShapes"> Playlists match tile shapes</label><button class="tip" type="button" aria-label="About Playlists match tile shapes" data-tip="After Fill the wall or Fit to media, a tile playing a folder moves on to files shaped like it first, so a tall tile keeps showing tall files. Each playlist can also set this under Shapes.">?</button></div>
             </section>

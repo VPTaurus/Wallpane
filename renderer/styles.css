@@ -407,12 +407,13 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .pname { font-weight: 700; overflow-wrap: anywhere; }
 .pmeta { font: 400 11px var(--mono); color: var(--muted); }
 .prow .btn { height: 30px; padding: 0 10px; }
-.prow .lthumb { width: 46px; height: 32px; flex: none; }
+.prow .laythumb { width: 46px; height: 32px; flex: none; }
 .lgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .lbtn { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); text-align: left; min-width: 0; }
 .lbtn:hover { border-color: var(--accent); }
-.lthumb { display: grid; gap: 2px; height: 44px; }
-.lthumb i { background: var(--accent); opacity: 0.85; border-radius: 2px; }
+/* A layout's little picture (its frames); not .lthumb, which is a library thumbnail. */
+.laythumb { display: grid; gap: 2px; height: 44px; }
+.laythumb i { background: var(--accent); opacity: 0.85; border-radius: 2px; }
 .lname { font: 500 11px/1.2 var(--mono); overflow-wrap: anywhere; }
 .plgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; min-height: 30px; }

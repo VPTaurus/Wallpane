@@ -708,6 +708,7 @@
     wall.style.setProperty('--rows', S.rows);
     wall.style.setProperty('--gap', S.gap + 'px');
     wall.classList.toggle('free', S.mode === 'free');
+    // Cell shape: set on the grid; placed freely, the wall keeps the shape it gave (so tiles keep theirs).
     var ar = { 'fill': 0, '16:9': 16 / 9, '4:3': 4 / 3, '1:1': 1, '9:16': 9 / 16 }[S.aspect];
     if (ar) { wall.classList.add('ratio'); wall.style.setProperty('--ratio', (S.cols * ar / S.rows).toFixed(4)); }
     else { wall.classList.remove('ratio'); wall.style.removeProperty('--ratio'); }
@@ -724,14 +725,20 @@
     });
     renderSlots();
 
+    // What only works on the grid (columns, rows, cell shape, Fit to media, Pack tiles), and the Arrange menu's hints:
+    // which commands need the grid, and which switch the wall to Free or back.
     var gridOnly = S.mode === 'free';
-    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'arrangeBtn', 'layoutBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
+    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'aspect', 'arrangeBtn', 'fitMediaBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
     Array.prototype.forEach.call($('#modeSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)); });
     $('#gridLabel').textContent = gridOnly ? 'Free' : S.cols + ' × ' + S.rows;
     $('#gridNote').hidden = !gridOnly;
-    $('#fitHint').textContent = gridOnly ? 'Shrink every tile to its media’s exact shape' : 'Reshape tiles so their media fills them';
-    $('#arrangeHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Pack all tiles from the top left';
-    $('#layoutHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Move the tiles into ready-made frames';
+    $('#fitHint').textContent = gridOnly ? 'On the grid only; placed freely, use Fill the wall' : 'Reshape tiles in whole cells so their media fills them';
+    $('#fillHint').textContent = 'Every tile keeps its media’s shape; rows fill the wall edge to edge' + (gridOnly ? '' : '. Switches to Free (pixels)');
+    $('#arrangeHint').textContent = gridOnly ? 'On the grid only' : 'Close the gaps, from the top left';
+    $('#layoutHint').textContent = 'Ready-made, rows and columns, or your own' + (gridOnly ? '. Puts the tiles on the grid again' : '');
+    $('#layoutName').disabled = gridOnly; $('#layoutForm [type="submit"]').disabled = gridOnly;
+    $('#layoutNote').textContent = 'Your tiles move into the frames in reading order; frames left over become empty tiles. Which media you have stays the same.' +
+      (gridOnly ? ' Placed freely now: applying a layout puts the tiles on the grid again, and saving one works on the grid.' : '');
     // The grid size shows on its own button, so the line under the title only counts tiles (and names the saved wall).
     var count = S.items.length + (S.items.length === 1 ? ' tile' : ' tiles');
     $('#readout').textContent = (A.winId > 1 ? 'Wall ' + A.winId + ' · ' : '') +

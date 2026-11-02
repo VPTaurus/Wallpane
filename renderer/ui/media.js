@@ -535,8 +535,9 @@
     if (waiting) msg += ' ' + waiting + (waiting === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and stayed as they were.';
     A.toast(msg);
   };
+  // On the grid only (placed freely, Fill the wall does this, and right-click › Fit tile to media for one tile).
   function fitToMedia() {
-    if (S.mode === 'free') { A.fitTilesToMedia(S.items); shapePlaylists(); return; }
+    if (S.mode === 'free') { A.toast('Fit to media works on the grid. Placed freely, use Fill the wall.'); return; }
     var N = S.items.length;
     if (!N) { A.toast('Nothing to fit yet.'); return; }
     if (N > S.cols * S.rows) { A.toast('There are more tiles than cells. Add rows or columns first.'); return; }
