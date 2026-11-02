@@ -194,16 +194,16 @@
     if (res) { A.pushHistory(); A.commitYield(res); A.render(); A.refreshInspector(); }
   });
 
-  // Clear wall (in Settings) takes two clicks: the first arms it for three seconds.
+  // Clear (in the bar) takes two clicks: the first arms it for three seconds.
   var clearArmed = false;
   $('#clearBtn').addEventListener('click', function () {
     var b = this, lbl = b.querySelector('.lbl');
     if (!clearArmed) {
-      clearArmed = true; lbl.textContent = 'Click again to clear the wall'; b.classList.add('armed');
-      setTimeout(function () { clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed'); }, 3000);
+      clearArmed = true; lbl.textContent = 'Click again'; b.classList.add('armed'); A.fitBar();
+      setTimeout(function () { clearArmed = false; lbl.textContent = 'Clear'; b.classList.remove('armed'); A.fitBar(); }, 3000);
       return;
     }
-    clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed');
+    clearArmed = false; lbl.textContent = 'Clear'; b.classList.remove('armed'); A.fitBar();
     A.closePops();
     A.pushHistory();
     S.items = []; S.sel = null; S.presetName = null; S.playlists = {}; S.fillPl = null; A.render(); A.refreshInspector();

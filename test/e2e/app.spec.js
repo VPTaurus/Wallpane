@@ -109,11 +109,13 @@ test('selection is a ring with corner grips; a pinned tile has its own badge', a
 });
 
 test('Free layout: a folder added one tile per file', async () => {
-  await settingsAt('General');
+  // Clear, in the bar: the first click arms it, the second clears; on an empty wall it is greyed out.
   await page.click('#clearBtn');
   await expect(page.locator('#clearBtn')).toContainText('Click again');
   await page.click('#clearBtn');
   await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#clearBtn')).toBeDisabled();
+  await expect(page.locator('#clearBtn')).toContainText('Clear');
   await page.click('#modeSeg [data-mode="free"]');
   await expect(page.locator('#modeSeg [data-mode="free"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#gridLabel')).toHaveText('Free');
@@ -569,10 +571,8 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   const quick = await make('quick.avi', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'libmp3lame']);
   const sound = await make('sound.mkv', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'ac3']);
   // A fresh wall, so the new tiles have room.
-  await settingsAt('General');
   await page.click('#clearBtn');
   await page.click('#clearBtn');
-  await page.keyboard.press('Escape');
   await answerDialogs([quick, sound]);
   await page.click('#addBtn');
   await page.click('#addFiles');
@@ -904,10 +904,8 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   fs.writeFileSync(path.join(lib, 'more', 'grey extra.png'), png(120, 90, [128, 128, 128]));
   await page.evaluate((p) => window.wall.addLibraryFolder(p), lib);
   // A fresh grid wall.
-  await settingsAt('General');
   await page.click('#clearBtn');
   await page.click('#clearBtn');
-  await page.keyboard.press('Escape');
   await page.click('#modeSeg [data-mode="grid"]');
   await expect(tiles()).toHaveCount(0);
   await page.click('#gridBtn');   // 4 × 3, so the tiles below land beside the drawer, where they can be clicked

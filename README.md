@@ -38,11 +38,15 @@ The GitHub workflow does the same with repository secrets of the same names.
 Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Settings › About shows the folder, and Saved walls > Show file opens it. Saved walls > Export/Import moves them between PCs.
 
 ## The window
-- Top bar, left to right: **Add** (files, a folder as tiles, or a folder as a playlist; when a folder has more files than the wall has room for, on the grid or in Free (pixels), the new tiles play all of them in turn); the wall: grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts); play, mute and loop for every video, and **background music** (♪); undo and redo. On the right: the **clock**, **Saved walls**, **Playlist**, **?** (getting started), **Settings** (the cog), **New wall window** (the window icon) and **Wall mode**.
+- Top bar, in groups, left to right:
+  - **The wall's contents:** **Add** (files, a folder as tiles, or a folder as a playlist; when a folder has more files than the wall has room for, on the grid or in Free (pixels), the new tiles play all of them in turn); **Clear** (the red bin: takes every tile off; the first click arms it for three seconds, Ctrl+Z brings the tiles back); undo and redo.
+  - **Its layout:** grid size, gap and cell shape (the "4 × 3" button), **Snap to grid / Free (pixels)**, and **Arrange** (Fit to media, Auto-arrange, Rows and columns, Frame layouts).
+  - **Playback:** play, mute and repeat for every video, and **background music** (♪).
+  - On the right: the **clock** (and background work while it runs); **what the wall plays**: the **Library** (Ctrl+L), **Saved walls** and **Playlist**; and **the app**: **?** (getting started), **Settings** (the cog), **New wall window** (the window icon) and **Wall mode**.
 - **At the start** the wall is empty and offers your last wall: Restore it, or Start empty. Until you choose (or put something on the empty wall) the last wall is kept as it was; starting empty keeps it in Saved walls as "Last wall". Settings › General › When Wallpane starts can open the last wall straight away or always start empty instead. A wall that starts in wall mode always opens the last wall. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
 - The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). Each has an **In the bar** box, which alone decides what the bar shows: a ticked stopwatch or timer is a chip with a start/pause button (a finished timer's button resets it); unticking it takes it off the bar and resets it. Without the clock ticked, a small clock icon stays to open the popover. Both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. A **counter** counts anything you like (−, + and Reset; kept for next time); in the bar its + adds one and a right-click on it takes one away, and unticking it resets it to 0. The clock follows Windows' 12 or 24-hour format unless you choose one (Settings › General, or the 24-hour box in the clock).
 - **Settings** opens a panel with its sections down the side (arrow keys move between them):
-  - **General**: start Wallpane with Windows, the clock's time format, open another wall window, clear this wall.
+  - **General**: start Wallpane with Windows, the clock's time format, how tiles give way and what a full wall does, sound and playback, and what the start brings.
   - **Wall mode**: which display, start this window in wall mode, keep the display awake.
   - **Emergency hide**: the key, a mouse button, and what the windows show (see below).
   - **Keys**: every keyboard shortcut.
@@ -140,7 +144,7 @@ While hidden, keys, drops and right-clicks don't reach the wall, so nothing on i
   - Media added in Free (pixels) gets a tile with the media's exact shape as soon as it has loaded.
 - Fit to media: on the grid it resizes and rearranges tiles so each media fills its tile with as few bars as possible. In Free mode it shrinks every tile to its media's exact shape, so there are no bars and nothing is cropped; "Fit tile to media" in a tile's right-click menu does this for one tile (switching to Free if needed). All undoable.
 - Settings › General › Open another wall window: another wall (for a second monitor); each window has its own wall and settings, saved walls and frame layouts are shared; windows reopen on the next start.
-- Clear wall is in Settings › General and takes two clicks; Ctrl+Z brings the wall back.
+- Clear (the red bin in the top bar, beside Add) takes two clicks; Ctrl+Z brings the wall back.
 
 ## Development
 - `npm run lint`: ESLint

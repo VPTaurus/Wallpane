@@ -91,18 +91,24 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex: none; }
 .check:has(input:disabled) { opacity: 0.55; cursor: default; }
 
-/* ---------- control bar: groups separated by thin lines; quiet buttons, one accent action (Add) ---------- */
+/* ---------- control bar: buttons in groups, each on a soft rounded ground; quiet buttons, one accent action (Add) ----
+   Left: the wall's contents (Add, Clear, Undo, Redo), its layout, playback; right: the time, what the wall plays
+   (Library, Saved walls, Playlist), and the app (Help, Settings, another window, Wall mode). */
 .bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
 }
-.brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 0 10px 0 6px; border-right: 1px solid var(--line); }
+.brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 0 8px 0 6px; }
 .brand h1 { margin: 0; font: 700 17px/1 var(--ui); letter-spacing: -0.01em; white-space: nowrap; }
 .readout { font: 400 11px/1.2 var(--mono); color: var(--muted); white-space: nowrap; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
-.grp { display: flex; align-items: center; gap: 4px; }
-.grp + .grp { padding-left: 10px; border-left: 1px solid var(--line); }
+.grp { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 11px; background: var(--bg); }
 .bar .btn:not(.pri):not(.wallbtn) { background: transparent; border-color: transparent; }
-.bar .btn:not(.pri):not(.wallbtn):hover:not(:disabled), .bar .btn:not(.pri)[aria-expanded="true"] { background: var(--panel-2); }
+.bar .btn:not(.pri):not(.wallbtn):hover:not(:disabled), .bar .btn:not(.pri)[aria-expanded="true"] { background: var(--panel); }
+.bar .grp .modeseg { background: var(--panel); }
+/* Clear: a red bin; the first click arms it (red, "Click again") for three seconds. */
+.bar #clearBtn .ic { color: var(--danger); }
+.bar #clearBtn.armed { background: var(--danger); border-color: var(--danger); color: #fff; }
+.bar #clearBtn.armed .ic { color: #fff; }
 .bar .btn.pri[aria-expanded="true"] { filter: brightness(0.94); }
 .bar .pop .btn:not(.pri) { border-color: var(--line); }
 .bar .pop .btn.warn { border-color: var(--danger); }
@@ -116,8 +122,8 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
    last the tile count under the name and the chips' icons go (c3). */
 .bar.c3 .readout, .bar.c3 .tchipt .ic { display: none; }
 .bar .short { display: none; }
-.bar.c1 .grp > .popwrap > .btn > .lbl { display: none; }
-.bar.c1 .grp > .popwrap > .btn:has(> .lbl) { width: 34px; padding: 0; justify-content: center; }
+.bar.c1 .grp > .popwrap > .btn > .lbl, .bar.c1 #clearBtn:not(.armed) > .lbl { display: none; }
+.bar.c1 .grp > .popwrap > .btn:has(> .lbl), .bar.c1 #clearBtn:not(.armed) { width: 34px; padding: 0; justify-content: center; }
 .bar.c2 .long { display: none; }
 .bar.c2 .short { display: inline; }
 .bar.c2 #arrangeMenuBtn { padding: 0 8px; gap: 4px; }

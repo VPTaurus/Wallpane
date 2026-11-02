@@ -28,7 +28,9 @@
           <p class="note">You can also drop files and folders from Explorer onto the wall.</p>
         </div>
       </div>
-      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
+      <button class="btn clearbtn" id="clearBtn" type="button" title="Clear the wall: takes every tile off. Click twice; Ctrl+Z brings them back"><span data-icon="trash"></span><span class="lbl">Clear</span></button>
+      <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
+      <button class="btn ib" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
     </div>
 
     <div class="grp">
@@ -118,10 +120,6 @@
         </div>
       </div>
     </div>
-    <div class="grp">
-      <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
-      <button class="btn ib" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
-    </div>
 
     <span class="sp"></span>
 
@@ -193,7 +191,9 @@
       </div>
     </div>
 
+    <!-- What the wall plays: the library, saved walls, a folder playlist's options. -->
     <div class="grp">
+      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
       <div class="popwrap">
         <button class="btn" id="presetBtn" type="button" aria-expanded="false" aria-controls="pop" title="Save this wall, or load a saved one"><span data-icon="bookmark"></span><span class="lbl">Saved walls</span></button>
         <div class="pop" id="pop" hidden>
@@ -245,6 +245,10 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- The app: help, settings, another window, wall mode. -->
+    <div class="grp">
       <div class="popwrap">
         <button class="btn ib" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="popH"><span data-icon="help"></span></button>
         <div class="pop" id="popH" hidden>
@@ -321,9 +325,6 @@
               <p class="note">Starting empty keeps the last wall in Saved walls as "Last wall". A wall that starts in wall mode (Wall mode settings) always opens the last wall.</p>
               <span class="lab">Windows</span>
               <p class="note">The window button in the top bar, beside Wall mode, opens another wall window. Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
-              <span class="lab">This wall</span>
-              <div class="row"><button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button></div>
-              <p class="note">Takes every tile off this window's wall. Ctrl+Z brings them back.</p>
             </section>
 
             <section class="ssec" id="secWall" data-sec="wall" role="tabpanel" aria-labelledby="tabWall" hidden>

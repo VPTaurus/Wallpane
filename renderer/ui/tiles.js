@@ -738,6 +738,7 @@
       (gridOnly ? count + ', placed freely' : count + ' on ' + (S.cols * S.rows) + ' cells') +
       (S.presetName ? ' · ' + S.presetName : '');
     $('#readout').title = $('#readout').textContent;
+    $('#clearBtn').disabled = !S.items.length;
     $('#cols').value = S.cols; $('#rows').value = S.rows;
     $('#gap').value = S.gap; $('#gapval').textContent = S.gap + ' px';
     $('#aspect').value = S.aspect; $('#fit').value = S.fit;
