@@ -49,6 +49,11 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [x] **D6. Smooth on a slower screen** (found while testing 1.6.0): Chromium paces every window by the main display's vblank, so a wall on a 60 Hz screen beside a 165 Hz main display juddered (making the 60 Hz one the main display fixed it; 120 Hz did not). Settings › Wall mode › Drawing pace: Automatic draws at the slowest screen's rate when they differ (`lib/pace.js`, Chromium's `fake-vsync-rate`, set at start from `app.json`), or the main display's, or 60.
 - [x] **D5. Skip black or silent starts.** Clips that open with black or silence start after it. Done: FFmpeg's `blackdetect` and `silencedetect` on the first 12 s, once per video (`lib/openings.js`, kept in `openings.json`; the store is shared with D4 as `lib/measures.js`). A tile starts after a black opening, and after a silent one while it is heard, also when it loops; not a playlist with a random start or a tile with a looped part, nor an opening over a third of the video, nor black throughout the 12 s. Settings › General, on by default.
 
+## P. Polish (1.6.x, before 1.7.0)
+- [ ] **P1. Fixes from testing 1.6.0** on the big walls (two windows of 26 and 36 tiles, a 60 Hz screen beside a faster main display): whatever the test turns up comes first.
+- [ ] **P2. Code optimization.** A pass over the code for speed and weight, measured before and after with the benchmark wall (36 tiles): the start (time to the first frame), memory per wall window, work per frame with many tiles, the main process's file and FFmpeg work, the messages between the windows and the main process (job lists, library changes), and code nothing uses any more.
+- [ ] **P3. UI tweaks.** Small improvements to how it looks and feels, from the test and from going through each part in turn: the top bar, tiles and their controls, Properties, the right-click menus, Settings, the library, wall mode.
+
 ## E. Library, part 2 (1.7.0)
 - [ ] **E1. Tags, ratings and favourites**, also for many files at once.
 - [ ] **E2. Saved searches as playlists.** A search or filter that a tile plays and that follows the library as it changes (folder playlists become one kind of these).
