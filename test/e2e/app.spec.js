@@ -86,10 +86,11 @@ test('Add > Folder as a playlist fills the empty cells and explains the HEIC fil
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#wall .tile img')].filter((i) => i.naturalWidth > 0).length)).toBe(6);
 });
 
-test('Arrange > Fit to media reshapes the tiles', async () => {
+test('Arrange holds Fill the wall and Layouts', async () => {
   await page.click('#arrangeMenuBtn');
-  await page.click('#fitMediaBtn');
-  await expect(toast()).toContainText('Fitted 6 tiles');
+  await expect(page.locator('#popArr .mi b')).toHaveText(['Fill the wall', 'Layouts…']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#popArr')).toBeHidden();
 });
 
 test('selection is a ring with corner grips; a pinned tile has its own badge', async () => {
@@ -160,12 +161,10 @@ test('Fit tile to media gives a tile the exact shape of its image', async () => 
   await expect(toast()).toContainText('exact shape of its media');
   const box = await tall.boundingBox();
   expect(Math.abs(box.width / box.height - 90 / 160)).toBeLessThan(0.01);
-  // Placed freely now: Pack tiles and Fit to media need the grid (Fill the wall does it freely); Layouts still work.
+  // Placed freely now: Layouts still work, and say they put the tiles on the grid again.
   await page.click('#arrangeMenuBtn');
-  await expect(page.locator('#arrangeBtn')).toBeDisabled();
-  await expect(page.locator('#fitMediaBtn')).toBeDisabled();
-  await expect(page.locator('#fitHint')).toContainText('use Fill the wall');
   await expect(page.locator('#layoutBtn')).toBeEnabled();
+  await expect(page.locator('#layoutHint')).toContainText('on the grid again');
   await page.keyboard.press('Escape');
   await page.click('#modeSeg [data-mode="grid"]');
   await expect(toast()).toContainText('Back on the grid');
@@ -569,6 +568,51 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   for (let i = 0; i < 12; i++) { await page.waitForTimeout(200); times.push(await video.evaluate((v) => v.currentTime)); }
   expect(Math.min(...times)).toBeGreaterThanOrEqual(0.45);
   expect(Math.max(...times)).toBeLessThan(1.7);
+  // Make a GIF of the part, from Playback: the dialog says how big it will be; saved where the (stubbed) Save dialog
+  // says, it is a GIF of several frames, never wider than the video; then Put on the wall adds it as a tile.
+  if (FF.create(path.join(root, 'vendor', 'ffmpeg')).available()) {
+    await card.locator('#insGif').click();
+    const dlg = page.locator('#popGif');
+    await expect(dlg).toBeVisible();
+    await expect(page.locator('#gifPart')).toContainText('0:00.5 to 0:01.5 of clip.webm');
+    await expect(page.locator('#gifSpeedFld')).toBeHidden();               // normal speed: nothing to choose
+    await page.locator('#gifWidth').selectOption('320');
+    await expect(page.locator('#gifNote')).toContainText('160 × 90 px, 1 s, about');
+    await page.click('#gifCancel');
+    await expect(dlg).toBeHidden();
+    // The same from the right-click menu, beside Stop looping the part.
+    await tile.click({ button: 'right' });
+    await menuItem('Make a GIF of the part').click();
+    await expect(dlg).toBeVisible();
+    const gif = path.join(dir, 'part.gif');
+    await answerDialogs(clip, gif);
+    // The wall is full by now: one tile goes (undone at the end), so the GIF has room.
+    const before = await tiles().count();
+    await page.evaluate(() => { const A = window.MW.app; A.removeItem(A.S.items.find((i) => i.kind !== 'video').id); });
+    await expect(tiles()).toHaveCount(before - 1);
+    await page.click('#gifMake');
+    await expect(dlg).toBeHidden();
+    await expect(toast()).toContainText('Saved part.gif', { timeout: 30000 });
+    const bytes = fs.readFileSync(gif);
+    expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+    expect([bytes.readUInt16LE(6), bytes.readUInt16LE(8)]).toEqual([160, 90]);
+    let frames = 0;
+    for (let i = 0; i + 2 < bytes.length; i++) if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 4) frames++;
+    expect(frames).toBeGreaterThan(5);
+    expect(fs.existsSync(gif + '.part')).toBe(false);
+    await toast().locator('.tact', { hasText: 'Put on the wall' }).click();
+    await expect(tiles()).toHaveCount(before);
+    await expect(page.locator('#wall .tile[aria-label^="part.gif"]')).toBeVisible();
+    await page.locator('body').press('Control+z');
+    await page.locator('body').press('Control+z');
+    await expect(tiles()).toHaveCount(before);
+    await expect(page.locator('#wall .tile[aria-label^="part.gif"]')).toHaveCount(0);
+    // The video selected again with its Properties, as the steps below expect.
+    await page.evaluate(() => { const A = window.MW.app; A.openProps(A.S.items.find((i) => i.name === 'clip.webm')); });
+    await expect(card).toBeVisible();
+    await video.evaluate((v) => v.play());
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  }
   // Keys on the selected video: Space pauses, > speeds up, \ stops looping the part.
   await page.keyboard.press('Escape');                       // close Properties, keep the tile selected
   await page.locator('body').press('Space');

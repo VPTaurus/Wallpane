@@ -53,7 +53,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **P1. Fixes from testing 1.6.0** on the big walls (two windows of 26 and 36 tiles, a 60 Hz screen beside a faster main display): whatever the test turns up comes first.
 - [x] **P2. Code optimization.** A pass over the code for speed and weight, measured before and after with the benchmark wall (36 tiles): the start (time to the first frame), memory per wall window, work per frame with many tiles, the main process's file and FFmpeg work, the messages between the windows and the main process (job lists, library changes), and code nothing uses any more. Done (first pass): an idle wall with videos redrew every 0.6 s (an answer about openings set off the next question) and so never saved until it closed; fixed, with a test that fails on the old code (34 calls to the main process in 10 s down to 0, 13 redraws in 8 s down to 0). The clock ticks as often as it shows something new. The start is within 0.1 s of a bare Electron window (1 s more to build 36 tiles); the page's own JavaScript is 97% idle while 30 videos play, so what is left is the graphics card's work (memory: about 1 GB in the GPU process for 30 videos, 10 MB of page heap). A scan found no code nothing uses.
 - [ ] **P3. UI tweaks.** Small improvements to how it looks and feels, from the test and from going through each part in turn: the top bar, tiles and their controls, Properties, the right-click menus, Settings, the library, wall mode.
-- [ ] **P4. Take Fit to media and Pack tiles out of Arrange** (decided 2026-11-02; planned, not started). The Arrange menu keeps **Fill the wall** and **Layouts…**, without group headings.
+- [x] **P4. Take Fit to media and Pack tiles out of Arrange** (decided and done 2026-11-02, as planned below). The Arrange menu keeps **Fill the wall** and **Layouts…**, without group headings.
   - **Why:** both were tested on thousands of random walls.
     - **Fit to media** can't change any shape on a full grid (as many tiles as cells, like 36 on 6 × 6). There it only moves every tile somewhere else, sorted by shape, and switches it to Whole frame. With spare cells it cuts bars from about 30% of the tile area to 17–23%, but it still moves every tile. Fill the wall does the job better: no bars, 0–6% cropped, and the tiles keep their order.
     - **Pack tiles** rebuilds the layout from scratch. On about half the walls with gaps it leaves gaps in the middle, and on about 1 in 130 it shrinks a wide tile to one cell although everything fitted. Layouts…, Fill the wall and dragging already close gaps.
@@ -76,7 +76,15 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **E4. Duplicates.** The same video under different names, found by comparing frames.
 
 ## F. Make things from the wall (1.8.0)
-- [ ] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; planned, not started). The same part as an MP4 or animated WebP comes after, from the same dialog.
+- [x] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; done the same day, brought forward into 1.6.5). The same part as an MP4 or animated WebP comes after, from the same dialog.
+  - **Done, and where it differs from the plan below:**
+    - **Code:** the choices, the check of what the page asks for, the sizes, the file name and FFmpeg's arguments are in `renderer/lib/gifmake.js`, which the main process uses too. The job kind is in `lib/makegif.js`, and what a tile shows comes from `view.js` `shown()`.
+    - **Limits:** a part longer than a minute is refused. Above 15 s the dialog says GIFs get big and suggests a shorter part, a smaller width or fewer frames; an MP4 comes with the MP4 option.
+    - **Size estimate:** 0.45 bytes per pixel of each frame, measured. Real files vary from 0.1 (flat pictures) to 1 (noise), so the dialog says "about".
+    - **File name:** like `clip 1m23.5s-1m30s.gif`, because Windows allows no colons.
+    - **Put on the wall** places the GIF where there is room, as Add does, not beside the tile.
+    - **Tests:** the dialog's Cancel is tested end to end, but stopping a running job is not; it uses the same temporary-file clean-up as the other FFmpeg jobs.
+    - **Still open:** whether the defaults (480 px, 15 fps) suit.
   - **Where:** Properties › Playback shows **Make a GIF…** under Loop a part once a part is looped, and the tile's right-click menu shows it beside Stop looping the part. A single video only: a playlist tile has no looped part.
   - **What you choose,** in a small dialog:
     - **Width:** 320, 480 (the default), 640 or 800 px; the height follows the shape, and it is never wider than the video.
@@ -98,9 +106,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
   - **Tests:**
     - Unit: the arguments and the crop for zoomed, moved and fill/whole-frame tiles.
     - End-to-end: loop a part of the test video and make a GIF. The file must start with `GIF89a`, have several frames and the chosen width. A cancelled job leaves no file.
-  - **Open questions:**
-    - Keep it in 1.8.0, or move it earlier? It stands alone, so it can go in any release.
-    - Are the default width and rate (480 px, 15 fps) right?
+  - **Open questions** (when planned): keep it in 1.8.0 or move it earlier (moved: 1.6.5); are the default width and rate (480 px, 15 fps) right?
 - [ ] **F2. Snapshot.** Save a tile's current frame as an image.
 - [ ] **F3. Export the wall as a video.** Every tile in its place, as one MP4 at a chosen size and length, made from the tiles' lighter copies, with progress in the job list. Play it on a smart TV from USB, or share it.
 

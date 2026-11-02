@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld('wall', {
   mediaShapes: (paths) => ipcRenderer.invoke('media:shapes', Array.isArray(paths) ? paths.map(String) : []),
   mediaProxy: (p) => ipcRenderer.invoke('media:proxy', String(p)),
   mediaStrip: (p, secs) => ipcRenderer.invoke('media:strip', String(p), +secs || 0),
+  // o: { file, start, end, width, fps, speed, crop } (renderer/lib/gifmake.js)
+  makeGif: (o) => ipcRenderer.invoke('media:makeGif', o && typeof o === 'object' ? {
+    file: String(o.file), start: +o.start, end: +o.end, width: +o.width, fps: +o.fps, speed: +o.speed,
+    crop: o.crop ? { x: +o.crop.x, y: +o.crop.y, w: +o.crop.w, h: +o.crop.h } : null
+  } : null),
   loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
   onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),

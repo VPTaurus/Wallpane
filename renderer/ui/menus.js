@@ -109,8 +109,10 @@
     if (video) {
       items.push({ label: it.muted ? 'Sound on' : 'Sound off', icon: it.muted ? 'vol' : 'mute', act: function () { it.muted = !it.muted; A.render(); A.refreshInspector(); } });
       if (!it.pl) items.push({ label: it.loop ? 'Play it once' : 'Repeat this video', icon: 'loop', act: function () { it.loop = !it.loop; A.render(); A.refreshInspector(); } });
-      if (!it.pl && MW.play.hasLoop(it)) items.push({ label: 'Stop looping the part', hint: MW.play.fmtTime(it.loopA || 0, true) + ' to ' + (it.loopB == null ? 'the end' : MW.play.fmtTime(it.loopB, true)), icon: 'loop', act: function () { A.setLoop(it, null, null); } });
-      else if (!it.pl) items.push({ label: 'Loop a part…', hint: 'Speed, volume and loop in Properties', icon: 'loop', act: function () { A.openProps(it, '#pbSec'); } });
+      if (!it.pl && MW.play.hasLoop(it)) {
+        items.push({ label: 'Stop looping the part', hint: MW.play.fmtTime(it.loopA || 0, true) + ' to ' + (it.loopB == null ? 'the end' : MW.play.fmtTime(it.loopB, true)), icon: 'loop', act: function () { A.setLoop(it, null, null); } });
+        if (A.hasFfmpeg && it.path) items.push({ label: 'Make a GIF of the part…', hint: 'Saved as a file where you choose', icon: 'film', act: function () { A.makeGif(it); } });
+      } else if (!it.pl) items.push({ label: 'Loop a part…', hint: 'Speed, volume and loop in Properties', icon: 'loop', act: function () { A.openProps(it, '#pbSec'); } });
     }
     if (it.pl && S.playlists[it.pl]) {
       items.push({ label: 'Previous file', icon: 'prev', disabled: !!it.pinned || !(it._back && it._back.length), act: function () { A.goBack(it); } },

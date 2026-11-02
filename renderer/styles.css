@@ -340,6 +340,11 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 /* ---------- Properties card (inspector): floats next to the selected tile ---------- */
 .pop.props { width: 316px; max-height: calc(100vh - 24px); padding: 16px; gap: 14px; z-index: 35; }
 .props .fld select { padding: 0 4px 0 8px; }
+/* Make a GIF: a small dialog in the middle of the window. */
+.pop.gifbox { width: min(340px, calc(100vw - 24px)); left: 50%; top: 50%; transform: translate(-50%, -50%); max-height: calc(100vh - 24px); padding: 16px; z-index: 45; }
+.gifbox .closex { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-color: transparent; background: transparent; }
+.gifbox .ins-head { padding-right: 26px; }
+.gifbox .fld select { padding: 0 4px 0 8px; }
 .plgrid .fld.wide { grid-column: 1 / -1; }
 .props .closex { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-color: transparent; background: transparent; }
 .props .closex:hover { background: var(--panel-2); }
@@ -747,4 +752,7 @@ body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit, body.clean.idl
   box-shadow: var(--shadow);
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.show.acts { pointer-events: auto; }
+.toast .tact { margin-left: 10px; padding: 3px 9px; border: 1px solid currentColor; border-radius: 6px; background: none; font: 600 12px var(--ui); white-space: nowrap; }
+.toast .tact:hover, .toast .tact:focus-visible { background: color-mix(in srgb, var(--bg) 18%, transparent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

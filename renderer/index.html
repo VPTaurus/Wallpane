@@ -58,15 +58,11 @@
         <button type="button" data-mode="free" aria-pressed="false" title="Free (pixels): place and size every tile by the pixel"><span class="long">Free (pixels)</span><span class="short">Free</span></button>
       </div>
       <div class="popwrap">
-        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: match media shapes, pack tiles, layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
-        <!-- Two kinds of arranging: tiles that take their media's shape, and tiles moved into other places or frames. The
-             hints say when a command only works on the grid, or switches the wall to Free (ui/tiles.js render). -->
+        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fill the wall, layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
+        <!-- Tiles that take their media's shape and fill the wall, or tiles moved into the frames of a layout. The hints
+             say which switches the wall to Free or back (ui/tiles.js render). -->
         <div class="pop menu" id="popArr" hidden>
-          <span class="lab">Match media shapes</span>
-          <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles in whole cells so their media fills them</small></span></button>
           <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small id="fillHint">Every tile keeps its media's shape; rows fill the wall edge to edge</small></span></button>
-          <span class="lab">Rearrange</span>
-          <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Pack tiles</b><small id="arrangeHint">Close the gaps, from the top left</small></span></button>
           <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Layouts…</b><small id="layoutHint">Ready-made, rows and columns, or your own</small></span></button>
         </div>
         <div class="pop" id="popB" hidden>
@@ -311,7 +307,7 @@
               <div class="frow"><span class="flab"><label for="fit">New tiles</label><button class="tip" type="button" aria-label="About New tiles" data-tip="How media fits a new tile: filling it (a little may be cropped), or whole, with bars where the shapes differ. Tiles you have not changed follow it; a tile's own fit button changes just that tile.">?</button></span>
                 <select id="fit"><option value="cover">Fill the tile</option><option value="contain">Whole frame</option></select>
               </div>
-              <div class="srow"><label class="check"><input type="checkbox" id="setFillShapes"> Playlists match tile shapes</label><button class="tip" type="button" aria-label="About Playlists match tile shapes" data-tip="After Fill the wall or Fit to media, a tile playing a folder moves on to files shaped like it first, so a tall tile keeps showing tall files. Each playlist can also set this under Shapes.">?</button></div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setFillShapes"> Playlists match tile shapes</label><button class="tip" type="button" aria-label="About Playlists match tile shapes" data-tip="After Fill the wall, a tile playing a folder moves on to files shaped like it first, so a tall tile keeps showing tall files. Each playlist can also set this under Shapes.">?</button></div>
             </section>
 
             <section class="ssec" id="secVideo" data-sec="video" role="tabpanel" aria-labelledby="tabVideo" hidden>
@@ -466,13 +462,25 @@
 <!-- Properties of the selected tile: a floating card next to it (right-click > Properties, or Alt+Enter). -->
 <div class="pop props inspector" id="inspector" role="dialog" aria-label="Tile properties" hidden></div>
 <button class="btn exit" id="exitBtn" type="button">Exit wall mode</button>
+<!-- Make a GIF of a video tile's looped part (ui/gif.js). -->
+<div class="pop gifbox" id="popGif" role="dialog" aria-labelledby="gifTitle" hidden>
+  <button class="btn ib closex" id="gifClose" type="button" aria-label="Close" title="Close (Esc)"><span data-icon="x"></span></button>
+  <div class="ins-head"><div class="ins-name" id="gifTitle">Make a GIF</div><div class="ins-sub" id="gifPart"></div></div>
+  <div class="plgrid">
+    <label class="fld" for="gifWidth"><span>Width</span><select id="gifWidth"></select></label>
+    <label class="fld" for="gifFps"><span>Frames a second</span><select id="gifFps"></select></label>
+    <label class="fld wide" for="gifView"><span>Shows</span><select id="gifView"><option value="whole">The whole frame</option><option value="tile">What the tile shows</option></select></label>
+    <label class="fld wide" for="gifSpeed" id="gifSpeedFld"><span>Speed</span><select id="gifSpeed"></select></label>
+  </div>
+  <p class="note" id="gifNote"></p>
+  <div class="acts"><button class="btn" id="gifCancel" type="button">Cancel</button><button class="btn pri" id="gifMake" type="button">Save the GIF…</button></div>
+</div>
 <div class="toast" id="toast" role="status"></div>
 <!-- Plain logic first (also tested in Node), then the page, then startup. -->
 <script src="lib/formats.js"></script>
 <script src="lib/util.js"></script>
 <script src="lib/geometry.js"></script>
 <script src="lib/freegeo.js"></script>
-<script src="lib/fit.js"></script>
 <script src="lib/playlist.js"></script>
 <script src="lib/records.js"></script>
 <script src="lib/view.js"></script>
@@ -480,6 +488,7 @@
 <script src="lib/hotkey.js"></script>
 <script src="lib/clock.js"></script>
 <script src="lib/collage.js"></script>
+<script src="lib/gifmake.js"></script>
 <script src="lib/justify.js"></script>
 <script src="lib/icons.js"></script>
 <script src="ui/core.js"></script>
@@ -496,6 +505,7 @@
 <script src="ui/music.js"></script>
 <script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
+<script src="ui/gif.js"></script>
 <script src="ui/library.js"></script>
 <script src="ui/libview.js"></script>
 <script src="ui/boot.js"></script>

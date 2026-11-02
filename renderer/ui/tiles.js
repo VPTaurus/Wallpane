@@ -725,16 +725,14 @@
     });
     renderSlots();
 
-    // What only works on the grid (columns, rows, cell shape, Fit to media, Pack tiles), and the Arrange menu's hints:
-    // which commands need the grid, and which switch the wall to Free or back.
+    // What only works on the grid (columns, rows, cell shape), and the Arrange menu's hints: which commands switch the
+    // wall to Free or back.
     var gridOnly = S.mode === 'free';
-    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'aspect', 'arrangeBtn', 'fitMediaBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
+    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'aspect'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
     Array.prototype.forEach.call($('#modeSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)); });
     $('#gridLabel').textContent = gridOnly ? 'Free' : S.cols + ' × ' + S.rows;
     $('#gridNote').hidden = !gridOnly;
-    $('#fitHint').textContent = gridOnly ? 'On the grid only; placed freely, use Fill the wall' : 'Reshape tiles in whole cells so their media fills them';
     $('#fillHint').textContent = 'Every tile keeps its media’s shape; rows fill the wall edge to edge' + (gridOnly ? '' : '. Switches to Free (pixels)');
-    $('#arrangeHint').textContent = gridOnly ? 'On the grid only' : 'Close the gaps, from the top left';
     $('#layoutHint').textContent = 'Ready-made, rows and columns, or your own' + (gridOnly ? '. Puts the tiles on the grid again' : '');
     $('#layoutName').disabled = gridOnly; $('#layoutForm [type="submit"]').disabled = gridOnly;
     $('#layoutNote').textContent = 'Your tiles move into the frames in reading order; frames left over become empty tiles. Which media you have stays the same.' +

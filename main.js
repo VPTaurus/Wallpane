@@ -30,6 +30,8 @@ const mediainfo = require('./lib/mediainfo');
 const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
+const { makeGifKind } = require('./lib/makegif');
+const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
 const { imageSize } = require('./lib/imagesize');
@@ -175,6 +177,7 @@ function startBackground() {
   JOB_KINDS.playable = playableKind({ ffmpeg, cache });
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
   JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
+  JOB_KINDS.makegif = makeGifKind({ ffmpeg });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -231,6 +234,23 @@ handle('media:proxy', (_e, p) => {
   if (made) return { status: 'ready', path: made };
   const job = jobs.add({ kind: 'proxy', key: 'proxy:' + key, label: path.basename(p), input: { file: p }, priority: 'background' });
   return { status: 'working', key: job.key };
+});
+// Make a GIF of a looped part (renderer/lib/gifmake.js, lib/makegif.js): asks where to save it, next to the video by
+// default, then a job makes it. { status: 'working', key, path } (the page follows the job), 'cancelled' (no place
+// chosen), or 'no' (no FFmpeg, the video is gone, or the request does not hold up).
+handle('media:makeGif', async (e, o) => {
+  const g = gifmake.clean(o);
+  if (!g || !ffmpeg.available() || !jobs || !fs.existsSync(g.file)) return { status: 'no' };
+  const r = await dialog.showSaveDialog(winOf(e), {
+    title: 'Save the GIF',
+    defaultPath: path.join(path.dirname(g.file), gifmake.fileName(path.basename(g.file), g.start, g.end)),
+    filters: [{ name: 'GIF', extensions: ['gif'] }]
+  });
+  if (r.canceled || !r.filePath) return { status: 'cancelled' };
+  const out = /\.gif$/i.test(r.filePath) ? r.filePath : r.filePath + '.gif';
+  if (path.resolve(out).toLowerCase() === path.resolve(g.file).toLowerCase()) return { status: 'no' };
+  const job = jobs.add({ kind: 'makegif', key: 'makegif:' + out, label: path.basename(out), input: Object.assign({ out }, g), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.

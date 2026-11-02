@@ -2,7 +2,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const F = require('../../renderer/lib/freegeo');
-const FIT = require('../../renderer/lib/fit');
 const G = require('../../renderer/lib/geometry');
 
 const d = { W: 1000, H: 500 };
@@ -71,33 +70,4 @@ test('toGrid copes with a tile that has no free place yet', () => {
   const items = [{ id: 1, col: 1, row: 0, w: 1, h: 1 }];
   assert.deepEqual(F.toGrid(items, 2, 1, 6, d), []);
   assert.deepEqual(G.geoMap(items)[1], { col: 1, row: 0, w: 1, h: 1 });
-});
-
-test('randomPartition cuts a grid into exactly k tiles that cover it', () => {
-  const rnd = FIT.seededRandom(3);
-  for (const k of [1, 2, 5, 12]) {
-    const out = [];
-    FIT.randomPartition(0, 0, 4, 3, k, rnd, out);
-    assert.equal(out.length, k);
-    assert.equal(G.validLayout(out.map((g, i) => Object.assign({ id: i }, g)), 4, 3), true);
-    assert.equal(out.reduce((s, g) => s + g.w * g.h, 0), 12);
-  }
-});
-
-test('Fit to media improves coverage and gives each media one tile', () => {
-  const asp = [16 / 9, 9 / 16, 16 / 9, 9 / 16];
-  const plain = [{ w: 1, h: 1 }, { w: 1, h: 1 }, { w: 1, h: 1 }, { w: 1, h: 1 }];
-  const before = FIT.coverage(plain, null, asp, 300, 300, 0);
-  const r = FIT.plan({ cols: 4, rows: 3, asp, px: 300, py: 300, gap: 0 });
-  assert.ok(r.score > before);
-  assert.deepEqual(r.assign.slice().sort(), [0, 1, 2, 3]);
-  assert.equal(r.rects.length, 4);
-});
-
-test('Fit to media stops when its time is up', () => {
-  let t = 0;
-  const now = () => (t += 10);           // every check takes 10 ms of fake time
-  const r = FIT.plan({ cols: 12, rows: 12, asp: new Array(60).fill(4 / 3), px: 100, py: 60, gap: 6, budgetMs: 100, now });
-  assert.ok(r.tried < 15, 'tried ' + r.tried);
-  assert.equal(r.rects.length, 60);
 });

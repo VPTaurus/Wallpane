@@ -117,7 +117,7 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 - **The slider** sets the thumbnail size.
 - **Selecting:** click, Ctrl+click, Shift+click, Ctrl+A.
 - **Hovering** a thumbnail shows its name, length and resolution.
-- **Thumbnail shape (Decision 3: each in its own shape, in even rows).** It works like a photo gallery: every row has the same height and fills the width, and each thumbnail keeps its media's shape. A portrait clip looks portrait before it goes on the wall, which matters for Fill the wall and Fit to media. Very wide or very tall media are clamped to between 1:3 and 3:1, so no thumbnail turns into a sliver. The thumbnail size slider sets the row height.
+- **Thumbnail shape (Decision 3: each in its own shape, in even rows).** It works like a photo gallery: every row has the same height and fills the width, and each thumbnail keeps its media's shape. A portrait clip looks portrait before it goes on the wall, which matters for Fill the wall. Very wide or very tall media are clamped to between 1:3 and 3:1, so no thumbnail turns into a sliver. The thumbnail size slider sets the row height.
 - **Fast with thousands of files:** the rows are worked out from the widths and heights alone, and only the rows on screen exist in the page. Thumbnails load as they scroll in.
 
 ## To the wall

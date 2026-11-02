@@ -31,10 +31,24 @@
   };
   var S = A.S, wall = A.wall, toastEl = $('#toast'), toastTimer = 0;
 
-  A.toast = function (msg) {
-    toastEl.textContent = msg; toastEl.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 4200);
+  // actions: buttons after the message ([{ label, act }]); a message with buttons stays longer.
+  A.toast = function (msg, actions) {
+    toastEl.textContent = msg;
+    (actions || []).forEach(function (a) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'tact'; b.textContent = a.label;
+      b.addEventListener('click', function () { hideToast(); a.act(); });
+      toastEl.appendChild(b);
+    });
+    toastEl.classList.toggle('acts', !!(actions && actions.length));
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, actions && actions.length ? 12000 : 4200);
   };
+  // A button of a toast that has gone keeps no focus: Space or Enter would press it unseen.
+  function hideToast() {
+    toastEl.classList.remove('show');
+    if (toastEl.contains(document.activeElement)) document.activeElement.blur();
+  }
   window.addEventListener('unhandledrejection', function (e) { var r = e.reason; A.toast('Error: ' + ((r && r.message) || r)); });
   window.addEventListener('error', function (e) { A.toast('Error: ' + e.message); });
 

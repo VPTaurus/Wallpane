@@ -1,9 +1,9 @@
 // Putting media on the wall: adding, replacing, relinking and removing; drag and drop; switching layouts;
-// Auto-arrange and Fit to media.
+// fitting a tile to its media, and Fill the wall.
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, FIT = MW.fit, PL = MW.pl;
+  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, PL = MW.pl;
   var S = A.S, wall = A.wall, $ = A.$, clamp = U.clamp;
 
   /* ---------- messages about what a scan found ---------- */
@@ -480,15 +480,7 @@
   }
   $('#modeSeg').addEventListener('click', function (e) { var b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
 
-  $('#arrangeBtn').addEventListener('click', function () {
-    A.closePops();
-    if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
-    var plan = G.arrange(S.items, S.cols, S.rows);
-    if (!plan) { A.toast('Not enough room. Add rows or columns first.'); return; }
-    A.pushHistory(); G.applyGeo(S.items, plan); A.render(); A.refreshInspector();
-  });
-
-  /* ---------- Fit to media ---------- */
+  /* ---------- Fit tile to media ---------- */
   function mediaAspect(it) {
     var el = A.tileEls.get(it.id), m = el && el._media, w = 0, h = 0;
     if (m && !it.missing) {
@@ -535,32 +527,6 @@
     if (waiting) msg += ' ' + waiting + (waiting === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and stayed as they were.';
     A.toast(msg);
   };
-  // On the grid only (placed freely, Fill the wall does this, and right-click › Fit tile to media for one tile).
-  function fitToMedia() {
-    if (S.mode === 'free') { A.toast('Fit to media works on the grid. Placed freely, use Fill the wall.'); return; }
-    var N = S.items.length;
-    if (!N) { A.toast('Nothing to fit yet.'); return; }
-    if (N > S.cols * S.rows) { A.toast('There are more tiles than cells. Add rows or columns first.'); return; }
-    var mt = A.metrics(), unknown = 0;
-    var asp = S.items.map(function (it) { var r = mediaAspect(it); if (!r.known && A.hasMedia(it)) unknown++; return r.a; });
-    var before = FIT.coverage(S.items.map(function (i) { return { w: i.w, h: i.h }; }), null, asp, mt.px, mt.py, S.gap);
-    // A quarter of a second is plenty to find a good layout, and short enough that the videos keep playing smoothly.
-    var best = FIT.plan({ cols: S.cols, rows: S.rows, asp: asp, px: mt.px, py: mt.py, gap: S.gap, budgetMs: 250, now: function () { return performance.now(); } });
-    A.pushHistory();
-    best.rects.forEach(function (g, j) {
-      var it = S.items[best.assign[j]];
-      it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; it.fit = 'contain'; it.fitSet = true;
-    });
-    var shaped = shapePlaylists();
-    A.render(); A.refreshInspector();
-    var msg = 'Fitted ' + N + (N === 1 ? ' tile' : ' tiles') + ': ' + Math.round(before * 100) + '% of tile area showed media, now ' + Math.round(best.score * 100) + '%.';
-    if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
-    else if (S.items.some(function (i) { return i.pl; })) msg += ' Playlist tiles keep this shape, so later clips may still have bars.';
-    if (unknown) msg += ' ' + unknown + (unknown === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and counted as 16:9.';
-    A.toast(msg);
-  }
-  $('#fitMediaBtn').addEventListener('click', function () { A.closePops(); fitToMedia(); });
-
   /* ---------- Fill the wall ---------- */
   // Tiles in reading order by their place on screen: rows from the top (a tile whose middle lies within the first
   // tile of a row belongs to that row), each row from the left.
@@ -577,7 +543,7 @@
     }
     return out;
   }
-  // After Fill the wall or Fit to media every tile has its media's shape: the playlists on the wall then pick files
+  // After Fill the wall every tile has its media's shape: the playlists on the wall then pick files
   // shaped like their tiles first, so the shapes keep fitting (Settings › Tiles can leave them be). Returns how many
   // playlists started to.
   function shapePlaylists() {
