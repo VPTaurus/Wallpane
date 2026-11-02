@@ -19,7 +19,7 @@
       counter: 0,                                                    // the counter in the clock popover
       // The library: how it shows (a drawer over the wall, a panel beside it, or a window of its own) and on which side,
       // open or not, its width, the thumbnail size, the order, and what it shows (ui/libview.js checks what was saved).
-      lib: { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
+      lib: { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
     },
     wall: $('#wall'), inspector: $('#inspector'),
     tileEls: new Map(),

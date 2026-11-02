@@ -135,7 +135,7 @@
       A.showMenu(x, y, Object.keys(PLACES).map(function (k) {
         return { label: PLACES[k][0], hint: S.lib.place === k ? 'Now · ' + PLACES[k][1] : PLACES[k][1], icon: PLACES[k][2], act: function () { A.setLibraryPlace(k); } };
       }).concat('-', ['left', 'right'].map(function (s) {
-        return { label: s === 'left' ? 'On the left' : 'On the right', hint: S.lib.side === s ? 'Now' : '', icon: s === 'left' ? 'prev' : 'next', act: function () { A.setLibrarySide(s); } };
+        return { label: s === 'left' ? 'On the left' : 'On the right', hint: S.lib.side === s ? 'Now' : '', icon: s === 'left' ? 'prev' : 'next', act: function () { A.setLibrarySide(s, true); } };
       })));
     }
   };
@@ -182,14 +182,16 @@
     A.savePrefs();
   };
   $('#setLibPlace').addEventListener('change', function () { A.setLibraryPlace(this.value); });
-  // The drawer or the panel on the left of the wall, or on its right.
-  A.setLibrarySide = function (side) {
-    S.lib.side = side === 'right' ? 'right' : 'left';
+  // The drawer or the panel on the right of the wall (by default, beside the Library button), or on its left.
+  // chosen: picked by hand, so it stays (libview.js cleanPrefs).
+  A.setLibrarySide = function (side, chosen) {
+    S.lib.side = side === 'left' ? 'left' : 'right';
+    if (chosen) S.lib.sideSet = true;
     root.classList.toggle('right', S.lib.side === 'right');
     $('#setLibSide').value = S.lib.side;
     A.savePrefs();
   };
-  $('#setLibSide').addEventListener('change', function () { A.setLibrarySide(this.value); });
+  $('#setLibSide').addEventListener('change', function () { A.setLibrarySide(this.value, true); });
   // Hover previews: one setting for the whole app (the library window follows it too), kept by the main process.
   api.libraryPreviewsOn().then(function (on) { $('#setLibPreview').checked = on; });
   $('#setLibPreview').addEventListener('change', function () { api.libraryPreviewsOn(this.checked); });

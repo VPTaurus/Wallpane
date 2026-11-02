@@ -69,6 +69,26 @@ test('3,000 pictures: only the rows on screen are in the page, and the end and a
   } finally { await app.close(); }
 });
 
+test('the drawer opens on the right; a left saved without a choice (1.6.0) follows that, one picked by hand stays', async () => {
+  fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(dir, 'data', 'prefs.json'), JSON.stringify({ lib: { place: 'drawer', side: 'left', open: true } }));
+  let s = await start();
+  try {
+    await expect(s.page.locator('#lib')).toHaveClass(/\bright\b/);
+    await s.page.click('#libPlace');
+    await s.page.locator('#ctxMenu .mi', { hasText: 'On the left' }).click();
+    await expect(s.page.locator('#lib')).not.toHaveClass(/\bright\b/);
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+  s = await start();
+  try {
+    await expect(s.page.locator('#lib')).toBeVisible();
+    await expect(s.page.locator('#lib')).not.toHaveClass(/\bright\b/);
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+});
+
 test('after a restart: the library, the drawer as it was left, its collection, and thumbnails from the cache', async () => {
   const media = path.join(dir, 'Kept');
   fs.mkdirSync(path.join(media, 'sub'), { recursive: true });

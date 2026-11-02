@@ -914,8 +914,16 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await page.keyboard.press('Escape');
   await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
 
+  // The drawer opens on the right by default, beside the Library button; the drags below are laid out for the left.
   await page.keyboard.press('Control+l');
+  await expect(page.locator('#lib')).toHaveClass(/\bright\b/);
+  const libBox = await page.locator('#lib').boundingBox(), wallBox = await page.locator('#wall').boundingBox();
+  expect(libBox.x + libBox.width).toBeGreaterThan(wallBox.x + wallBox.width - 20);
+  await page.click('#libPlace');
+  await menuItem('On the left').click();
+  await expect(page.locator('#lib')).not.toHaveClass(/\bright\b/);
   await expect(page.locator('#lib')).toBeVisible();
+  await page.locator('#libSearch').focus();
   await expect(page.locator('#libSearch')).toBeFocused();
   const thumbs = page.locator('#libGrid .lthumb');
   await expect(thumbs).toHaveCount(4);
