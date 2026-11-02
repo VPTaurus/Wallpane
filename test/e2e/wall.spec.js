@@ -254,6 +254,12 @@ test('layouts keep their frames: leftover frames become empty tiles; applied whi
     await expect(toast(page)).toContainText('on the grid again');
     await expect(page.locator('#gridLabel')).toHaveText('3 × 3');
     expect(await items()).toHaveLength(9);
+    // Fill the wall takes only tiles with media: the eight empty ones make way (and one Ctrl+Z brings them back).
+    await page.click('#arrangeMenuBtn'); await page.click('#fillWallBtn');
+    await expect(toast(page)).toContainText('8 empty tiles made way');
+    expect((await items()).map((s) => s.split(' ')[0])).toEqual(['pic.png']);
+    await page.keyboard.press('Control+z');
+    expect(await items()).toHaveLength(9);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
@@ -272,6 +278,16 @@ test('a single video has Repeat, a picture has neither Repeat nor Pin, a playlis
     await page.click('#addBtn');
     await page.click('#addFiles');
     await expect(tile('clip.mp4').locator('[data-act="loop"]')).toHaveAttribute('aria-label', 'Repeat this video');
+    // Its menu: what is used most at the top, the rest in Display, File and Tile; → opens one, ← closes it.
+    await tile('clip.mp4').click({ button: 'right' });
+    expect(await page.locator('#ctxMenu .mi').count()).toBeLessThanOrEqual(8);
+    await page.locator('#ctxMenu .mi.hassub', { hasText: 'Display' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#ctxSub')).toBeVisible();
+    await expect(page.locator('#ctxSub .mi').first()).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#ctxSub')).toBeHidden();
+    await page.keyboard.press('Escape');
     await expect(tile('pic.png').locator('[data-act="loop"]')).toHaveCount(0);
     await expect(tile('pic.png').locator('[data-act="pin"]')).toHaveCount(0);
     // A folder on the picture's tile: a playlist, with Pin (Stay on this file) and no Repeat.

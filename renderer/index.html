@@ -226,7 +226,7 @@
             <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image time</option><option value="once">One full play</option></select></label>
             <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">Beginning</option><option value="random">Random point</option></select></label>
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
-            <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
+            <label class="fld"><span>Clip length</span><select id="plMax"><option value="0">Whole clip</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
             <label class="fld wide" title="Whether a tile moving on prefers, of the next files, one shaped like the tile"><span>Shapes</span><select id="plShape"><option value="any">Any shape</option><option value="tile">Shaped like the tile first</option></select></label>
             <div class="fld wide"><span>Plays</span>
@@ -359,8 +359,8 @@
                   <button class="btn" type="button" data-key="MediaPlayPause" title="Your keyboard's play/pause key. While Wallpane runs, music players no longer get it.">Play/Pause</button>
                 </div>
               </div>
-              <div class="frow"><span class="flab"><label for="hideMouse">Mouse button</label><button class="tip" type="button" aria-label="About the mouse button" data-tip="It works while the pointer is over a Wallpane window. To use it from any program, set the button to press the key above in your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control).">?</button></span>
-                <select id="hideMouse"><option value="">None</option><option value="back">Back (side button)</option><option value="forward">Forward (side button)</option><option value="middle">Middle (wheel click)</option></select>
+              <div class="frow"><span class="flab"><span id="hideMouseLab">Mouse button</span><button class="tip" type="button" aria-label="About the mouse button" data-tip="Click the button beside it, then press the mouse button to use: the wheel (middle) or a side button (back or forward). It works while the pointer is over a Wallpane window; to use it from any program, set the mouse button to press the key above in your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control).">?</button></span>
+                <div class="row"><button class="btn keycap" id="hideMouse" type="button" aria-labelledby="hideMouseLab hideMouse" title="Click, then press the mouse button to use">None</button><button class="btn" id="hideMouseOff" type="button" hidden>Clear</button></div>
               </div>
               <p class="note" id="hideMouseNote" hidden>Only over a Wallpane window (see the ?).</p>
               <div class="frow"><label for="hideCover">Windows show</label>

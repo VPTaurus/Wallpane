@@ -590,14 +590,18 @@
     return n;
   }
   // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
-  // reading order unless regrouping them crops clearly less. On the grid this first switches to Free layout; one
-  // Ctrl+Z undoes both. opts (adding to a full wall): last, the new tiles, which go after the others; lead, the start
-  // of the message. That adding made the undo step already.
+  // reading order unless regrouping them crops clearly less. Only tiles with media take part: empty tiles (and the
+  // sample tiles of a first start) make way; a tile whose file was not found stays. On the grid this first switches
+  // to Free layout; one Ctrl+Z undoes it all. opts (adding to a full wall): last, the new tiles, which go after the
+  // others; lead, the start of the message. That adding made the undo step already.
   function fillWall(opts) {
     opts = opts || {};
-    if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
+    var keep = function (i) { return i.kind !== 'empty' && !i.sample; };
+    if (!S.items.some(keep)) { A.toast('Nothing to arrange yet: put some media on the wall first.'); return; }
     var last = opts.last || [];
     if (!opts.last) A.pushHistory();
+    var gone = S.items.length - S.items.filter(keep).length;
+    if (gone) { S.items = S.items.filter(keep); if (S.sel && !A.itemById(S.sel)) S.sel = null; }
     var switched = S.mode !== 'free';
     if (switched) { F.toFree(S.items, S.cols, S.rows, S.gap, A.wallPx(), false); S.mode = 'free'; A.savePrefs(); }
     var d = A.wallPx(), geo = A.freeGeoPx(), waiting = 0;
@@ -611,6 +615,7 @@
     var shaped = shapePlaylists();
     A.applyFreePx(geo); A.render(); A.refreshInspector();
     var n = list.length, msg = (opts.lead ? opts.lead + ' ' : '') + n + (n === 1 ? ' tile fills' : ' tiles fill') + ' the wall in ' + plan.rows + (plan.cols ? (plan.rows === 1 ? ' column' : ' columns') : (plan.rows === 1 ? ' row' : ' rows')) + '.';
+    if (gone) msg += ' ' + gone + (gone === 1 ? ' empty tile made' : ' empty tiles made') + ' way.';
     if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
     if (plan.reordered) msg += ' Some tiles changed places so they fit.';
     if (plan.crop >= 0.01) msg += ' Each is cropped by about ' + Math.round(plan.crop * 100) + '% to close the last gap.';

@@ -698,7 +698,7 @@
       b.className = 'slot';
       b.style.gridColumn = String(c + 1); b.style.gridRow = String(r + 1);
       b.setAttribute('aria-label', 'Empty cell, column ' + (c + 1) + ' row ' + (r + 1) + '. Choose files.');
-      b.innerHTML = '<span>C' + (c + 1) + ' · R' + (r + 1) + '</span><span class="hint">Drop or click</span>';
+      b.innerHTML = '<span class="plus" aria-hidden="true">+</span><span class="hint">Drop or click</span>';   // quiet until the pointer is over it
       b.dataset.col = c; b.dataset.row = r;
       wall.appendChild(b);
     }

@@ -14,6 +14,7 @@
     S: {
       cols: 4, rows: 3, gap: 6, aspect: 'fill', fit: 'cover', display: null, items: [], sel: null, nid: 1, presetName: null,
       playlists: {}, fillPl: null, mode: 'grid', startWall: false, awake: true, clock24: null, soloSound: true, evenLoud: true, skipOpen: true, resizeMode: 'even', fullWall: 'say', autoConvert: true, gifVideo: '2', proxies: 'auto', fillShapes: true, pauseMin: true, startWith: 'offer',
+      propsFold: ['place'],                                          // the parts of the Properties card folded away
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0,                                                    // the counter in the clock popover
@@ -52,7 +53,7 @@
 
   /* ---------- stored settings (one set per window) ---------- */
   A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib });
+    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib, propsFold: S.propsFold });
   };
   A.applyPrefs = function (p) {
     if (!p || typeof p !== 'object') return;
@@ -80,6 +81,7 @@
     var tb = p.timeBar;
     if (tb && typeof tb === 'object') S.timeBar = { clock: tb.clock !== false, sw: tb.sw === true, tm: tb.tm === true, ct: tb.ct === true };
     if (Number.isFinite(p.counter)) S.counter = MW.util.clamp(Math.round(p.counter), -999999, 999999);
+    if (Array.isArray(p.propsFold)) S.propsFold = p.propsFold.filter(function (k) { return ['place', 'display', 'playback', 'playlist', 'file'].indexOf(k) > -1; });
     if (p.lib && typeof p.lib === 'object') S.lib = A.libView.cleanPrefs(p.lib);
     var m = p.music;
     if (m && typeof m === 'object') {

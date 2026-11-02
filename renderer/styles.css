@@ -186,8 +186,10 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
   border: 1px dashed var(--slot-line); border-radius: var(--r); background: var(--slot);
   color: var(--muted); font: 400 11px/1.2 var(--mono); padding: 0; min-width: 0; min-height: 0; overflow: hidden;
 }
+.slot .plus { font: 300 24px/1 var(--ui); opacity: 0.35; transition: opacity 0.15s; }
 .slot .hint { opacity: 0; transition: opacity 0.15s; font-family: var(--ui); font-size: 12px; }
 .slot:hover { border-color: var(--accent); color: var(--fg); }
+.slot:hover .plus { opacity: 1; color: var(--accent); }
 .slot:hover .hint { opacity: 1; }
 
 /* ---------- tiles ---------- */
@@ -357,7 +359,13 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .pill.warn { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .ins-path { font: 400 11px/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; user-select: text; }
 .sec { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
-.sec > .btn { justify-content: center; }
+.sec > .btn, .secbody > .btn { justify-content: center; }
+.secbody { display: flex; flex-direction: column; gap: 8px; }
+.props .foldh { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 2px 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.props .foldh:hover, .props .foldh:focus-visible { color: var(--fg); }
+.props .foldh .chev { font: 400 15px/1 var(--ui); letter-spacing: 0; transform: rotate(90deg); transition: transform 0.15s; }
+.props .sec.folded .chev { transform: none; }
+.props .sec.folded .secbody { display: none; }
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .fld { display: flex; flex-direction: column; gap: 4px; }
 .fld span { font: 500 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
@@ -425,6 +433,11 @@ hr.div { width: 100%; border: 0; border-top: 1px solid var(--line); margin: 2px 
 .ctx .mi b { font-size: 13px; }
 .ctx .mi small { font-size: 11.5px; }
 .ctx hr.div { margin: 3px 0; }
+/* An item with a submenu (ui/menus.js): a › on the right; it stays lit while its submenu shows. */
+.ctx .mi.hassub { grid-template-columns: 18px minmax(0, 1fr) 10px; }
+.ctx .mi .chev { align-self: center; color: var(--muted); font: 400 16px/1 var(--ui); }
+.ctx .mi.open { background: var(--panel-2); }
+#ctxSub { width: 250px; }
 .mi.danger b, .mi.danger .ic { color: var(--danger); }
 /* Rows and columns */
 .blines { display: flex; flex-direction: column; gap: 6px; }

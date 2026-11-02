@@ -155,6 +155,7 @@ test("Free layout: new tiles take their media's shape; Fill the wall fills it ed
 test('Fit tile to media gives a tile the exact shape of its image', async () => {
   const tall = page.locator('#wall .tile', { hasText: 'img2.png' });   // 90 x 160
   await tall.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Fit tile to media').click();
   await expect(toast()).toContainText('exact shape of its media');
   const box = await tall.boundingBox();
@@ -262,7 +263,9 @@ async function layout() {
     return { tiles: r, overlaps };
   });
 }
-const menuItem = (label) => page.locator('#ctxMenu .mi', { hasText: label });
+const menuItem = (label) => page.locator('#ctxMenu .mi, #ctxSub .mi', { hasText: label });
+// A tile menu's submenu (Display, File or Tile), opened.
+const openGroup = (label) => page.locator('#ctxMenu .mi.hassub', { hasText: label }).click();
 
 test('right-click on empty wall makes an empty tile, which then takes media', async () => {
   const before = await tiles().count();
@@ -309,6 +312,7 @@ test('on a full grid, a tile grows over an empty tile, which gives way', async (
   // Split the first tile: its right half becomes an empty tile and the 12 x 2 grid stays full.
   const first = tiles().first();
   await first.click({ button: 'right' });
+  await openGroup('Tile');
   await menuItem('Split side by side').click();
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
   const before = await layout();
@@ -330,7 +334,24 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await menuItem('Properties').click();
   const card = page.locator('#inspector');
   await expect(card).toBeVisible();
+  // Position and size starts folded away; its heading opens it, and the card remembers that for the next tile.
+  await expect(card.locator('#fW')).toBeHidden();
+  await expect(card.locator('#insZoom')).toBeVisible();
+  await card.locator('#placeSec .foldh').click();
+  await expect(card.locator('#placeSec .foldh')).toHaveAttribute('aria-expanded', 'true');
   await expect(card.locator('#fW')).toBeVisible();
+  await card.locator('#dispSec .foldh').click();
+  await expect(card.locator('#insZoom')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await tiles().nth(1).click();
+  await page.keyboard.press('Alt+Enter');
+  await expect(card.locator('#dispSec .foldh')).toHaveAttribute('aria-expanded', 'false');
+  await expect(card.locator('#insZoom')).toBeHidden();
+  await card.locator('#dispSec .foldh').click();
+  await expect.poll(() => saved('prefs').propsFold).toEqual([]);
+  await page.keyboard.press('Escape');
+  await tile.click();
+  await page.keyboard.press('Alt+Enter');
   await expect(card.locator('#insZoom')).toBeVisible();
   // Typing a width in cells resizes the tile.
   const w0 = (await tile.boundingBox()).width;
@@ -408,6 +429,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
   await page.mouse.wheel(0, -500);
   await expect.poll(() => img.evaluate((e) => e.style.transform)).toContain('scale(');
   await tile.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Reposition and zoom').click();
   await expect(tile).toHaveClass(/\brepos\b/);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -418,6 +440,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
   await page.keyboard.press('Escape');
   await expect(tile).not.toHaveClass(/\brepos\b/);
   await tile.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Reset position and zoom').click();
   await expect.poll(() => img.evaluate((e) => e.style.transform)).toBe('');
 });
@@ -425,6 +448,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
 test('split a tile from the right-click menu; the new half is an empty tile', async () => {
   const count = await tiles().count();
   await tiles().first().click({ button: 'right' });
+  await openGroup('Tile');
   await menuItem('Split side by side').click();
   await expect(tiles()).toHaveCount(count + 1);
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
@@ -437,11 +461,15 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   const tile = () => page.locator('#wall .tile[data-id="' + id + '"]:not(.leaving)');
   await answerDialogs(media);
   await tile().click({ button: 'right' });
+  await openGroup('File');
   await menuItem('Play a folder').click();
   await expect(toast()).toContainText('This tile now plays');
+  // Playlist settings… opens the card with the playlist part unfolded, even when it was folded away.
+  await page.evaluate(() => { window.MW.app.S.propsFold = ['playlist']; });
   await tile().click({ button: 'right' });
   await menuItem('Playlist settings').click();
   const card = page.locator('#inspector');
+  await expect(card.locator('#plSec .foldh')).toHaveAttribute('aria-expanded', 'true');
   await expect(card.locator('#plSec')).toContainText('6 files');
   // Plays: the folder has only images, so videos and GIFs only is refused and Images stays ticked.
   await card.locator('#pTypes input[value="image"]').click();
@@ -451,8 +479,7 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await card.locator('#pSecs').press('Enter');
   await card.locator('#pOrder').selectOption('shuffle');
   await card.locator('#pFade').selectOption('1');
-  await card.locator('#pMax').fill('20');
-  await card.locator('#pMax').press('Enter');
+  await card.locator('#pMax').selectOption('20');
   const settings = () => page.evaluate(() => { const A = window.MW.app, p = A.S.playlists[A.selected().pl]; return { secs: p.secs, shuffle: p.shuffle, fade: p.fade, maxClip: p.maxClip, keepView: p.keepView }; });
   expect(await settings()).toEqual({ secs: 3, shuffle: true, fade: 1, maxClip: 20, keepView: false });
   // The playlist moves on by itself after 3 seconds; the card stays open and shows the new file's name.
@@ -615,6 +642,7 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   await expect(page.locator('#jobsWrap')).toBeHidden();
   // Right-click › Make playable starts it again (stopped again here: a minute of 720p takes a while).
   await tile.click({ button: 'right' });
+  await openGroup('File');
   await menuItem('Make playable').click();
   await expect(tile.locator('.busy')).toContainText('Converting');
   await expect(page.locator('#jobsCount')).toHaveText('1');
@@ -711,11 +739,16 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await expect(page.locator('#cover')).toBeVisible();
   await page.keyboard.press('ScrollLock');
   await expect(page.locator('#cover')).toBeHidden();
-  // A mouse button: the middle one, over the wall, hides and brings back.
+  // A mouse button, set by pressing it: the middle one, then over the wall it hides and brings back.
   await settingsAt('Hide');
-  await page.locator('#hideMouse').selectOption('middle');
+  await page.click('#hideMouse');
+  await expect(page.locator('#hideMouse')).toHaveText('Press a mouse button…');
+  const mb = await page.locator('#hideMouse').boundingBox();
+  await page.mouse.click(mb.x + mb.width / 2, mb.y + mb.height / 2, { button: 'middle' });
+  await expect(page.locator('#hideMouse')).toHaveText('Middle (wheel)');
   await expect(page.locator('#hideMouseNote')).toBeVisible();
   await expect.poll(() => saved('hide').mouse).toBe('middle');
+  await expect(page.locator('#cover')).toBeHidden();   // setting it did not hide anything
   await page.keyboard.press('Escape');
   const w = await page.locator('#wall').boundingBox();
   await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });

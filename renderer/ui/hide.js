@@ -9,6 +9,8 @@
   var api = A.api, $ = A.$;
   var cfg = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '', ok: false, on: false };
   var BUTTON = { middle: 1, back: 3, forward: 4 };   // PointerEvent.button for each mouse setting
+  var MOUSE_WORDS = { '': 'None', middle: 'Middle (wheel)', back: 'Back (side)', forward: 'Forward (side)' };
+  var mouseRec = false;   // waiting for the mouse button to use (Settings › Emergency hide)
   var hidden = false, was = null, title = '', recording = false;
 
   var cover = document.createElement('div');
@@ -86,7 +88,7 @@
   });
   // The mouse button, while the pointer is over this window (hidden or not). Its click goes no further: no middle-click
   // scrolling, and no back or forward.
-  function isHideButton(e) { return !!cfg.mouse && e.button === BUTTON[cfg.mouse]; }
+  function isHideButton(e) { return !mouseRec && !!cfg.mouse && e.button === BUTTON[cfg.mouse]; }
   window.addEventListener('pointerdown', function (e) {
     if (!isHideButton(e)) return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -192,7 +194,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('#hideQuick [data-key]'), function (q) {
       q.setAttribute('aria-pressed', String(K.normalize(q.dataset.key) === cfg.key));
     });
-    $('#hideMouse').value = cfg.mouse || '';
+    if (!mouseRec) { $('#hideMouse').textContent = MOUSE_WORDS[cfg.mouse || '']; $('#hideMouse').classList.remove('rec'); }
+    $('#hideMouseOff').hidden = !cfg.mouse;
     $('#hideMouseNote').hidden = !cfg.mouse;
     $('#hideCover').value = cfg.cover;
     $('#hideImageBtn').hidden = cfg.cover !== 'image';
@@ -238,9 +241,32 @@
       });
     });
   });
-  $('#hideMouse').addEventListener('change', function () {
-    api.setHide({ mouse: this.value }).then(function (s) { cfg = s; showSettings(); });
+  // The mouse button, set like the key: click the button, then press the mouse button to use (the wheel, or a side
+  // button). A left or right click, or Esc, cancels; Clear takes it off.
+  function setMouse(m) { api.setHide({ mouse: m }).then(function (s) { cfg = s; showSettings(); }); }
+  function stopMouseRec() {
+    if (!mouseRec) return;
+    mouseRec = false;
+    showSettings();
+  }
+  $('#hideMouse').addEventListener('click', function () {
+    if (mouseRec) { stopMouseRec(); return; }
+    mouseRec = true;
+    this.classList.add('rec'); this.textContent = 'Press a mouse button…';
+    hideNote('Over this window, press the wheel (middle) or a side button (back or forward). A left or right click, or Esc, cancels.');
   });
+  ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'auxclick', 'contextmenu'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (!mouseRec || (t === 'pointerdown' && e.target.closest && e.target.closest('#hideMouse') && e.button === 0)) return;
+      var m = Object.keys(BUTTON).filter(function (k) { return BUTTON[k] === e.button; })[0];
+      if (m || e.button === 2) { e.preventDefault(); e.stopImmediatePropagation(); }   // no scrolling, back, forward or menu
+      if (t !== 'pointerdown') return;
+      mouseRec = false;
+      if (m) setMouse(m); else showSettings();
+    }, true);
+  });
+  window.addEventListener('keydown', function (e) { if (mouseRec && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopMouseRec(); } }, true);
+  $('#hideMouseOff').addEventListener('click', function () { setMouse(''); });
   $('#hideKey').addEventListener('click', function () { if (recording) stopRecord(); else startRecord(); });
   $('#hideKey').addEventListener('blur', stopRecord);
   $('#hideCover').addEventListener('change', function () {
