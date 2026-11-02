@@ -228,6 +228,29 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('a wall with videos saves a change within seconds, also once their openings are measured', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // 1.6.0 redrew such a wall every 0.6 s (each answer about openings set off the next question), which kept putting
+  // its save off until the window closed.
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  const savedItems = () => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'session.json'), 'utf8')).items.length; } catch { return -1; } };
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.evaluate((p) => window.wall.openings([p]).then((r) => !!r[p]), clip), { timeout: 20000 }).toBe(true);
+    await page.waitForTimeout(2500);
+    await answer(pic);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(savedItems, { timeout: 4000 }).toBe(2);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('drawing pace: the rate kept in app.json applies from the start; Settings says so and what the next start brings', async () => {
   // One 60 Hz screen here, so Automatic would change nothing: a rate worked out earlier (30) stands in for a slower
   // second screen.

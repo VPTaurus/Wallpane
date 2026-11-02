@@ -227,9 +227,15 @@
     var s = Math.max(o.black || 0, m && !m.muted ? o.silence || 0 : 0);
     return s >= 0.3 && !(m && isFinite(m.duration) && s > m.duration / 3) ? s : 0;
   };
+  // Only what is new does anything: a redraw here sets off the next question (measureLater), and the wall's save
+  // waits for redraws to stop.
   function opened(m) {
-    var paths = Object.keys(m || {});
-    paths.forEach(function (p) { openings[p] = m[p]; });
+    var paths = Object.keys(m || {}).filter(function (p) {
+      var was = openings[p], now = m[p];
+      openings[p] = now;
+      return !(was === now || (was && now && was.black === now.black && was.silence === now.silence));
+    });
+    if (!paths.length) return;
     // A tile already playing its opening moves on to its start.
     S.items.forEach(function (it) {
       var v = paths.indexOf(it.path) > -1 && A.videoOf(it), p = it.pl && S.playlists[it.pl];
@@ -237,17 +243,21 @@
       var s = A.openingOf(it, v);
       if (s && v.currentTime < s - 0.25) { v.currentTime = s; if (p) it._t0 = s; }
     });
-    if (paths.length) A.render();
+    A.render();
   }
   api.onOpenings(opened);
   $('#setSkipOpen').addEventListener('change', function () { S.skipOpen = this.checked; A.savePrefs(); A.render(); });
 
-  // The videos on the wall, a moment after it changed: their loudness and openings.
-  var measureTimer = 0;
+  // The videos on the wall, a moment after it changed: their loudness and openings. Asked again only when they (or
+  // the two settings) change; what is still being measured arrives by itself.
+  var measureTimer = 0, measuredSig = '';
   A.measureLater = function () {
     clearTimeout(measureTimer);
     measureTimer = setTimeout(function () {
       var paths = S.items.filter(function (it) { return it.kind === 'video' && it.path && !it.missing; }).map(function (it) { return it.path; });
+      var sig = (S.evenLoud ? 'L' : '') + (S.skipOpen ? 'O' : '') + '\n' + paths.join('\n');
+      if (sig === measuredSig) return;
+      measuredSig = sig;
       if (S.evenLoud) api.loudness(paths).then(heard);
       if (S.skipOpen) api.openings(paths).then(opened);
     }, 600);

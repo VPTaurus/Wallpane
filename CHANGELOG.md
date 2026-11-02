@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1 (in the works)
+
+- **A wall with videos is saved again while it plays.** In 1.6.0 such a wall redrew itself every half second or so, which kept putting off its save until the window closed: after a crash or a power cut, recent changes were lost. It now redraws only when something changes, and saves within a second of a change.
+- **Less work at rest:** the clock in the bar ticks once a second (four times while a stopwatch or timer runs, ten while its popover shows tenths), and no longer asks Windows for its time format on every tick.
+
 ## 1.6.0: Previews and a smoother wall
 
 Download **Wallpane Setup 1.6.0.exe** (installer) or **Wallpane 1.6.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
