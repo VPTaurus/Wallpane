@@ -182,8 +182,9 @@ test('hover previews: a resting pointer plays a few seconds of a video, or the G
     await page.keyboard.press('Control+l');
     await expect(thumbs(page)).toHaveCount(3);
 
-    await thumb(page, 'clip.mp4').hover();
-    await expect(prev('clip.mp4')).toHaveCount(1, { timeout: 15000 });
+    // Pointed at again while waiting: the drawer may redo its rows once just after opening (the library's last details
+    // coming in), which moves the thumbnails under a resting pointer.
+    await expect.poll(async () => { await thumb(page, 'clip.mp4').hover(); return prev('clip.mp4').count(); }, { intervals: [600], timeout: 15000 }).toBe(1);
     await expect.poll(() => prev('clip.mp4').evaluate((v) => v.tagName === 'VIDEO' && !v.paused && v.readyState >= 2 && v.duration > 5 && v.duration < 7)).toBe(true);
     expect(await prev('clip.mp4').getAttribute('src')).toMatch(/previews/);
     await page.locator('#libSearch').hover();

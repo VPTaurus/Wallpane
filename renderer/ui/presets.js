@@ -54,7 +54,7 @@
     var box = $('#plist');
     api.storeInfo().then(function (info) { $('#storeNote').textContent = 'Stored in ' + info.dir; });
     listPresets().then(function (list) {
-      if (!list.length) { box.innerHTML = '<p class="note">No presets yet. Arrange a wall, name it above and press Save.</p>'; return; }
+      if (!list.length) { box.innerHTML = '<p class="note">No saved walls yet. Arrange a wall, name it above and press Save.</p>'; return; }
       box.innerHTML = list.map(function (p) {
         var n = p.items.length;
         return '<div class="prow" data-name="' + esc(p.name) + '"><div class="pinfo"><div class="pname">' + esc(p.name) + '</div>' +
@@ -147,7 +147,7 @@
         return Promise.all([api.storeSet('presets', list), api.storeSet('layouts', mine.slice(0, 40))]).then(function () {
           A.userLayouts = mine.slice(0, 40);
           A.refreshPresetList();
-          A.toast('Imported ' + added + (added === 1 ? ' preset' : ' presets') + ' and ' + addedL + (addedL === 1 ? ' layout.' : ' layouts.'));
+          A.toast('Imported ' + added + (added === 1 ? ' saved wall' : ' saved walls') + ' and ' + addedL + (addedL === 1 ? ' layout.' : ' layouts.'));
         });
       });
     });

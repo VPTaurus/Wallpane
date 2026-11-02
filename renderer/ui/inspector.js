@@ -167,8 +167,8 @@
       (it.pl && S.playlists[it.pl] ? playlistSec(it) : '') +
       '<div class="sec"><span class="lab">' + (it.kind === 'empty' ? 'Media' : 'File') + '</span><div class="acts">' +
       (it.missing ? '<button class="btn pri" id="insRelink">Locate file…</button>' : it.kind === 'empty' ? '<button class="btn pri" id="insReplace">Choose media…</button>' : '<button class="btn" id="insReplace">Replace…</button>') +
-      '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">' + (it.kind === 'empty' ? 'Play a folder…' : 'Own folder…') + '</button>' +
-      (it.path && !it.missing ? '<button class="btn" id="insReveal">Show in folder</button>' : '') +
+      '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">Play a folder…</button>' +
+      (it.path && !it.missing ? '<button class="btn" id="insReveal">Show in Explorer</button>' : '') +
       '</div></div>' +
       '<button class="btn warn full" id="insRemove"><span class="ic" aria-hidden="true">' + A.ICON.trash + '</span>Remove from wall</button>';
 

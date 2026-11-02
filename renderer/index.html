@@ -181,7 +181,7 @@
             <button class="btn pri" id="tmGo" type="button">Start</button>
             <button class="btn" id="tmReset" type="button" disabled>Reset</button>
           </div>
-          <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode. "In the bar" puts one in the bar with a start and pause button; unticking it takes it off and resets it.</p>
+          <p class="note">Type 5 for minutes, or 1:30. It beeps at zero, and keeps running while this is closed.</p>
           <hr class="div">
           <div class="thead"><span class="lab">Counter</span><label class="check"><input type="checkbox" id="showCt"> In the bar</label></div>
           <div class="bigtime" id="ctNum">0</div>
@@ -190,7 +190,7 @@
             <button class="btn pri" id="ctPlus" type="button"><span data-icon="plus"></span>Add one</button>
             <button class="btn" id="ctReset" type="button" disabled>Reset</button>
           </div>
-          <p class="note">Counts anything you like, and keeps the count for next time. In the bar, + adds one; right-click it to take one away. Unticking "In the bar" resets it to 0.</p>
+          <p class="note">Kept for next time. In the bar, click it to add one, right-click to take one away.</p>
         </div>
       </div>
     </div>
@@ -201,7 +201,7 @@
       <div class="popwrap">
         <button class="btn" id="presetBtn" type="button" aria-expanded="false" aria-controls="pop" title="Save this wall, or load a saved one"><span data-icon="bookmark"></span><span class="lbl">Saved walls</span></button>
         <div class="pop" id="pop" hidden>
-          <span class="lab">Saved walls</span>
+          <div class="srow"><span class="lab">Saved walls</span><button class="tip" type="button" aria-label="About saved walls" data-tip="A saved wall keeps the grid, each tile's place and settings, and where each file is; the files stay where they are. A file that has moved shows “File not found” on its tile, and you can locate it.">?</button></div>
           <form class="save" id="saveForm">
             <input id="presetName" type="text" maxlength="48" placeholder="Name this wall" autocomplete="off" aria-label="Name for this wall">
             <button class="btn pri" id="saveBtn" type="submit">Save</button>
@@ -212,7 +212,6 @@
             <button class="btn" id="importBtn" type="button">Import…</button>
             <button class="btn" id="revealBtn" type="button">Show file</button>
           </div>
-          <p class="note">A saved wall keeps the grid, each tile's place and settings, and the path of each file. The files stay where they are. If a file has moved, its tile shows "File not found" and you can locate it.</p>
           <p class="note" id="storeNote"></p>
         </div>
       </div>
@@ -220,13 +219,12 @@
       <div class="popwrap">
         <button class="btn" id="playlistBtn" type="button" aria-expanded="false" aria-controls="popP" title="Folder playlist options"><span data-icon="playlist"></span><span class="lbl">Playlist</span></button>
         <div class="pop" id="popP" hidden>
-          <span class="lab">Folder playlist</span>
-          <p class="note">These options are for new playlists. To change one that is already playing, right-click one of its tiles and choose Playlist settings.</p>
+          <div class="srow"><span class="lab">Folder playlist</span><button class="tip" type="button" aria-label="About folder playlists" data-tip="Options for the next folder you play as a playlist. It fills the empty cells, one file per tile; a tile moves on when its clip ends or an image's time is up, and new files in the folder join in. To change a playlist already playing, right-click one of its tiles › Playlist settings.">?</button></div>
           <div class="plgrid">
             <label class="fld"><span>Order</span><select id="plOrder"><option value="name">Name order</option><option value="shuffle">Shuffle</option></select></label>
             <label class="fld"><span>Image seconds</span><input id="plSecs" type="number" min="2" max="300" value="10" inputmode="numeric"></label>
-            <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image seconds</option><option value="once">One full play</option></select></label>
-            <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">At the beginning</option><option value="random">At a random point</option></select></label>
+            <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image time</option><option value="once">One full play</option></select></label>
+            <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">Beginning</option><option value="random">Random point</option></select></label>
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
             <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
@@ -245,7 +243,7 @@
             <button class="btn warn" id="plStop" type="button" hidden>Stop playlist</button>
           </div>
           <p class="note" id="plStatus"></p>
-          <p class="note">A folder playlist fills the empty cells, one file per tile. When a clip ends, or an image has been shown long enough, the tile takes the next file. Cells you add later fill too, and new files in the folder join the queue. Drop a folder on one tile (or right-click it and choose Own folder) to give just that tile the folder. On a tile, the skip button moves on and the pin keeps the current file.</p>
+          <p class="note">One tile only: drop a folder on it, or right-click it › Play a folder.</p>
         </div>
       </div>
 
@@ -260,7 +258,7 @@
           <ul class="tips">
             <li>Add media with the Add button, or drop files and folders from Explorer. Drop on a tile to replace it.</li>
             <li>Drag a tile to move it; tiles in the way make room. Drag any border or corner to resize.</li>
-            <li>Right-click a tile for everything you can do with it, including Properties (exact position and size). Right-click empty wall to add media or a new empty tile there.</li>
+            <li>Right-click a tile for everything you can do with it, including Properties (position, size, display and playback). Right-click empty wall to add media or a new empty tile there.</li>
             <li>For sizes in between cells, switch to Free (pixels). Shift keeps a tile's shape while you resize it.</li>
             <li>Scroll over the selected tile to zoom its media; Reposition and zoom lets you drag the media inside the tile.</li>
             <li>Wall mode shows only the wall, on the display you pick in Settings.</li>
@@ -311,7 +309,7 @@
                 <select id="setFullWall"><option value="say">Say it is full</option><option value="fill">Add and refill</option></select>
               </div>
               <div class="frow"><span class="flab"><label for="fit">New tiles</label><button class="tip" type="button" aria-label="About New tiles" data-tip="How media fits a new tile: filling it (a little may be cropped), or whole, with bars where the shapes differ. Tiles you have not changed follow it; a tile's own fit button changes just that tile.">?</button></span>
-                <select id="fit"><option value="cover">Fill the tile</option><option value="contain">Whole picture</option></select>
+                <select id="fit"><option value="cover">Fill the tile</option><option value="contain">Whole frame</option></select>
               </div>
               <div class="srow"><label class="check"><input type="checkbox" id="setFillShapes"> Playlists match tile shapes</label><button class="tip" type="button" aria-label="About Playlists match tile shapes" data-tip="After Fill the wall or Fit to media, a tile playing a folder moves on to files shaped like it first, so a tall tile keeps showing tall files. Each playlist can also set this under Shapes.">?</button></div>
             </section>

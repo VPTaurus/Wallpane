@@ -183,7 +183,7 @@ test('presets: save, export and import', async () => {
   expect(data.app).toBe('wallpane');
   expect(data.presets.map((p) => p.name)).toEqual(['E2E wall']);
   await page.click('#importBtn');
-  await expect(toast()).toContainText('Imported 1 preset');
+  await expect(toast()).toContainText('Imported 1 saved wall');
 });
 
 test('keyboard: Tab selects a tile, Delete removes it, Ctrl+Z brings it back', async () => {
@@ -437,7 +437,7 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   const tile = () => page.locator('#wall .tile[data-id="' + id + '"]:not(.leaving)');
   await answerDialogs(media);
   await tile().click({ button: 'right' });
-  await menuItem('Own folder').click();
+  await menuItem('Play a folder').click();
   await expect(toast()).toContainText('This tile now plays');
   await tile().click({ button: 'right' });
   await menuItem('Playlist settings').click();

@@ -82,14 +82,14 @@
     items.push('-');
     if (it.missing) items.push({ label: 'Locate file…', icon: 'file', act: function () { A.relinkOne(it); } });
     else if (it.kind !== 'empty') items.push({ label: 'Replace media…', icon: 'file', act: function () { A.chooseMedia(it); } });
-    if (it.kind !== 'empty') items.push({ label: 'Own folder…', hint: 'This tile plays a folder of its own', icon: 'folder', act: function () { A.ownFolder(it); } });
-    if (it.path && !it.missing) items.push({ label: 'Show in folder', icon: 'folder', act: function () { A.api.revealFile(it.path); } });
+    if (it.kind !== 'empty') items.push({ label: 'Play a folder…', hint: 'This tile plays a folder of its own', icon: 'folder', act: function () { A.ownFolder(it); } });
+    if (it.path && !it.missing) items.push({ label: 'Show in Explorer', icon: 'folder', act: function () { A.api.revealFile(it.path); } });
     items.push('-',
       { label: 'Duplicate', icon: 'copy', act: function () { A.duplicateTile(it); } },
       { label: 'Split side by side', icon: 'splitv', disabled: !A.canSplit(it, 'v'), act: function () { A.splitTile(it, 'v'); } },
       { label: 'Split top and bottom', icon: 'splith', disabled: !A.canSplit(it, 'h'), act: function () { A.splitTile(it, 'h'); } },
       '-',
-      { label: 'Properties…', hint: 'Exact position and size · Alt+Enter', icon: 'sliders', act: function () { A.openProps(it); } },
+      { label: 'Properties…', hint: 'Position, size and more · Alt+Enter', icon: 'sliders', act: function () { A.openProps(it); } },
       { label: 'Remove from wall', icon: 'trash', danger: true, act: function () { A.removeItem(it.id); } });
     A.showMenu(x, y, items);
   }
