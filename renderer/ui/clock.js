@@ -16,17 +16,19 @@
     $('#' + id).textContent = text;
   }
   function setFlags(id, flags) {   // { hidden, dim, done } on one element
-    var k = JSON.stringify(flags), el = $('#' + id);
+    var k = JSON.stringify(flags);
     if (shown['f:' + id] === k) return;
     shown['f:' + id] = k;
+    var el = $('#' + id);
     var refit = 'hidden' in flags && el.hidden !== flags.hidden;   // a chip came or went: the bar may fit differently
     Object.keys(flags).forEach(function (f) { if (f === 'hidden') el.hidden = flags[f]; else el.classList.toggle(f, flags[f]); });
     if (refit) A.fitBar();
   }
+  var sysH24 = null;   // Windows' own choice, asked once: building the formatter on every tick added up
   function h24() {
     if (typeof S.clock24 === 'boolean') return S.clock24;
-    var hc = new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle;
-    return hc !== 'h12' && hc !== 'h11';
+    if (sysH24 === null) { var hc = new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle; sysH24 = hc !== 'h12' && hc !== 'h11'; }
+    return sysH24;
   }
   function popOpen() { return !$('#popT').hidden; }
   // A chip's button: its icon and what a click does.
@@ -73,7 +75,10 @@
       $('#ctReset').disabled = !S.counter;
     }
   }
-  setInterval(tick, 100);
+  // Ten times a second while the popover shows tenths, four while the stopwatch or timer runs (seconds turn, and the
+  // timer rings, on time), else once a second: the bar shows minutes.
+  function loop() { tick(); setTimeout(loop, popOpen() ? 100 : C.running(sw) || C.running(tm) ? 250 : 1000); }
+  $('#timeBtn').addEventListener('click', function () { tick(); });   // the popover just opened (ui/controls.js)
 
   // Three soft beeps. The emergency hide mutes the window, so they never give it away.
   function ring() {
@@ -183,5 +188,5 @@
   $('#ctCtl').addEventListener('contextmenu', function (e) { e.preventDefault(); count(-1); });
 
   $('#clock24').addEventListener('change', function () { S.clock24 = this.checked; A.savePrefs(); shown = {}; tick(); });
-  tick();
+  loop();
 })(window.MW.app);

@@ -131,7 +131,7 @@
   /* ---------- lighter copies for small tiles ---------- */
   // A video much bigger than its tile plays from a lighter copy (lib/playable.js proxyKind: made once in the background,
   // kept in the cache), from the same moment; when the tile grows, or plays alone full screen, it goes back to the
-  // original. Settings › General can turn this off. Sizes are in screen pixels, so a scaled display counts right.
+  // original. Settings › Video can turn this off. Sizes are in screen pixels, so a scaled display counts right.
   var proxies = {}, proxyJobs = {}, proxyBad = {}, bigOf = {};   // path -> copy url; job key -> path; failed; original's long side
   var BIG = 1440, SMALL = 960, LEAVE = 1100;   // originals from BIG on; tiles up to SMALL take the copy, over LEAVE leave it
   function tileLong(el) {
@@ -201,7 +201,7 @@
   /* ---------- even loudness ---------- */
   // Each video on the wall is measured once (lib/loudness.js), and one louder than TARGET plays that much quieter, so a
   // loud clip beside a quiet one sounds alike when unmuted. Only ever quieter: a page cannot play a video louder than
-  // it is, so a quiet one keeps its own level. On top of the tile's own volume. Settings › General can turn it off.
+  // it is, so a quiet one keeps its own level. On top of the tile's own volume. Settings › Video can turn it off.
   var levels = {}, TARGET = -18;   // path -> its loudness in LUFS (null: no sound, or not measured)
   A.levelOf = function (it) {
     var l = S.evenLoud ? levels[it.path] : null;
@@ -217,7 +217,7 @@
   /* ---------- black or silent openings ---------- */
   // Each video on the wall is looked at once (lib/openings.js): a tile starts it after a black opening, or after a
   // silent one while it is heard, also when it loops (not a playlist with a random start, nor a tile with a looped
-  // part, which start where they say). Settings › General can turn it off.
+  // part, which start where they say). Settings › Video can turn it off.
   var openings = {};   // path -> { black, silence } (where each opening ends, in seconds), or null
   // Where this tile's video m starts: 0 when there is no opening, it is off, or the opening is over a third of the
   // video (then it is the video).
@@ -227,9 +227,15 @@
     var s = Math.max(o.black || 0, m && !m.muted ? o.silence || 0 : 0);
     return s >= 0.3 && !(m && isFinite(m.duration) && s > m.duration / 3) ? s : 0;
   };
+  // Only what is new does anything: a redraw here sets off the next question (measureLater), and the wall's save
+  // waits for redraws to stop.
   function opened(m) {
-    var paths = Object.keys(m || {});
-    paths.forEach(function (p) { openings[p] = m[p]; });
+    var paths = Object.keys(m || {}).filter(function (p) {
+      var was = openings[p], now = m[p];
+      openings[p] = now;
+      return !(was === now || (was && now && was.black === now.black && was.silence === now.silence));
+    });
+    if (!paths.length) return;
     // A tile already playing its opening moves on to its start.
     S.items.forEach(function (it) {
       var v = paths.indexOf(it.path) > -1 && A.videoOf(it), p = it.pl && S.playlists[it.pl];
@@ -237,17 +243,21 @@
       var s = A.openingOf(it, v);
       if (s && v.currentTime < s - 0.25) { v.currentTime = s; if (p) it._t0 = s; }
     });
-    if (paths.length) A.render();
+    A.render();
   }
   api.onOpenings(opened);
   $('#setSkipOpen').addEventListener('change', function () { S.skipOpen = this.checked; A.savePrefs(); A.render(); });
 
-  // The videos on the wall, a moment after it changed: their loudness and openings.
-  var measureTimer = 0;
+  // The videos on the wall, a moment after it changed: their loudness and openings. Asked again only when they (or
+  // the two settings) change; what is still being measured arrives by itself.
+  var measureTimer = 0, measuredSig = '';
   A.measureLater = function () {
     clearTimeout(measureTimer);
     measureTimer = setTimeout(function () {
       var paths = S.items.filter(function (it) { return it.kind === 'video' && it.path && !it.missing; }).map(function (it) { return it.path; });
+      var sig = (S.evenLoud ? 'L' : '') + (S.skipOpen ? 'O' : '') + '\n' + paths.join('\n');
+      if (sig === measuredSig) return;
+      measuredSig = sig;
       if (S.evenLoud) api.loudness(paths).then(heard);
       if (S.skipOpen) api.openings(paths).then(opened);
     }, 600);
@@ -296,6 +306,6 @@
   $('#setGifVideo').addEventListener('change', function () { S.gifVideo = this.value; A.savePrefs(); });
   $('#setProxies').addEventListener('change', function () { S.proxies = this.value; A.savePrefs(); A.checkProxiesLater(); });
 
-  // Settings › General: convert on its own, or only when asked.
+  // Settings › Video: convert on its own, or only when asked.
   $('#setConvert').addEventListener('change', function () { S.autoConvert = this.checked; A.savePrefs(); });
 })(window.MW.app);

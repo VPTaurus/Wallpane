@@ -69,6 +69,26 @@ test('3,000 pictures: only the rows on screen are in the page, and the end and a
   } finally { await app.close(); }
 });
 
+test('the drawer opens on the right; a left saved without a choice (1.6.0) follows that, one picked by hand stays', async () => {
+  fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
+  fs.writeFileSync(path.join(dir, 'data', 'prefs.json'), JSON.stringify({ lib: { place: 'drawer', side: 'left', open: true } }));
+  let s = await start();
+  try {
+    await expect(s.page.locator('#lib')).toHaveClass(/\bright\b/);
+    await s.page.click('#libPlace');
+    await s.page.locator('#ctxMenu .mi', { hasText: 'On the left' }).click();
+    await expect(s.page.locator('#lib')).not.toHaveClass(/\bright\b/);
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+  s = await start();
+  try {
+    await expect(s.page.locator('#lib')).toBeVisible();
+    await expect(s.page.locator('#lib')).not.toHaveClass(/\bright\b/);
+    expect(s.errors).toEqual([]);
+  } finally { await s.app.close(); }
+});
+
 test('after a restart: the library, the drawer as it was left, its collection, and thumbnails from the cache', async () => {
   const media = path.join(dir, 'Kept');
   fs.mkdirSync(path.join(media, 'sub'), { recursive: true });
@@ -162,8 +182,9 @@ test('hover previews: a resting pointer plays a few seconds of a video, or the G
     await page.keyboard.press('Control+l');
     await expect(thumbs(page)).toHaveCount(3);
 
-    await thumb(page, 'clip.mp4').hover();
-    await expect(prev('clip.mp4')).toHaveCount(1, { timeout: 15000 });
+    // Pointed at again while waiting: the drawer may redo its rows once just after opening (the library's last details
+    // coming in), which moves the thumbnails under a resting pointer.
+    await expect.poll(async () => { await thumb(page, 'clip.mp4').hover(); return prev('clip.mp4').count(); }, { intervals: [600], timeout: 15000 }).toBe(1);
     await expect.poll(() => prev('clip.mp4').evaluate((v) => v.tagName === 'VIDEO' && !v.paused && v.readyState >= 2 && v.duration > 5 && v.duration < 7)).toBe(true);
     expect(await prev('clip.mp4').getAttribute('src')).toMatch(/previews/);
     await page.locator('#libSearch').hover();

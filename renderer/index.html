@@ -28,7 +28,9 @@
           <p class="note">You can also drop files and folders from Explorer onto the wall.</p>
         </div>
       </div>
-      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
+      <button class="btn clearbtn" id="clearBtn" type="button" title="Clear the wall: takes every tile off. Click twice; Ctrl+Z brings them back"><span data-icon="trash"></span><span class="lbl">Clear</span></button>
+      <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
+      <button class="btn ib" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
     </div>
 
     <div class="grp">
@@ -48,10 +50,7 @@
           <div class="frow"><label for="aspect">Cell shape</label>
             <select id="aspect"><option value="fill">Fill the window</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">Square</option><option value="9:16">9:16 portrait</option></select>
           </div>
-          <div class="frow"><label for="fit">New tiles show</label>
-            <select id="fit"><option value="cover">Fill the cell</option><option value="contain">The whole frame</option></select>
-          </div>
-          <p class="note" id="gridNote" hidden>Columns and rows apply when tiles snap to the grid.</p>
+          <p class="note" id="gridNote" hidden>Columns, rows and cell shape are set on the grid; placed freely, the wall keeps the shape they gave it.</p>
         </div>
       </div>
       <div class="seg modeseg" id="modeSeg" role="group" aria-label="How tiles are placed">
@@ -59,13 +58,12 @@
         <button type="button" data-mode="free" aria-pressed="false" title="Free (pixels): place and size every tile by the pixel"><span class="long">Free (pixels)</span><span class="short">Free</span></button>
       </div>
       <div class="popwrap">
-        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fit, auto-arrange, rows and columns, frame layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
+        <button class="btn" id="arrangeMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="popArr" aria-label="Arrange" title="Arrange: fill the wall, layouts"><span data-icon="wand"></span><span class="long">Arrange</span><span data-icon="chev"></span></button>
+        <!-- Tiles that take their media's shape and fill the wall, or tiles moved into the frames of a layout. The hints
+             say which switches the wall to Free or back (ui/tiles.js render). -->
         <div class="pop menu" id="popArr" hidden>
-          <button class="mi" id="fitMediaBtn" type="button"><span data-icon="fit"></span><span><b>Fit to media</b><small id="fitHint">Reshape tiles so their media fills them</small></span></button>
-          <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small>Every tile keeps its media's shape, and together they fill the wall edge to edge</small></span></button>
-          <button class="mi" id="arrangeBtn" type="button"><span data-icon="grid"></span><span><b>Auto-arrange</b><small id="arrangeHint">Pack all tiles from the top left</small></span></button>
-          <button class="mi" id="rowsBtn" type="button"><span data-icon="rows"></span><span><b>Rows and columns…</b><small>A different number of tiles in each row</small></span></button>
-          <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Frame layouts…</b><small id="layoutHint">Move the tiles into ready-made frames</small></span></button>
+          <button class="mi" id="fillWallBtn" type="button"><span data-icon="collage"></span><span><b>Fill the wall</b><small id="fillHint">Every tile keeps its media's shape; rows fill the wall edge to edge</small></span></button>
+          <button class="mi" id="layoutBtn" type="button"><span data-icon="layout"></span><span><b>Layouts…</b><small id="layoutHint">Ready-made, rows and columns, or your own</small></span></button>
         </div>
         <div class="pop" id="popB" hidden>
           <span class="lab">Rows and columns</span>
@@ -80,16 +78,20 @@
           <button class="btn pri" id="bApply" type="button">Apply to the wall</button>
           <p class="note">Your tiles move into the new frames in reading order; frames left over become empty tiles, ready for media or a playlist.</p>
         </div>
+        <!-- Layouts: frames your tiles move into, in reading order (frames left over become empty tiles). Ready-made
+             ones, frames built from rows and columns (ui/builder.js), and your own saved ones. -->
         <div class="pop" id="popL" hidden>
-          <span class="lab">Frame layouts</span>
+          <span class="lab">Ready-made</span>
           <div class="lgrid" id="lgrid"></div>
+          <span class="lab">Rows and columns</span>
+          <div class="row"><button class="btn" id="rowsBtn" type="button"><span data-icon="rows"></span>Build rows and columns…</button><button class="tip" type="button" aria-label="About rows and columns" data-tip="Choose how many tiles each row (or column) has, for example 3 above 4. When the rows do not line up on one grid, the tiles are placed freely.">?</button></div>
           <span class="lab">Your layouts</span>
           <div class="plist" id="ulist"></div>
           <form class="save" id="layoutForm">
             <input id="layoutName" type="text" maxlength="40" placeholder="Name this layout" autocomplete="off" aria-label="Layout name">
             <button class="btn pri" type="submit">Save current</button>
           </form>
-          <p class="note">A layout moves your current tiles into new frames, keeping their order from left to right and top to bottom. It does not change which media you have.</p>
+          <p class="note" id="layoutNote">Your tiles move into the frames in reading order; frames left over become empty tiles. Which media you have stays the same.</p>
         </div>
       </div>
     </div>
@@ -97,7 +99,7 @@
     <div class="grp">
       <button class="btn ib" id="playAll" type="button" aria-label="Pause all"></button>
       <button class="btn ib" id="muteAll" type="button" aria-label="Unmute all"></button>
-      <button class="btn ib" id="loopAll" type="button" aria-label="Loop all videos"></button>
+      <button class="btn ib" id="loopAll" type="button" aria-label="Repeat all videos"></button>
       <div class="popwrap">
         <button class="btn ib" id="musicBtn" type="button" aria-label="Background music" title="Background music" aria-expanded="false" aria-controls="popM"><span data-icon="music"></span></button>
         <div class="pop" id="popM" hidden>
@@ -117,10 +119,6 @@
           <p class="note">Plays MP3, M4A, AAC, WAV, OGG, Opus and FLAC files from the folder and the folders in it, one after another. It keeps playing in wall mode, and starts again on the next start if it was playing.</p>
         </div>
       </div>
-    </div>
-    <div class="grp">
-      <button class="btn ib" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
-      <button class="btn ib" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
     </div>
 
     <span class="sp"></span>
@@ -179,7 +177,7 @@
             <button class="btn pri" id="tmGo" type="button">Start</button>
             <button class="btn" id="tmReset" type="button" disabled>Reset</button>
           </div>
-          <p class="note">Type minutes (5) or minutes and seconds (1:30). At zero the timer beeps and its chip flashes in the bar. Both keep running while this is closed, also in wall mode. "In the bar" puts one in the bar with a start and pause button; unticking it takes it off and resets it.</p>
+          <p class="note">Type 5 for minutes, or 1:30. It beeps at zero, and keeps running while this is closed.</p>
           <hr class="div">
           <div class="thead"><span class="lab">Counter</span><label class="check"><input type="checkbox" id="showCt"> In the bar</label></div>
           <div class="bigtime" id="ctNum">0</div>
@@ -188,16 +186,18 @@
             <button class="btn pri" id="ctPlus" type="button"><span data-icon="plus"></span>Add one</button>
             <button class="btn" id="ctReset" type="button" disabled>Reset</button>
           </div>
-          <p class="note">Counts anything you like, and keeps the count for next time. In the bar, + adds one; right-click it to take one away. Unticking "In the bar" resets it to 0.</p>
+          <p class="note">Kept for next time. In the bar, click it to add one, right-click to take one away.</p>
         </div>
       </div>
     </div>
 
+    <!-- What the wall plays: the library, saved walls, a folder playlist's options. -->
     <div class="grp">
+      <button class="btn" id="libBtn" type="button" aria-pressed="false" aria-controls="lib" title="Library: your folders of videos, GIFs and pictures (Ctrl+L)"><span data-icon="library"></span><span class="lbl">Library</span></button>
       <div class="popwrap">
         <button class="btn" id="presetBtn" type="button" aria-expanded="false" aria-controls="pop" title="Save this wall, or load a saved one"><span data-icon="bookmark"></span><span class="lbl">Saved walls</span></button>
         <div class="pop" id="pop" hidden>
-          <span class="lab">Saved walls</span>
+          <div class="srow"><span class="lab">Saved walls</span><button class="tip" type="button" aria-label="About saved walls" data-tip="A saved wall keeps the grid, each tile's place and settings, and where each file is; the files stay where they are. A file that has moved shows “File not found” on its tile, and you can locate it.">?</button></div>
           <form class="save" id="saveForm">
             <input id="presetName" type="text" maxlength="48" placeholder="Name this wall" autocomplete="off" aria-label="Name for this wall">
             <button class="btn pri" id="saveBtn" type="submit">Save</button>
@@ -208,7 +208,6 @@
             <button class="btn" id="importBtn" type="button">Import…</button>
             <button class="btn" id="revealBtn" type="button">Show file</button>
           </div>
-          <p class="note">A saved wall keeps the grid, each tile's place and settings, and the path of each file. The files stay where they are. If a file has moved, its tile shows "File not found" and you can locate it.</p>
           <p class="note" id="storeNote"></p>
         </div>
       </div>
@@ -216,15 +215,14 @@
       <div class="popwrap">
         <button class="btn" id="playlistBtn" type="button" aria-expanded="false" aria-controls="popP" title="Folder playlist options"><span data-icon="playlist"></span><span class="lbl">Playlist</span></button>
         <div class="pop" id="popP" hidden>
-          <span class="lab">Folder playlist</span>
-          <p class="note">These options are for new playlists. To change one that is already playing, right-click one of its tiles and choose Playlist settings.</p>
+          <div class="srow"><span class="lab">Folder playlist</span><button class="tip" type="button" aria-label="About folder playlists" data-tip="Options for the next folder you play as a playlist. It fills the empty cells, one file per tile; a tile moves on when its clip ends or an image's time is up, and new files in the folder join in. To change a playlist already playing, right-click one of its tiles › Playlist settings.">?</button></div>
           <div class="plgrid">
             <label class="fld"><span>Order</span><select id="plOrder"><option value="name">Name order</option><option value="shuffle">Shuffle</option></select></label>
             <label class="fld"><span>Image seconds</span><input id="plSecs" type="number" min="2" max="300" value="10" inputmode="numeric"></label>
-            <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image seconds</option><option value="once">One full play</option></select></label>
-            <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">At the beginning</option><option value="random">At a random point</option></select></label>
+            <label class="fld"><span>GIFs stay</span><select id="plGif"><option value="secs">Image time</option><option value="once">One full play</option></select></label>
+            <label class="fld"><span>Videos start</span><select id="plFrom"><option value="start">Beginning</option><option value="random">Random point</option></select></label>
             <label class="fld"><span>Crossfade</span><select id="plFade"><option value="0">Cut</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
-            <label class="fld"><span>Max clip seconds</span><input id="plMax" type="number" min="0" max="3600" value="0" inputmode="numeric" title="0 plays each clip to the end"></label>
+            <label class="fld"><span>Clip length</span><select id="plMax"><option value="0">Whole clip</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select></label>
             <label class="fld wide" title="Whether a tile keeps its zoom and the position of its media when it moves on to the next file"><span>Zoom and position</span><select id="plView"><option value="reset">New for each file</option><option value="keep">Keep for every file</option></select></label>
             <label class="fld wide" title="Whether a tile moving on prefers, of the next files, one shaped like the tile"><span>Shapes</span><select id="plShape"><option value="any">Any shape</option><option value="tile">Shaped like the tile first</option></select></label>
             <div class="fld wide"><span>Plays</span>
@@ -241,10 +239,14 @@
             <button class="btn warn" id="plStop" type="button" hidden>Stop playlist</button>
           </div>
           <p class="note" id="plStatus"></p>
-          <p class="note">A folder playlist fills the empty cells, one file per tile. When a clip ends, or an image has been shown long enough, the tile takes the next file. Cells you add later fill too, and new files in the folder join the queue. Drop a folder on one tile (or right-click it and choose Own folder) to give just that tile the folder. On a tile, the skip button moves on and the pin keeps the current file.</p>
+          <p class="note">One tile only: drop a folder on it, or right-click it › Play a folder.</p>
         </div>
       </div>
 
+    </div>
+
+    <!-- The app: help, settings, another window, wall mode. -->
+    <div class="grp">
       <div class="popwrap">
         <button class="btn ib" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="popH"><span data-icon="help"></span></button>
         <div class="pop" id="popH" hidden>
@@ -252,7 +254,7 @@
           <ul class="tips">
             <li>Add media with the Add button, or drop files and folders from Explorer. Drop on a tile to replace it.</li>
             <li>Drag a tile to move it; tiles in the way make room. Drag any border or corner to resize.</li>
-            <li>Right-click a tile for everything you can do with it, including Properties (exact position and size). Right-click empty wall to add media or a new empty tile there.</li>
+            <li>Right-click a tile for everything you can do with it, including Properties (position, size, display and playback). Right-click empty wall to add media or a new empty tile there.</li>
             <li>For sizes in between cells, switch to Free (pixels). Shift keeps a tile's shape while you resize it.</li>
             <li>Scroll over the selected tile to zoom its media; Reposition and zoom lets you drag the media inside the tile.</li>
             <li>Wall mode shows only the wall, on the display you pick in Settings.</li>
@@ -271,6 +273,8 @@
         <div class="pop settings" id="popS" role="dialog" aria-label="Settings" hidden>
           <nav class="snav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
+            <button type="button" role="tab" id="tabTiles" data-sec="tiles" aria-controls="secTiles"><span data-icon="grid"></span>Tiles</button>
+            <button type="button" role="tab" id="tabVideo" data-sec="video" aria-controls="secVideo"><span data-icon="play"></span>Video</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
             <button type="button" role="tab" id="tabLibrary" data-sec="library" aria-controls="secLibrary"><span data-icon="library"></span>Library</button>
@@ -281,72 +285,67 @@
           <div class="sbody">
             <section class="ssec" id="secGeneral" data-sec="general" role="tabpanel" aria-labelledby="tabGeneral">
               <h2>General</h2>
-              <span class="lab">Startup</span>
-              <label class="check"><input type="checkbox" id="setLogin"> Start Wallpane when I sign in to Windows</label>
+              <!-- Each setting has a short name; its ? explains it on hover or focus (ui/controls.js, data-tip). -->
+              <div class="srow"><label class="check"><input type="checkbox" id="setLogin"> Start with Windows</label><button class="tip" type="button" aria-label="About Start with Windows" data-tip="Wallpane starts when you sign in to Windows. With Wall mode › Start in wall mode as well, a wall comes back full screen after a restart.">?</button></div>
               <p class="note" id="loginNote"></p>
-              <span class="lab">Tiles</span>
-              <label class="check"><input type="checkbox" id="setSoloSound"> A tile shown full screen (double-click) plays its sound; the others go quiet until it ends</label>
-              <label class="check"><input type="checkbox" id="setEvenLoud"> Even loudness: loud videos play quieter, so a loud clip and a quiet one sound alike</label>
-              <p class="note">Each video's loudness is measured once, from its sound alone, in the background. Quiet videos keep their own level; your volume for each tile still applies on top.</p>
-              <label class="check"><input type="checkbox" id="setSkipOpen"> Skip black openings: a video that opens on a black picture starts after it (and, when you hear it, after an opening silence)</label>
-              <p class="note">Each video's first seconds are looked at once, in the background. Also when it loops; not for a playlist that starts at random, or a tile with a looped part.</p>
-              <label class="check"><input type="checkbox" id="setFillShapes"> After Fill the wall or Fit to media, playlists pick files shaped like their tile first</label>
-              <label class="check"><input type="checkbox" id="setPauseMin"> Pause the wall while its window is minimized (background music keeps playing)</label>
-              <div class="frow"><label for="setResize">Growing a tile</label>
-                <select id="setResize"><option value="even">The tiles beside it shrink evenly</option><option value="squeeze">Pushes them; the one at the wall shrinks</option></select>
+              <div class="frow"><span class="flab"><label for="setStartWith">On start</label><button class="tip" type="button" aria-label="About On start" data-tip="What the wall shows when Wallpane starts. Starting empty keeps the last wall in Saved walls as “Last wall”. A window that starts in wall mode always opens its last wall.">?</button></span>
+                <select id="setStartWith"><option value="offer">Offer the last wall</option><option value="last">Open the last wall</option><option value="empty">Empty wall</option></select>
               </div>
-              <p class="note">How tiles give way when you drag a tile's edge in Free (pixels).</p>
-              <div class="frow"><label for="setFullWall">When the wall is full</label>
-                <select id="setFullWall"><option value="say">Say so</option><option value="fill">Add and fill the wall again</option></select>
+              <div class="frow"><label for="setClock">Clock</label>
+                <select id="setClock"><option value="">As in Windows</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
               </div>
-              <p class="note">Media added to a full wall (from the library, Add or a drop) can get new tiles anyway: Fill the wall then arranges every tile again, the new ones last, and tiles are placed freely by the pixel. Up to 64 tiles; more files play in turn on the new tiles.</p>
-              <label class="check"><input type="checkbox" id="setConvert"> Make a playable copy of videos that do not play as they are (AVI, WMV, AC3 or DTS sound, …)</label>
-              <p class="note">The copy goes to Wallpane's cache (Storage); your own file is never changed. Without this, such a tile waits until you right-click it and choose Make playable.</p>
-              <div class="frow"><label for="setGifVideo">GIFs as videos</label>
-                <select id="setGifVideo"><option value="off">Off</option><option value="2">Larger than 2 MB</option><option value="10">Larger than 10 MB</option><option value="all">All GIFs</option></select>
+            </section>
+
+            <section class="ssec" id="secTiles" data-sec="tiles" role="tabpanel" aria-labelledby="tabTiles" hidden>
+              <h2>Tiles</h2>
+              <div class="frow"><span class="flab"><label for="setResize">Growing a tile</label><button class="tip" type="button" aria-label="About Growing a tile" data-tip="When you drag a tile's edge in Free (pixels): the tiles in its way shrink evenly, or they are pushed along and only the one at the wall's edge shrinks.">?</button></span>
+                <select id="setResize"><option value="even">Others shrink evenly</option><option value="squeeze">Push others along</option></select>
               </div>
-              <p class="note">A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.</p>
-              <div class="frow"><label for="setProxies">Lighter copies for small tiles</label>
+              <div class="frow"><span class="flab"><label for="setFullWall">Full wall</label><button class="tip" type="button" aria-label="About Full wall" data-tip="Media added to a full wall (from the library, Add or a drop): say it does not fit, or give it new tiles and arrange every tile again with Fill the wall, the new ones last (tiles are then placed freely). Up to 64 tiles; more files play in turn.">?</button></span>
+                <select id="setFullWall"><option value="say">Say it is full</option><option value="fill">Add and refill</option></select>
+              </div>
+              <div class="frow"><span class="flab"><label for="fit">New tiles</label><button class="tip" type="button" aria-label="About New tiles" data-tip="How media fits a new tile: filling it (a little may be cropped), or whole, with bars where the shapes differ. Tiles you have not changed follow it; a tile's own fit button changes just that tile.">?</button></span>
+                <select id="fit"><option value="cover">Fill the tile</option><option value="contain">Whole frame</option></select>
+              </div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setFillShapes"> Playlists match tile shapes</label><button class="tip" type="button" aria-label="About Playlists match tile shapes" data-tip="After Fill the wall, a tile playing a folder moves on to files shaped like it first, so a tall tile keeps showing tall files. Each playlist can also set this under Shapes.">?</button></div>
+            </section>
+
+            <section class="ssec" id="secVideo" data-sec="video" role="tabpanel" aria-labelledby="tabVideo" hidden>
+              <h2>Video</h2>
+              <span class="lab">Sound</span>
+              <div class="srow"><label class="check"><input type="checkbox" id="setSoloSound"> Full screen plays its sound only</label><button class="tip" type="button" aria-label="About Full screen plays its sound only" data-tip="Double-click shows one tile full screen: it plays its sound and the other tiles go quiet until it ends.">?</button></div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setEvenLoud"> Even loudness</label><button class="tip" type="button" aria-label="About Even loudness" data-tip="Each video's loudness is measured once, in the background. Louder ones play quieter, so a loud clip and a quiet one sound alike; quiet ones keep their level. Each tile's own volume still applies.">?</button></div>
+              <span class="lab">Playing</span>
+              <div class="srow"><label class="check"><input type="checkbox" id="setSkipOpen"> Skip black openings</label><button class="tip" type="button" aria-label="About Skip black openings" data-tip="A video that opens on a black picture starts after it, also when it loops; one you hear also skips an opening silence. Not for a playlist that starts at random, or a looped part.">?</button></div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setPauseMin"> Pause when minimized</label><button class="tip" type="button" aria-label="About Pause when minimized" data-tip="Videos pause and playlists wait while the window is minimized, and carry on when it is back. Background music keeps playing.">?</button></div>
+              <span class="lab">Files and speed</span>
+              <div class="srow"><label class="check"><input type="checkbox" id="setConvert"> Make videos playable</label><button class="tip" type="button" aria-label="About Make videos playable" data-tip="AVI, WMV, or AC3 and DTS sound: a playable copy is made in the cache by itself; your file is never changed. Off: right-click such a tile › Make playable.">?</button></div>
+              <div class="frow"><span class="flab"><label for="setGifVideo">GIFs as videos</label><button class="tip" type="button" aria-label="About GIFs as videos" data-tip="A big GIF plays far more smoothly from a small video copy, made in the background; until then the GIF plays as it is.">?</button></span>
+                <select id="setGifVideo"><option value="off">Off</option><option value="2">Over 2 MB</option><option value="10">Over 10 MB</option><option value="all">All GIFs</option></select>
+              </div>
+              <div class="frow"><span class="flab"><label for="setProxies">Lighter copies</label><button class="tip" type="button" aria-label="About Lighter copies" data-tip="A 1440p or 4K video on a small tile plays from a copy of at most 960 px and 30 frames a second, made once in the background, so many tiles play smoothly. Full screen and large tiles play the original.">?</button></span>
                 <select id="setProxies"><option value="auto">On</option><option value="off">Off</option></select>
               </div>
-              <p class="note">A large video (1440p, 4K) on a small tile plays from a lighter copy, made once in the background, so many tiles play smoothly. Full screen and large tiles play the original.</p>
-              <span class="lab">Clock</span>
-              <div class="frow"><label for="setClock">Time format</label>
-                <select id="setClock"><option value="">As Windows shows it</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
+              <div class="frow"><span class="flab"><label for="setPace">Drawing pace</label><button class="tip" type="button" aria-label="About Drawing pace" data-tip="Windows paces every window by the main display, so beside a faster main display a wall on a slower screen judders. Automatic draws at the slowest screen's rate when your screens differ. A change takes effect when Wallpane starts.">?</button></span>
+                <select id="setPace"><option value="auto">Automatic</option><option value="main">Main display's</option><option value="60">60 frames a second</option></select>
               </div>
-              <span class="lab">Starting</span>
-              <div class="frow"><label for="setStartWith">When Wallpane starts</label>
-                <select id="setStartWith"><option value="offer">Offer the last wall</option><option value="last">Open the last wall</option><option value="empty">Start with an empty wall</option></select>
-              </div>
-              <p class="note">Starting empty keeps the last wall in Saved walls as "Last wall". A wall that starts in wall mode (Wall mode settings) always opens the last wall.</p>
-              <span class="lab">Windows</span>
-              <p class="note">The window button in the top bar, beside Wall mode, opens another wall window. Each window has its own wall, for example one per monitor. Saved walls and frame layouts are shared.</p>
-              <span class="lab">This wall</span>
-              <div class="row"><button class="btn warn" id="clearBtn" type="button"><span data-icon="trash"></span><span class="lbl">Clear wall</span></button></div>
-              <p class="note">Takes every tile off this window's wall. Ctrl+Z brings them back.</p>
+              <p class="note" id="paceNote"></p>
+              <div class="row" id="paceRow" hidden><button class="btn" id="paceRestart" type="button"><span data-icon="reset"></span>Restart Wallpane</button></div>
             </section>
 
             <section class="ssec" id="secWall" data-sec="wall" role="tabpanel" aria-labelledby="tabWall" hidden>
               <h2>Wall mode</h2>
-              <p class="note">Wall mode (F11) hides the controls and fills a display with the wall. Esc or F11 leaves it.</p>
+              <p class="note">F11 hides the controls and fills a display with the wall; Esc or F11 leaves it.</p>
               <div class="frow"><label for="display">Show on</label><select id="display"><option value="">This window's display</option></select></div>
-              <label class="check"><input type="checkbox" id="setStartWall"> Start this window in wall mode</label>
-              <label class="check"><input type="checkbox" id="setAwake"> Keep the display awake in wall mode</label>
-              <p class="note">For a wall that runs on its own, also turn on General › Start Wallpane when I sign in to Windows: the wall then comes back full screen after a restart.</p>
-              <span class="lab">Drawing pace</span>
-              <div class="frow"><label for="setPace">Draw at</label>
-                <select id="setPace"><option value="auto">Automatic: the slowest screen's rate</option><option value="main">The main display's rate</option><option value="60">60 frames a second</option></select>
-              </div>
-              <p class="note" id="paceNote"></p>
-              <div class="row" id="paceRow" hidden><button class="btn" id="paceRestart" type="button"><span data-icon="reset"></span>Restart Wallpane</button></div>
-              <span class="lab">On a TV or projector</span>
-              <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button></div>
-              <p class="note">Shows the wall on a TV, projector or stick that Windows can cast to (Miracast). The button opens Windows' display settings: under Multiple displays, click Connect next to "Connect to a wireless display" (Win+K does the same), pick the TV, and choose Extend so it is a display of its own. Then pick it under Show on and start wall mode.</p>
+              <div class="srow"><label class="check"><input type="checkbox" id="setStartWall"> Start in wall mode</label><button class="tip" type="button" aria-label="About Start in wall mode" data-tip="This window opens straight in wall mode, with its last wall. With General › Start with Windows as well, a wall that runs on its own comes back full screen after a restart.">?</button></div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setAwake"> Keep the display awake</label><button class="tip" type="button" aria-label="About Keep the display awake" data-tip="In wall mode the display does not dim or go to sleep.">?</button></div>
+              <span class="lab">TV or projector</span>
+              <div class="row"><button class="btn" id="castBtn" type="button"><span data-icon="cast"></span>Connect a wireless display…</button><button class="tip" type="button" aria-label="About wireless displays" data-tip="For a TV, projector or stick that Windows can cast to (Miracast). Windows' display settings open: click Connect next to “Connect to a wireless display” (or press Win+K), pick the TV and choose Extend. Then pick it under Show on.">?</button></div>
             </section>
 
             <section class="ssec" id="secHide" data-sec="hide" role="tabpanel" aria-labelledby="tabHide" hidden>
               <h2>Emergency hide</h2>
-              <p class="note">One key or mouse button hides every wall window at once: the sound goes off, videos pause, and the windows show something else. The same again brings everything back as it was.</p>
+              <p class="note">One key hides every wall window and silences it; the same again brings it all back.</p>
               <div class="frow"><span id="hideKeyLab">Key</span><button class="btn keycap" id="hideKey" type="button" aria-labelledby="hideKeyLab hideKey" title="Click, then press the new keys">Ctrl + Shift + H</button></div>
               <div class="frow"><span>Or one press</span>
                 <div class="row quick" id="hideQuick">
@@ -356,10 +355,10 @@
                   <button class="btn" type="button" data-key="MediaPlayPause" title="Your keyboard's play/pause key. While Wallpane runs, music players no longer get it.">Play/Pause</button>
                 </div>
               </div>
-              <div class="frow"><label for="hideMouse">Mouse button</label>
-                <select id="hideMouse"><option value="">None</option><option value="back">Back (side button)</option><option value="forward">Forward (side button)</option><option value="middle">Middle (wheel click)</option></select>
+              <div class="frow"><span class="flab"><span id="hideMouseLab">Mouse button</span><button class="tip" type="button" aria-label="About the mouse button" data-tip="Click the button beside it, then press the mouse button to use: the wheel (middle) or a side button (back or forward). It works while the pointer is over a Wallpane window; to use it from any program, set the mouse button to press the key above in your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control).">?</button></span>
+                <div class="row"><button class="btn keycap" id="hideMouse" type="button" aria-labelledby="hideMouseLab hideMouse" title="Click, then press the mouse button to use">None</button><button class="btn" id="hideMouseOff" type="button" hidden>Clear</button></div>
               </div>
-              <p class="note" id="hideMouseNote" hidden>The mouse button works while the pointer is over a Wallpane window. To use it from any program, set the button to press the key above in your mouse's own software (Logitech G Hub, Razer Synapse, or the free X-Mouse Button Control).</p>
+              <p class="note" id="hideMouseNote" hidden>Only over a Wallpane window (see the ?).</p>
               <div class="frow"><label for="hideCover">Windows show</label>
                 <select id="hideCover"><option value="sheet">A spreadsheet</option><option value="black">A black screen</option><option value="image">A picture…</option><option value="away">Nothing: they go away</option></select>
               </div>
@@ -369,34 +368,31 @@
 
             <section class="ssec" id="secLibrary" data-sec="library" role="tabpanel" aria-labelledby="tabLibrary" hidden>
               <h2>Library</h2>
-              <p class="note">Wallpane keeps track of the videos, GIFs and pictures in these folders and their subfolders, and notices new ones by itself. Your files are only read, never changed.</p>
-              <div class="frow"><label for="setLibPlace">Show the library as</label>
-                <select id="setLibPlace"><option value="drawer">A drawer over the wall</option><option value="panel">A panel beside the wall</option><option value="window">A window of its own</option></select>
+              <p class="note">Folders of your videos, GIFs and pictures, kept up to date by themselves. Files are only read, never changed.</p>
+              <div class="frow"><span class="flab"><label for="setLibPlace">Show as</label><button class="tip" type="button" aria-label="About Show as" data-tip="Drawer: over the wall; it fades while you drag from it. Panel: beside the wall, which gets narrower while it is open. Window: its own, for a second screen; drag from it onto any wall. Library in the bar, or Ctrl+L, opens it.">?</button></span>
+                <select id="setLibPlace"><option value="drawer">Drawer over the wall</option><option value="panel">Panel beside the wall</option><option value="window">Window of its own</option></select>
               </div>
-              <div class="frow"><label for="setLibSide">On the side</label>
-                <select id="setLibSide"><option value="left">Left</option><option value="right">Right</option></select>
+              <div class="frow"><label for="setLibSide">Side</label>
+                <select id="setLibSide"><option value="right">Right</option><option value="left">Left</option></select>
               </div>
-              <p class="note">The drawer leaves the wall as it is and fades while you drag from it. The panel makes the wall narrower while it is open. The window suits a second screen: drag files from it onto any wall window. Library in the bar, or Ctrl+L, opens and closes it.</p>
-              <label class="check"><input type="checkbox" id="setLibPreview"> Play a few seconds of a video (or the GIF) while the pointer rests on its thumbnail</label>
-              <p class="note">A small, silent clip from across the video, made the first time and kept in the cache (Storage). Here and in the library window.</p>
+              <div class="srow"><label class="check"><input type="checkbox" id="setLibPreview"> Hover previews</label><button class="tip" type="button" aria-label="About Hover previews" data-tip="While the pointer rests on a video's thumbnail, it plays a few silent seconds from across the video (a GIF plays itself). Made once and kept in the cache; also in the library window.">?</button></div>
+              <div class="srow"><span class="lab">Folders</span><button class="tip" type="button" aria-label="About library folders" data-tip="Their subfolders count too, and new files are noticed by themselves. Removing a folder only takes it out of the library; its files stay where they are.">?</button></div>
               <div class="libfolders" id="libFolders"></div>
               <div class="row">
                 <button class="btn" id="libAdd" type="button"><span data-icon="plus"></span>Add folder…</button>
                 <button class="btn" id="libRescan" type="button"><span data-icon="reset"></span>Look again</button>
               </div>
-              <p class="note">Removing a folder only takes it out of the library; its files stay where they are.</p>
             </section>
 
             <section class="ssec" id="secStorage" data-sec="storage" role="tabpanel" aria-labelledby="tabStorage" hidden>
               <h2>Storage</h2>
-              <p class="note">Wallpane keeps what it makes from your files here: playable copies, thumbnails, previews and lighter copies. Your own files are never changed, and anything here can be made again.</p>
+              <p class="note">What Wallpane makes from your files: playable copies, thumbnails, previews, lighter copies. Anything here can be made again.</p>
               <div class="usage"><b id="cacheTotal">0 B</b> <span id="cacheOf">of 10 GB</span></div>
               <div class="ubar" aria-hidden="true"><i id="cacheBar"></i></div>
               <dl class="ckinds" id="cacheKinds"></dl>
-              <div class="frow"><label for="cacheLimit">Keep at most</label>
+              <div class="frow"><span class="flab"><label for="cacheLimit">Keep at most</label><button class="tip" type="button" aria-label="About Keep at most" data-tip="When the cache is full, the files used longest ago go first.">?</button></span>
                 <select id="cacheLimit"><option value="2">2 GB</option><option value="5">5 GB</option><option value="10">10 GB</option><option value="20">20 GB</option><option value="50">50 GB</option><option value="100">100 GB</option></select>
               </div>
-              <p class="note">When it is full, the files used longest ago go first.</p>
               <p class="note path" id="cacheDir"></p>
               <div class="row">
                 <button class="btn" id="cacheReveal" type="button"><span data-icon="folder"></span>Show folder</button>
@@ -438,7 +434,7 @@
               <span class="lab">Your data</span>
               <p class="note path" id="dataDir"></p>
               <div class="row"><button class="btn" id="dataDirBtn" type="button"><span data-icon="folder"></span>Show folder</button></div>
-              <p class="note">Saved walls, frame layouts, settings and the wall you leave open are small JSON files in this folder. Nothing leaves your computer.</p>
+              <p class="note">Saved walls, layouts and settings: small files in this folder. Nothing leaves your computer.</p>
             </section>
           </div>
         </div>
@@ -466,13 +462,25 @@
 <!-- Properties of the selected tile: a floating card next to it (right-click > Properties, or Alt+Enter). -->
 <div class="pop props inspector" id="inspector" role="dialog" aria-label="Tile properties" hidden></div>
 <button class="btn exit" id="exitBtn" type="button">Exit wall mode</button>
+<!-- Make a GIF of a video tile's looped part (ui/gif.js). -->
+<div class="pop gifbox" id="popGif" role="dialog" aria-labelledby="gifTitle" hidden>
+  <button class="btn ib closex" id="gifClose" type="button" aria-label="Close" title="Close (Esc)"><span data-icon="x"></span></button>
+  <div class="ins-head"><div class="ins-name" id="gifTitle">Make a GIF</div><div class="ins-sub" id="gifPart"></div></div>
+  <div class="plgrid">
+    <label class="fld" for="gifWidth"><span>Width</span><select id="gifWidth"></select></label>
+    <label class="fld" for="gifFps"><span>Frames a second</span><select id="gifFps"></select></label>
+    <label class="fld wide" for="gifView"><span>Shows</span><select id="gifView"><option value="whole">The whole frame</option><option value="tile">What the tile shows</option></select></label>
+    <label class="fld wide" for="gifSpeed" id="gifSpeedFld"><span>Speed</span><select id="gifSpeed"></select></label>
+  </div>
+  <p class="note" id="gifNote"></p>
+  <div class="acts"><button class="btn" id="gifCancel" type="button">Cancel</button><button class="btn pri" id="gifMake" type="button">Save the GIF…</button></div>
+</div>
 <div class="toast" id="toast" role="status"></div>
 <!-- Plain logic first (also tested in Node), then the page, then startup. -->
 <script src="lib/formats.js"></script>
 <script src="lib/util.js"></script>
 <script src="lib/geometry.js"></script>
 <script src="lib/freegeo.js"></script>
-<script src="lib/fit.js"></script>
 <script src="lib/playlist.js"></script>
 <script src="lib/records.js"></script>
 <script src="lib/view.js"></script>
@@ -480,6 +488,7 @@
 <script src="lib/hotkey.js"></script>
 <script src="lib/clock.js"></script>
 <script src="lib/collage.js"></script>
+<script src="lib/gifmake.js"></script>
 <script src="lib/justify.js"></script>
 <script src="lib/icons.js"></script>
 <script src="ui/core.js"></script>
@@ -496,6 +505,7 @@
 <script src="ui/music.js"></script>
 <script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
+<script src="ui/gif.js"></script>
 <script src="ui/library.js"></script>
 <script src="ui/libview.js"></script>
 <script src="ui/boot.js"></script>

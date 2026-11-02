@@ -1,9 +1,9 @@
 // Putting media on the wall: adding, replacing, relinking and removing; drag and drop; switching layouts;
-// Auto-arrange and Fit to media.
+// fitting a tile to its media, and Fill the wall.
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, FIT = MW.fit, PL = MW.pl;
+  var MW = window.MW, U = MW.util, G = MW.geo, F = MW.free, PL = MW.pl;
   var S = A.S, wall = A.wall, $ = A.$, clamp = U.clamp;
 
   /* ---------- messages about what a scan found ---------- */
@@ -184,7 +184,7 @@
   };
 
   /* ---------- adding to a full wall ---------- */
-  // Settings › General › When the wall is full › Add and fill the wall again: files that did not fit get tiles of their
+  // Settings › Tiles › Full wall › Add and refill: files that did not fit get tiles of their
   // own, shaped like their media, and Fill the wall arranges every tile again with the new ones last (on the grid it
   // switches to Free layout, as Fill the wall does). At most MAX_TILES tiles on the wall, and FORCE_MAX new ones at a
   // time; the files beyond play in turn on the new tiles. Part of the adding's undo step. Returns whether it took over
@@ -214,7 +214,7 @@
   // The end of the "did not fit" message: the way to make room, and the setting that would have.
   function fullHint(how) {
     if (S.fullWall === 'fill' && S.items.length >= MAX_TILES) return 'The wall has ' + MAX_TILES + ' tiles, the most it takes by itself.';
-    return how + ' (Or Settings › General › When the wall is full: Add and fill the wall again.)';
+    return how + ' (Or Settings › Tiles › Full wall: Add and refill.)';
   }
   // More files than room on the wall (grid or Free): the new tiles become a playlist of all of them, so the rest play
   // in turn, carrying on after the files the tiles show now. Returns whether it made one.
@@ -480,15 +480,7 @@
   }
   $('#modeSeg').addEventListener('click', function (e) { var b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
 
-  $('#arrangeBtn').addEventListener('click', function () {
-    A.closePops();
-    if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
-    var plan = G.arrange(S.items, S.cols, S.rows);
-    if (!plan) { A.toast('Not enough room. Add rows or columns first.'); return; }
-    A.pushHistory(); G.applyGeo(S.items, plan); A.render(); A.refreshInspector();
-  });
-
-  /* ---------- Fit to media ---------- */
+  /* ---------- Fit tile to media ---------- */
   function mediaAspect(it) {
     var el = A.tileEls.get(it.id), m = el && el._media, w = 0, h = 0;
     if (m && !it.missing) {
@@ -535,31 +527,6 @@
     if (waiting) msg += ' ' + waiting + (waiting === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and stayed as they were.';
     A.toast(msg);
   };
-  function fitToMedia() {
-    if (S.mode === 'free') { A.fitTilesToMedia(S.items); shapePlaylists(); return; }
-    var N = S.items.length;
-    if (!N) { A.toast('Nothing to fit yet.'); return; }
-    if (N > S.cols * S.rows) { A.toast('There are more tiles than cells. Add rows or columns first.'); return; }
-    var mt = A.metrics(), unknown = 0;
-    var asp = S.items.map(function (it) { var r = mediaAspect(it); if (!r.known && A.hasMedia(it)) unknown++; return r.a; });
-    var before = FIT.coverage(S.items.map(function (i) { return { w: i.w, h: i.h }; }), null, asp, mt.px, mt.py, S.gap);
-    // A quarter of a second is plenty to find a good layout, and short enough that the videos keep playing smoothly.
-    var best = FIT.plan({ cols: S.cols, rows: S.rows, asp: asp, px: mt.px, py: mt.py, gap: S.gap, budgetMs: 250, now: function () { return performance.now(); } });
-    A.pushHistory();
-    best.rects.forEach(function (g, j) {
-      var it = S.items[best.assign[j]];
-      it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; it.fit = 'contain'; it.fitSet = true;
-    });
-    var shaped = shapePlaylists();
-    A.render(); A.refreshInspector();
-    var msg = 'Fitted ' + N + (N === 1 ? ' tile' : ' tiles') + ': ' + Math.round(before * 100) + '% of tile area showed media, now ' + Math.round(best.score * 100) + '%.';
-    if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
-    else if (S.items.some(function (i) { return i.pl; })) msg += ' Playlist tiles keep this shape, so later clips may still have bars.';
-    if (unknown) msg += ' ' + unknown + (unknown === 1 ? ' tile was' : ' tiles were') + ' not loaded yet and counted as 16:9.';
-    A.toast(msg);
-  }
-  $('#fitMediaBtn').addEventListener('click', function () { A.closePops(); fitToMedia(); });
-
   /* ---------- Fill the wall ---------- */
   // Tiles in reading order by their place on screen: rows from the top (a tile whose middle lies within the first
   // tile of a row belongs to that row), each row from the left.
@@ -576,8 +543,8 @@
     }
     return out;
   }
-  // After Fill the wall or Fit to media every tile has its media's shape: the playlists on the wall then pick files
-  // shaped like their tiles first, so the shapes keep fitting (Settings › General can leave them be). Returns how many
+  // After Fill the wall every tile has its media's shape: the playlists on the wall then pick files
+  // shaped like their tiles first, so the shapes keep fitting (Settings › Tiles can leave them be). Returns how many
   // playlists started to.
   function shapePlaylists() {
     if (!S.fillShapes) return 0;
@@ -589,14 +556,18 @@
     return n;
   }
   // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
-  // reading order unless regrouping them crops clearly less. On the grid this first switches to Free layout; one
-  // Ctrl+Z undoes both. opts (adding to a full wall): last, the new tiles, which go after the others; lead, the start
-  // of the message. That adding made the undo step already.
+  // reading order unless regrouping them crops clearly less. Only tiles with media take part: empty tiles (and the
+  // sample tiles of a first start) make way; a tile whose file was not found stays. On the grid this first switches
+  // to Free layout; one Ctrl+Z undoes it all. opts (adding to a full wall): last, the new tiles, which go after the
+  // others; lead, the start of the message. That adding made the undo step already.
   function fillWall(opts) {
     opts = opts || {};
-    if (!S.items.length) { A.toast('Nothing to arrange yet.'); return; }
+    var keep = function (i) { return i.kind !== 'empty' && !i.sample; };
+    if (!S.items.some(keep)) { A.toast('Nothing to arrange yet: put some media on the wall first.'); return; }
     var last = opts.last || [];
     if (!opts.last) A.pushHistory();
+    var gone = S.items.length - S.items.filter(keep).length;
+    if (gone) { S.items = S.items.filter(keep); if (S.sel && !A.itemById(S.sel)) S.sel = null; }
     var switched = S.mode !== 'free';
     if (switched) { F.toFree(S.items, S.cols, S.rows, S.gap, A.wallPx(), false); S.mode = 'free'; A.savePrefs(); }
     var d = A.wallPx(), geo = A.freeGeoPx(), waiting = 0;
@@ -610,6 +581,7 @@
     var shaped = shapePlaylists();
     A.applyFreePx(geo); A.render(); A.refreshInspector();
     var n = list.length, msg = (opts.lead ? opts.lead + ' ' : '') + n + (n === 1 ? ' tile fills' : ' tiles fill') + ' the wall in ' + plan.rows + (plan.cols ? (plan.rows === 1 ? ' column' : ' columns') : (plan.rows === 1 ? ' row' : ' rows')) + '.';
+    if (gone) msg += ' ' + gone + (gone === 1 ? ' empty tile made' : ' empty tiles made') + ' way.';
     if (shaped) msg += ' Its playlists now pick files shaped like their tiles first.';
     if (plan.reordered) msg += ' Some tiles changed places so they fit.';
     if (plan.crop >= 0.01) msg += ' Each is cropped by about ' + Math.round(plan.crop * 100) + '% to close the last gap.';

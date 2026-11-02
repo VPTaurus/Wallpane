@@ -96,10 +96,11 @@
     var nm = document.createElement('span'); nm.className = 'tname'; nm.textContent = it.name; nm.title = it.path || it.name;
     var bt = document.createElement('span'); bt.className = 'hbtns';
     bt.innerHTML =
-      (it.pl ? '<button class="hb" data-act="pin" aria-label="Pin to this tile">' + ICON.pin + '</button>' : '') +
+      (it.pl ? '<button class="hb" data-act="pin" aria-label="Stay on this file">' + ICON.pin + '</button>' : '') +
       (it.pl && it._back && it._back.length ? '<button class="hb" data-act="prev" aria-label="Previous in playlist" title="The file this tile showed before">' + ICON.prev + '</button>' : '') +
       (it.pl ? '<button class="hb" data-act="next" aria-label="Next in playlist" title="Next in playlist">' + ICON.next + '</button>' : '') +
-      (it.pl ? '' : '<button class="hb" data-act="loop" aria-label="Loop on or off">' + ICON.loop + '</button>') +
+      // Repeat is for a single video (a picture does not play, a GIF always repeats); a playlist tile has Pin instead.
+      (!it.pl && it.kind === 'video' ? '<button class="hb" data-act="loop" aria-label="Repeat this video">' + ICON.loop + '</button>' : '') +
       '<button class="hb" data-act="fit" aria-label="Fit">' + ICON.fit + '</button>' +
       '<button class="hb danger" data-act="remove" aria-label="Remove from wall">' + ICON.trash + '</button>';
     hud.appendChild(nm); hud.appendChild(bt);
@@ -607,7 +608,7 @@
     if (m.tagName === 'VIDEO' && it.kind !== 'video') { m.muted = true; m.loop = true; }   // a GIF's video copy
     else if (m.tagName === 'VIDEO') {
       var rate = it.speed || 1;
-      // One tile full screen: it is heard and the others are quiet (Settings › General), until full screen ends.
+      // One tile full screen: it is heard and the others are quiet (Settings › Video), until full screen ends.
       m.muted = A.soloId != null && S.soloSound ? it.id !== A.soloId : it.muted;
       m.volume = (it.vol == null ? 1 : it.vol) * A.levelOf(it);   // even loudness (ui/playable.js)
       if (m.playbackRate !== rate) { m.defaultPlaybackRate = rate; m.playbackRate = rate; }
@@ -626,13 +627,13 @@
       var pb = el.querySelector('[data-act="pin"]');
       if (pb) {
         pb.classList.toggle('on', !!it.pinned);
-        pb.title = it.pinned ? 'Pinned. Click to let the playlist continue' : 'Pin: keep this on the tile';
+        pb.title = it.pinned ? 'Stays on this file. Click to carry on with the playlist' : 'Stay on this file (the playlist waits)';
         pb.setAttribute('aria-pressed', String(!!it.pinned));
       }
       var lb = el.querySelector('[data-act="loop"]');
       if (lb) {
         lb.classList.toggle('on', it.loop);
-        lb.title = it.loop ? 'Looping. Click to play once' : 'Plays once. Click to loop';
+        lb.title = it.loop ? 'Repeats. Click to play it once' : 'Plays once. Click to repeat it';
         lb.setAttribute('aria-pressed', String(it.loop));
       }
     }
@@ -697,7 +698,7 @@
       b.className = 'slot';
       b.style.gridColumn = String(c + 1); b.style.gridRow = String(r + 1);
       b.setAttribute('aria-label', 'Empty cell, column ' + (c + 1) + ' row ' + (r + 1) + '. Choose files.');
-      b.innerHTML = '<span>C' + (c + 1) + ' · R' + (r + 1) + '</span><span class="hint">Drop or click</span>';
+      b.innerHTML = '<span class="plus" aria-hidden="true">+</span><span class="hint">Drop or click</span>';   // quiet until the pointer is over it
       b.dataset.col = c; b.dataset.row = r;
       wall.appendChild(b);
     }
@@ -707,6 +708,7 @@
     wall.style.setProperty('--rows', S.rows);
     wall.style.setProperty('--gap', S.gap + 'px');
     wall.classList.toggle('free', S.mode === 'free');
+    // Cell shape: set on the grid; placed freely, the wall keeps the shape it gave (so tiles keep theirs).
     var ar = { 'fill': 0, '16:9': 16 / 9, '4:3': 4 / 3, '1:1': 1, '9:16': 9 / 16 }[S.aspect];
     if (ar) { wall.classList.add('ratio'); wall.style.setProperty('--ratio', (S.cols * ar / S.rows).toFixed(4)); }
     else { wall.classList.remove('ratio'); wall.style.removeProperty('--ratio'); }
@@ -723,20 +725,25 @@
     });
     renderSlots();
 
+    // What only works on the grid (columns, rows, cell shape), and the Arrange menu's hints: which commands switch the
+    // wall to Free or back.
     var gridOnly = S.mode === 'free';
-    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'arrangeBtn', 'layoutBtn'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
+    ['colsDec', 'colsInc', 'rowsDec', 'rowsInc', 'cols', 'rows', 'aspect'].forEach(function (id) { $('#' + id).disabled = gridOnly; });
     Array.prototype.forEach.call($('#modeSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)); });
     $('#gridLabel').textContent = gridOnly ? 'Free' : S.cols + ' × ' + S.rows;
     $('#gridNote').hidden = !gridOnly;
-    $('#fitHint').textContent = gridOnly ? 'Shrink every tile to its media’s exact shape' : 'Reshape tiles so their media fills them';
-    $('#arrangeHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Pack all tiles from the top left';
-    $('#layoutHint').textContent = gridOnly ? 'Only when tiles snap to the grid' : 'Move the tiles into ready-made frames';
+    $('#fillHint').textContent = 'Every tile keeps its media’s shape; rows fill the wall edge to edge' + (gridOnly ? '' : '. Switches to Free (pixels)');
+    $('#layoutHint').textContent = 'Ready-made, rows and columns, or your own' + (gridOnly ? '. Puts the tiles on the grid again' : '');
+    $('#layoutName').disabled = gridOnly; $('#layoutForm [type="submit"]').disabled = gridOnly;
+    $('#layoutNote').textContent = 'Your tiles move into the frames in reading order; frames left over become empty tiles. Which media you have stays the same.' +
+      (gridOnly ? ' Placed freely now: applying a layout puts the tiles on the grid again, and saving one works on the grid.' : '');
     // The grid size shows on its own button, so the line under the title only counts tiles (and names the saved wall).
     var count = S.items.length + (S.items.length === 1 ? ' tile' : ' tiles');
     $('#readout').textContent = (A.winId > 1 ? 'Wall ' + A.winId + ' · ' : '') +
       (gridOnly ? count + ', placed freely' : count + ' on ' + (S.cols * S.rows) + ' cells') +
       (S.presetName ? ' · ' + S.presetName : '');
     $('#readout').title = $('#readout').textContent;
+    $('#clearBtn').disabled = !S.items.length;
     $('#cols').value = S.cols; $('#rows').value = S.rows;
     $('#gap').value = S.gap; $('#gapval').textContent = S.gap + ' px';
     $('#aspect').value = S.aspect; $('#fit').value = S.fit;
@@ -778,7 +785,7 @@
     $('#loopAll').disabled = !vl.length;
     $('#loopAll').classList.toggle('on', loop === 'on' && vl.length > 0);
     $('#loopAll').setAttribute('aria-pressed', loop === 'mixed' ? 'mixed' : String(loop === 'on'));
-    iconBtn($('#loopAll'), 'loop', 'Loop all videos', 'Loop: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'loop every video'));
+    iconBtn($('#loopAll'), 'loop', 'Repeat all videos', 'Repeat: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'repeat every video'));
     var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
     iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
     var loud = vi.some(function (i) { return !i.muted; });

@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.6.5: GIFs and a tidier wall
+
+Download **Wallpane Setup 1.6.5.exe** (installer) or **Wallpane 1.6.5.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Make a GIF from any looped part of a video. The top bar, the menus, Settings and Properties are tidier, with shorter words. A wall that plays videos is saved again while it plays. (1.6.1 was never published: everything since 1.6.0 is here.)
+
+New:
+- **Make a GIF of a looped part:** once a video tile loops a part, Properties › Playback and the tile's right-click menu offer **Make a GIF…**.
+  - **Choices:** the width (320 to 800 px), frames a second (10 to 25), the whole frame or what the tile shows (its shape, zoom and position), and the tile's speed if it plays faster or slower.
+  - **Before you save:** the dialog shows the GIF's size and roughly how big the file will be, and refuses a part longer than a minute.
+  - **Saving:** FFmpeg makes the GIF in the background, next to the video by default, with a progress bar you can stop. Then **Show in Explorer** or **Put on the wall**. The video is never changed.
+
+Tidier:
+- **The same words everywhere:** saved walls (no more "presets"), **Play a folder…** (was Own folder) and **Show in Explorer** in a tile's menu and Properties, the Playlist popover's choices as in Properties, and shorter notes in Saved walls, Playlist and the clock, with a **?** for the rest.
+- **A shorter Arrange menu:** **Fill the wall** and **Layouts…**, which now holds the ready-made layouts, Rows and columns, and your own. Fit to media and Auto-arrange (Pack tiles) are gone. Tested on thousands of walls, Fit to media could not reshape a full grid, so it only shuffled the tiles. With spare cells it still left 17–23% bars where Fill the wall leaves none and keeps the order. Pack tiles left gaps in the middle on about half of the walls with gaps, and now and then shrank a wide tile to one cell. Fit tile to media, for one tile, stays in the tile's menu and Properties. Layouts keep their shape: frames you have no tile for become empty tiles (before, a big empty frame fell apart into single cells), and they work while tiles are placed freely too, putting them back on the grid. The ready-made layouts' pictures show again (since 1.5.0 the library's thumbnail style had broken them). Cell shape is set on the grid only, and "New tiles show" moved to Settings › Tiles.
+- **Clearer Settings:** short names, and a **?** beside each that explains it on hover, instead of long notes. General is split up: **Tiles** (growing a tile, a full wall, shape-matched playlists) and **Video** (sound, black openings, pausing when minimized, playable copies, GIFs, lighter copies, the drawing pace, which moved here from Wall mode).
+- **A tidier top bar:** its buttons sit in groups, each on a soft ground: the wall's contents (Add, **Clear**, Undo, Redo), its layout, playback; on the right the clock, what the wall plays (**Library**, Saved walls, Playlist), and the app (Help, Settings, New wall window, Wall mode). **Clear** moved out of Settings into the bar, beside Add: a red bin that takes two clicks, as before. The library drawer now opens on the right, beside its button; a side you pick in its menu or in Settings › Library stays.
+- **Fill the wall uses only tiles with media:** empty tiles (and the sample cards) make way, so what plays fills the wall edge to edge. Ctrl+Z brings them back.
+- **A shorter tile menu:** what you use most stays at the top (sound, Repeat, Loop a part; a playlist's Previous, Next, Stay on this file and settings), the rest sits in three groups that open beside it: **Display**, **File** and **Tile**. Arrow keys work in them too.
+- **Properties folds:** each part of the card folds away under its heading and stays folded for every tile, so the card shows what you use. Position and size starts folded; Loop a part… and Playlist settings… open their part even when it was folded.
+- **The emergency hide's mouse button is recorded:** click the button in Settings › Hide, then press the mouse button you want (middle, back or forward); Esc stops, Clear takes it off. No list to pick from.
+- **Clip length is a choice** in Properties and the Playlist popover: the whole clip, 10 s, 20 s, 30 s, 1, 2 or 5 minutes.
+- **Quieter empty cells:** a faint + that lights up under the pointer, with "Drop or click" only then.
+- **Repeat and Stay on this file:** a tile with one video has **Repeat** (on, or play it once), a tile playing a folder has **Stay on this file** (the pin), in its buttons, its right-click menu and Properties alike; pictures and GIFs no longer show a loop button that did nothing. "Loop a part" keeps its name.
+
+Fixed and lighter:
+- **A wall with videos is saved again while it plays.** In 1.6.0 such a wall redrew itself every half second or so, which kept putting off its save until the window closed: after a crash or a power cut, recent changes were lost. It now redraws only when something changes, and saves within a second of a change.
+- **Less work at rest:** the clock in the bar ticks once a second (four times while a stopwatch or timer runs, ten while its popover shows tenths), and no longer asks Windows for its time format on every tick.
+
 ## 1.6.0: Previews and a smoother wall
 
 Download **Wallpane Setup 1.6.0.exe** (installer) or **Wallpane 1.6.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

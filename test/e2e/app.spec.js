@@ -60,7 +60,8 @@ async function answerDialogs(p, save) {
 const toast = () => page.locator('#toast');
 // A data file as the app saved it, or {} while it is not there yet (polls then simply try again).
 const saved = (name) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', name + '.json'), 'utf8')); } catch { return {}; } };
-// Opens Settings (if it is not open) at a section: 'General', 'Wall', 'Hide', 'Library', 'Storage', 'Keys' or 'About'.
+// Opens Settings (if it is not open) at a section: 'General', 'Tiles', 'Video', 'Wall', 'Hide', 'Library', 'Storage',
+// 'Keys' or 'About'.
 async function settingsAt(sec) {
   if (await page.locator('#popS').isHidden()) await page.click('#settingsBtn');
   await page.click('#tab' + sec);
@@ -85,10 +86,11 @@ test('Add > Folder as a playlist fills the empty cells and explains the HEIC fil
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#wall .tile img')].filter((i) => i.naturalWidth > 0).length)).toBe(6);
 });
 
-test('Arrange > Fit to media reshapes the tiles', async () => {
+test('Arrange holds Fill the wall and Layouts', async () => {
   await page.click('#arrangeMenuBtn');
-  await page.click('#fitMediaBtn');
-  await expect(toast()).toContainText('Fitted 6 tiles');
+  await expect(page.locator('#popArr .mi b')).toHaveText(['Fill the wall', 'Layouts…']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#popArr')).toBeHidden();
 });
 
 test('selection is a ring with corner grips; a pinned tile has its own badge', async () => {
@@ -109,11 +111,13 @@ test('selection is a ring with corner grips; a pinned tile has its own badge', a
 });
 
 test('Free layout: a folder added one tile per file', async () => {
-  await settingsAt('General');
+  // Clear, in the bar: the first click arms it, the second clears; on an empty wall it is greyed out.
   await page.click('#clearBtn');
   await expect(page.locator('#clearBtn')).toContainText('Click again');
   await page.click('#clearBtn');
   await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#clearBtn')).toBeDisabled();
+  await expect(page.locator('#clearBtn')).toContainText('Clear');
   await page.click('#modeSeg [data-mode="free"]');
   await expect(page.locator('#modeSeg [data-mode="free"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#gridLabel')).toHaveText('Free');
@@ -152,14 +156,16 @@ test("Free layout: new tiles take their media's shape; Fill the wall fills it ed
 test('Fit tile to media gives a tile the exact shape of its image', async () => {
   const tall = page.locator('#wall .tile', { hasText: 'img2.png' });   // 90 x 160
   await tall.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Fit tile to media').click();
   await expect(toast()).toContainText('exact shape of its media');
   const box = await tall.boundingBox();
   expect(Math.abs(box.width / box.height - 90 / 160)).toBeLessThan(0.01);
+  // Placed freely now: Layouts still work, and say they put the tiles on the grid again.
   await page.click('#arrangeMenuBtn');
-  await expect(page.locator('#arrangeBtn')).toBeDisabled();
-  await page.click('#fitMediaBtn');
-  await expect(toast()).toContainText('6 tiles now have the exact shape');
+  await expect(page.locator('#layoutBtn')).toBeEnabled();
+  await expect(page.locator('#layoutHint')).toContainText('on the grid again');
+  await page.keyboard.press('Escape');
   await page.click('#modeSeg [data-mode="grid"]');
   await expect(toast()).toContainText('Back on the grid');
 });
@@ -177,7 +183,7 @@ test('presets: save, export and import', async () => {
   expect(data.app).toBe('wallpane');
   expect(data.presets.map((p) => p.name)).toEqual(['E2E wall']);
   await page.click('#importBtn');
-  await expect(toast()).toContainText('Imported 1 preset');
+  await expect(toast()).toContainText('Imported 1 saved wall');
 });
 
 test('keyboard: Tab selects a tile, Delete removes it, Ctrl+Z brings it back', async () => {
@@ -222,14 +228,23 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#clock')).toHaveText(/[AP]M$/);
   await expect.poll(() => saved('prefs').clock24).toBe(false);
   await page.locator('#setClock').selectOption('');
-  // Tiles: full screen plays its sound, and growing a tile shrinks the ones beside it evenly, unless changed here.
-  await expect(page.locator('#setSoloSound')).toBeChecked();
-  await expect(page.locator('#setResize')).toHaveValue('even');
-  // Arrow keys move between the sections.
+  // A ? explains its setting while the pointer rests on it.
+  await page.locator('#secGeneral .tip').first().hover();
+  await expect(page.locator('#tipBox')).toBeVisible();
+  await expect(page.locator('#tipBox')).toContainText('starts when you sign in');
+  await page.mouse.move(5, 5);
+  await expect(page.locator('#tipBox')).toBeHidden();
+  // Arrow keys move between the sections: Tiles (growing a tile shrinks the ones beside it evenly), Video (full
+  // screen plays its sound), then Wall mode.
   await page.focus('#tabGeneral');
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('#secWall')).toBeVisible();
+  await expect(page.locator('#secTiles')).toBeVisible();
   await expect(page.locator('#secGeneral')).toBeHidden();
+  await expect(page.locator('#setResize')).toHaveValue('even');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#setSoloSound')).toBeChecked();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#secWall')).toBeVisible();
   await page.click('#setStartWall');
   await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
@@ -247,7 +262,9 @@ async function layout() {
     return { tiles: r, overlaps };
   });
 }
-const menuItem = (label) => page.locator('#ctxMenu .mi', { hasText: label });
+const menuItem = (label) => page.locator('#ctxMenu .mi, #ctxSub .mi', { hasText: label });
+// A tile menu's submenu (Display, File or Tile), opened.
+const openGroup = (label) => page.locator('#ctxMenu .mi.hassub', { hasText: label }).click();
 
 test('right-click on empty wall makes an empty tile, which then takes media', async () => {
   const before = await tiles().count();
@@ -271,6 +288,7 @@ test('right-click on empty wall makes an empty tile, which then takes media', as
 
 test('Rows and columns: 3 tiles in the first row and 4 in the second', async () => {
   await page.click('#arrangeMenuBtn');
+  await page.click('#layoutBtn');
   await page.click('#rowsBtn');
   await expect(page.locator('#popB')).toBeVisible();
   while (await page.locator('#bLines .bline').count() > 2) await page.locator('#bLines [data-b="del"]').last().click();
@@ -293,6 +311,7 @@ test('on a full grid, a tile grows over an empty tile, which gives way', async (
   // Split the first tile: its right half becomes an empty tile and the 12 x 2 grid stays full.
   const first = tiles().first();
   await first.click({ button: 'right' });
+  await openGroup('Tile');
   await menuItem('Split side by side').click();
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
   const before = await layout();
@@ -314,7 +333,24 @@ test('Properties card: opens beside the tile from the right-click menu, Esc clos
   await menuItem('Properties').click();
   const card = page.locator('#inspector');
   await expect(card).toBeVisible();
+  // Position and size starts folded away; its heading opens it, and the card remembers that for the next tile.
+  await expect(card.locator('#fW')).toBeHidden();
+  await expect(card.locator('#insZoom')).toBeVisible();
+  await card.locator('#placeSec .foldh').click();
+  await expect(card.locator('#placeSec .foldh')).toHaveAttribute('aria-expanded', 'true');
   await expect(card.locator('#fW')).toBeVisible();
+  await card.locator('#dispSec .foldh').click();
+  await expect(card.locator('#insZoom')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await tiles().nth(1).click();
+  await page.keyboard.press('Alt+Enter');
+  await expect(card.locator('#dispSec .foldh')).toHaveAttribute('aria-expanded', 'false');
+  await expect(card.locator('#insZoom')).toBeHidden();
+  await card.locator('#dispSec .foldh').click();
+  await expect.poll(() => saved('prefs').propsFold).toEqual([]);
+  await page.keyboard.press('Escape');
+  await tile.click();
+  await page.keyboard.press('Alt+Enter');
   await expect(card.locator('#insZoom')).toBeVisible();
   // Typing a width in cells resizes the tile.
   const w0 = (await tile.boundingBox()).width;
@@ -392,6 +428,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
   await page.mouse.wheel(0, -500);
   await expect.poll(() => img.evaluate((e) => e.style.transform)).toContain('scale(');
   await tile.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Reposition and zoom').click();
   await expect(tile).toHaveClass(/\brepos\b/);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -402,6 +439,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
   await page.keyboard.press('Escape');
   await expect(tile).not.toHaveClass(/\brepos\b/);
   await tile.click({ button: 'right' });
+  await openGroup('Display');
   await menuItem('Reset position and zoom').click();
   await expect.poll(() => img.evaluate((e) => e.style.transform)).toBe('');
 });
@@ -409,6 +447,7 @@ test('scroll to zoom the selected tile; reposition and reset from the right-clic
 test('split a tile from the right-click menu; the new half is an empty tile', async () => {
   const count = await tiles().count();
   await tiles().first().click({ button: 'right' });
+  await openGroup('Tile');
   await menuItem('Split side by side').click();
   await expect(tiles()).toHaveCount(count + 1);
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
@@ -421,11 +460,15 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   const tile = () => page.locator('#wall .tile[data-id="' + id + '"]:not(.leaving)');
   await answerDialogs(media);
   await tile().click({ button: 'right' });
-  await menuItem('Own folder').click();
+  await openGroup('File');
+  await menuItem('Play a folder').click();
   await expect(toast()).toContainText('This tile now plays');
+  // Playlist settings… opens the card with the playlist part unfolded, even when it was folded away.
+  await page.evaluate(() => { window.MW.app.S.propsFold = ['playlist']; });
   await tile().click({ button: 'right' });
   await menuItem('Playlist settings').click();
   const card = page.locator('#inspector');
+  await expect(card.locator('#plSec .foldh')).toHaveAttribute('aria-expanded', 'true');
   await expect(card.locator('#plSec')).toContainText('6 files');
   // Plays: the folder has only images, so videos and GIFs only is refused and Images stays ticked.
   await card.locator('#pTypes input[value="image"]').click();
@@ -435,8 +478,7 @@ test('a tile playing its own folder: playlist settings in its Properties', async
   await card.locator('#pSecs').press('Enter');
   await card.locator('#pOrder').selectOption('shuffle');
   await card.locator('#pFade').selectOption('1');
-  await card.locator('#pMax').fill('20');
-  await card.locator('#pMax').press('Enter');
+  await card.locator('#pMax').selectOption('20');
   const settings = () => page.evaluate(() => { const A = window.MW.app, p = A.S.playlists[A.selected().pl]; return { secs: p.secs, shuffle: p.shuffle, fade: p.fade, maxClip: p.maxClip, keepView: p.keepView }; });
   expect(await settings()).toEqual({ secs: 3, shuffle: true, fade: 1, maxClip: 20, keepView: false });
   // The playlist moves on by itself after 3 seconds; the card stays open and shows the new file's name.
@@ -526,6 +568,51 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   for (let i = 0; i < 12; i++) { await page.waitForTimeout(200); times.push(await video.evaluate((v) => v.currentTime)); }
   expect(Math.min(...times)).toBeGreaterThanOrEqual(0.45);
   expect(Math.max(...times)).toBeLessThan(1.7);
+  // Make a GIF of the part, from Playback: the dialog says how big it will be; saved where the (stubbed) Save dialog
+  // says, it is a GIF of several frames, never wider than the video; then Put on the wall adds it as a tile.
+  if (FF.create(path.join(root, 'vendor', 'ffmpeg')).available()) {
+    await card.locator('#insGif').click();
+    const dlg = page.locator('#popGif');
+    await expect(dlg).toBeVisible();
+    await expect(page.locator('#gifPart')).toContainText('0:00.5 to 0:01.5 of clip.webm');
+    await expect(page.locator('#gifSpeedFld')).toBeHidden();               // normal speed: nothing to choose
+    await page.locator('#gifWidth').selectOption('320');
+    await expect(page.locator('#gifNote')).toContainText('160 × 90 px, 1 s, about');
+    await page.click('#gifCancel');
+    await expect(dlg).toBeHidden();
+    // The same from the right-click menu, beside Stop looping the part.
+    await tile.click({ button: 'right' });
+    await menuItem('Make a GIF of the part').click();
+    await expect(dlg).toBeVisible();
+    const gif = path.join(dir, 'part.gif');
+    await answerDialogs(clip, gif);
+    // The wall is full by now: one tile goes (undone at the end), so the GIF has room.
+    const before = await tiles().count();
+    await page.evaluate(() => { const A = window.MW.app; A.removeItem(A.S.items.find((i) => i.kind !== 'video').id); });
+    await expect(tiles()).toHaveCount(before - 1);
+    await page.click('#gifMake');
+    await expect(dlg).toBeHidden();
+    await expect(toast()).toContainText('Saved part.gif', { timeout: 30000 });
+    const bytes = fs.readFileSync(gif);
+    expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+    expect([bytes.readUInt16LE(6), bytes.readUInt16LE(8)]).toEqual([160, 90]);
+    let frames = 0;
+    for (let i = 0; i + 2 < bytes.length; i++) if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 4) frames++;
+    expect(frames).toBeGreaterThan(5);
+    expect(fs.existsSync(gif + '.part')).toBe(false);
+    await toast().locator('.tact', { hasText: 'Put on the wall' }).click();
+    await expect(tiles()).toHaveCount(before);
+    await expect(page.locator('#wall .tile[aria-label^="part.gif"]')).toBeVisible();
+    await page.locator('body').press('Control+z');
+    await page.locator('body').press('Control+z');
+    await expect(tiles()).toHaveCount(before);
+    await expect(page.locator('#wall .tile[aria-label^="part.gif"]')).toHaveCount(0);
+    // The video selected again with its Properties, as the steps below expect.
+    await page.evaluate(() => { const A = window.MW.app; A.openProps(A.S.items.find((i) => i.name === 'clip.webm')); });
+    await expect(card).toBeVisible();
+    await video.evaluate((v) => v.play());
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  }
   // Keys on the selected video: Space pauses, > speeds up, \ stops looping the part.
   await page.keyboard.press('Escape');                       // close Properties, keep the tile selected
   await page.locator('body').press('Space');
@@ -569,10 +656,8 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   const quick = await make('quick.avi', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'libmp3lame']);
   const sound = await make('sound.mkv', 2, '320x240', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'ac3']);
   // A fresh wall, so the new tiles have room.
-  await settingsAt('General');
   await page.click('#clearBtn');
   await page.click('#clearBtn');
-  await page.keyboard.press('Escape');
   await answerDialogs([quick, sound]);
   await page.click('#addBtn');
   await page.click('#addFiles');
@@ -601,6 +686,7 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   await expect(page.locator('#jobsWrap')).toBeHidden();
   // Right-click › Make playable starts it again (stopped again here: a minute of 720p takes a while).
   await tile.click({ button: 'right' });
+  await openGroup('File');
   await menuItem('Make playable').click();
   await expect(tile.locator('.busy')).toContainText('Converting');
   await expect(page.locator('#jobsCount')).toHaveText('1');
@@ -611,7 +697,7 @@ test('make playable: an AVI and AC3 sound play from copies; a long conversion sh
   // GIF to video: with "All GIFs" chosen, a GIF tile plays from a video copy, silent and looping, and is still a GIF.
   const gif = path.join(conv, 'dance.gif');
   await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=240x180:rate=10:duration=2', gif], { timeoutMs: 60000 });
-  await settingsAt('General');
+  await settingsAt('Video');
   await page.locator('#setGifVideo').selectOption('all');
   await page.keyboard.press('Escape');
   await answerDialogs(gif);
@@ -697,11 +783,16 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await expect(page.locator('#cover')).toBeVisible();
   await page.keyboard.press('ScrollLock');
   await expect(page.locator('#cover')).toBeHidden();
-  // A mouse button: the middle one, over the wall, hides and brings back.
+  // A mouse button, set by pressing it: the middle one, then over the wall it hides and brings back.
   await settingsAt('Hide');
-  await page.locator('#hideMouse').selectOption('middle');
+  await page.click('#hideMouse');
+  await expect(page.locator('#hideMouse')).toHaveText('Press a mouse button…');
+  const mb = await page.locator('#hideMouse').boundingBox();
+  await page.mouse.click(mb.x + mb.width / 2, mb.y + mb.height / 2, { button: 'middle' });
+  await expect(page.locator('#hideMouse')).toHaveText('Middle (wheel)');
   await expect(page.locator('#hideMouseNote')).toBeVisible();
   await expect.poll(() => saved('hide').mouse).toBe('middle');
+  await expect(page.locator('#cover')).toBeHidden();   // setting it did not hide anything
   await page.keyboard.press('Escape');
   const w = await page.locator('#wall').boundingBox();
   await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2, { button: 'middle' });
@@ -904,10 +995,8 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   fs.writeFileSync(path.join(lib, 'more', 'grey extra.png'), png(120, 90, [128, 128, 128]));
   await page.evaluate((p) => window.wall.addLibraryFolder(p), lib);
   // A fresh grid wall.
-  await settingsAt('General');
   await page.click('#clearBtn');
   await page.click('#clearBtn');
-  await page.keyboard.press('Escape');
   await page.click('#modeSeg [data-mode="grid"]');
   await expect(tiles()).toHaveCount(0);
   await page.click('#gridBtn');   // 4 × 3, so the tiles below land beside the drawer, where they can be clicked
@@ -916,8 +1005,16 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await page.keyboard.press('Escape');
   await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
 
+  // The drawer opens on the right by default, beside the Library button; the drags below are laid out for the left.
   await page.keyboard.press('Control+l');
+  await expect(page.locator('#lib')).toHaveClass(/\bright\b/);
+  const libBox = await page.locator('#lib').boundingBox(), wallBox = await page.locator('#wall').boundingBox();
+  expect(libBox.x + libBox.width).toBeGreaterThan(wallBox.x + wallBox.width - 20);
+  await page.click('#libPlace');
+  await menuItem('On the left').click();
+  await expect(page.locator('#lib')).not.toHaveClass(/\bright\b/);
   await expect(page.locator('#lib')).toBeVisible();
+  await page.locator('#libSearch').focus();
   await expect(page.locator('#libSearch')).toBeFocused();
   const thumbs = page.locator('#libGrid .lthumb');
   await expect(thumbs).toHaveCount(4);

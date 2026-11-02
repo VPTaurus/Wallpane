@@ -9,7 +9,7 @@
   var KIND_NAMES = { converted: 'Playable copies', thumbs: 'Thumbnails', previews: 'Previews', proxies: 'Lighter copies' };
 
   /* ---------- jobs in the bar ---------- */
-  var JOB_WORDS = { playable: 'Making playable', gifvideo: 'GIF to video', libinfo: 'Reading file details', libthumbs: 'Making thumbnails', proxy: 'Lighter copy for a small tile' };
+  var JOB_WORDS = { playable: 'Making playable', gifvideo: 'GIF to video', libinfo: 'Reading file details', libthumbs: 'Making thumbnails', proxy: 'Lighter copy for a small tile', makegif: 'Making a GIF' };
   var STATE_WORDS = { queued: 'Waiting', done: 'Done', failed: 'Failed', cancelled: 'Stopped' };
   var jobList = [];
   function active(j) { return j.state === 'queued' || j.state === 'running'; }
@@ -46,7 +46,16 @@
     $('#jobsClear').disabled = !jobList.some(function (j) { return !active(j); });
   };
   $('#jobsClear').addEventListener('click', function () { api.clearJobs(); });
-  function onJobs(list) { showJobs(list); A.onJobsChanged(list); }
+  // Something to do once the job with this key ends: cb(job), whose state says how ('done', 'failed' or 'cancelled').
+  var watching = {};
+  A.watchJob = function (key, cb) { watching[key] = cb; api.jobs().then(onJobs); };
+  function ends(list) {
+    Object.keys(watching).forEach(function (k) {
+      var j = list.filter(function (x) { return x.key === k; })[0];
+      if (j && !active(j)) { var cb = watching[k]; delete watching[k]; cb(j); }
+    });
+  }
+  function onJobs(list) { showJobs(list); A.onJobsChanged(list); ends(list); }
   api.onJobs(onJobs);
   api.jobs().then(onJobs);
 

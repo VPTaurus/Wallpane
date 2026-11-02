@@ -49,6 +49,26 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [x] **D6. Smooth on a slower screen** (found while testing 1.6.0): Chromium paces every window by the main display's vblank, so a wall on a 60 Hz screen beside a 165 Hz main display juddered (making the 60 Hz one the main display fixed it; 120 Hz did not). Settings › Wall mode › Drawing pace: Automatic draws at the slowest screen's rate when they differ (`lib/pace.js`, Chromium's `fake-vsync-rate`, set at start from `app.json`), or the main display's, or 60.
 - [x] **D5. Skip black or silent starts.** Clips that open with black or silence start after it. Done: FFmpeg's `blackdetect` and `silencedetect` on the first 12 s, once per video (`lib/openings.js`, kept in `openings.json`; the store is shared with D4 as `lib/measures.js`). A tile starts after a black opening, and after a silent one while it is heard, also when it loops; not a playlist with a random start or a tile with a looped part, nor an opening over a third of the video, nor black throughout the 12 s. Settings › General, on by default.
 
+## P. Polish (1.6.x, before 1.7.0)
+- [ ] **P1. Fixes from testing 1.6.0** on the big walls (two windows of 26 and 36 tiles, a 60 Hz screen beside a faster main display): whatever the test turns up comes first.
+- [x] **P2. Code optimization.** A pass over the code for speed and weight, measured before and after with the benchmark wall (36 tiles): the start (time to the first frame), memory per wall window, work per frame with many tiles, the main process's file and FFmpeg work, the messages between the windows and the main process (job lists, library changes), and code nothing uses any more. Done (first pass): an idle wall with videos redrew every 0.6 s (an answer about openings set off the next question) and so never saved until it closed; fixed, with a test that fails on the old code (34 calls to the main process in 10 s down to 0, 13 redraws in 8 s down to 0). The clock ticks as often as it shows something new. The start is within 0.1 s of a bare Electron window (1 s more to build 36 tiles); the page's own JavaScript is 97% idle while 30 videos play, so what is left is the graphics card's work (memory: about 1 GB in the GPU process for 30 videos, 10 MB of page heap). A scan found no code nothing uses.
+- [x] **P3. UI tweaks.** Small improvements to how it looks and feels, from the test and from going through each part in turn: the top bar, tiles and their controls, Properties, the right-click menus, Settings, the library, wall mode. Done in 1.6.5 (see its notes in CHANGELOG.md): the grouped top bar with Clear, the library drawer on the right, Settings with short names and "?" tips, the Arrange menu and Layouts, the shorter tile menu, folding Properties, quieter empty cells, and the same words everywhere.
+- [x] **P4. Take Fit to media and Pack tiles out of Arrange** (decided and done 2026-11-02, as planned below). The Arrange menu keeps **Fill the wall** and **Layouts…**, without group headings.
+  - **Why:** both were tested on thousands of random walls.
+    - **Fit to media** can't change any shape on a full grid (as many tiles as cells, like 36 on 6 × 6). There it only moves every tile somewhere else, sorted by shape, and switches it to Whole frame. With spare cells it cuts bars from about 30% of the tile area to 17–23%, but it still moves every tile. Fill the wall does the job better: no bars, 0–6% cropped, and the tiles keep their order.
+    - **Pack tiles** rebuilds the layout from scratch. On about half the walls with gaps it leaves gaps in the middle, and on about 1 in 130 it shrinks a wide tile to one cell although everything fitted. Layouts…, Fill the wall and dragging already close gaps.
+  - **What stays:** **Fit tile to media** for one tile (the right-click menu's Display group and Properties: `A.fitTilesToMedia`), which works well. Also `G.arrange` in `geometry.js`: it is no longer behind a button, but a saved wall whose grid layout doesn't fit uses it to repair itself (`A.applyRecord` in `presets.js`), and it keeps its tests.
+  - **What goes:**
+    - **Page:** `#fitMediaBtn`, `#arrangeBtn`, the two group headings (`index.html`), and their hints and disabled states in `tiles.js` render.
+    - **Code:** the Pack tiles handler and `fitToMedia()` in `media.js`. `mediaAspect` and `shapePlaylists` stay, because Fill the wall and Fit tile to media use them.
+    - **Library:** `renderer/lib/fit.js` and its `<script>` tag, and the FIT tests in `test/unit/freegeo-fit.test.js`. That file keeps its free-layout tests.
+  - **Tests:** remove the "Arrange > Fit to media" e2e test and the checks on the two buttons in the Free layout test. The e2e tests run in order, so check that the tests after it don't rely on the shapes Fit to media gave the tiles. Add a check that the Arrange menu shows only Fill the wall and Layouts….
+  - **Words:**
+    - **Settings:** the Settings › Tiles tip for Playlists match tile shapes ("After Fill the wall").
+    - **README:** the top bar's Arrange paragraph, the Playlist paragraph ("Fill the wall and Fit to media switch Shapes on"), the Fit to media line under Layout, and the `renderer/lib/` list.
+    - **Other docs:** the 1.6.1 Arrange entry in CHANGELOG (say both are gone and what to use instead), and the passing mention in `docs/library-design.md`.
+  - **Saved walls:** nothing to migrate. Tiles that Fit to media shaped keep their places and their Whole frame setting.
+
 ## E. Library, part 2 (1.7.0)
 - [ ] **E1. Tags, ratings and favourites**, also for many files at once.
 - [ ] **E2. Saved searches as playlists.** A search or filter that a tile plays and that follows the library as it changes (folder playlists become one kind of these).
@@ -56,7 +76,37 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **E4. Duplicates.** The same video under different names, found by comparing frames.
 
 ## F. Make things from the wall (1.8.0)
-- [ ] **F1. Save a looped part** as its own MP4 (copied when the cut allows, else converted), or as a GIF or WebP.
+- [x] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; done the same day, brought forward into 1.6.5). The same part as an MP4 or animated WebP comes after, from the same dialog.
+  - **Done, and where it differs from the plan below:**
+    - **Code:** the choices, the check of what the page asks for, the sizes, the file name and FFmpeg's arguments are in `renderer/lib/gifmake.js`, which the main process uses too. The job kind is in `lib/makegif.js`, and what a tile shows comes from `view.js` `shown()`.
+    - **Limits:** a part longer than a minute is refused. Above 15 s the dialog says GIFs get big and suggests a shorter part, a smaller width or fewer frames; an MP4 comes with the MP4 option.
+    - **Size estimate:** 0.45 bytes per pixel of each frame, measured. Real files vary from 0.1 (flat pictures) to 1 (noise), so the dialog says "about".
+    - **File name:** like `clip 1m23.5s-1m30s.gif`, because Windows allows no colons.
+    - **Put on the wall** places the GIF where there is room, as Add does, not beside the tile.
+    - **Tests:** the dialog's Cancel is tested end to end, but stopping a running job is not; it uses the same temporary-file clean-up as the other FFmpeg jobs.
+    - **Still open:** whether the defaults (480 px, 15 fps) suit.
+  - **Where:** Properties › Playback shows **Make a GIF…** under Loop a part once a part is looped, and the tile's right-click menu shows it beside Stop looping the part. A single video only: a playlist tile has no looped part.
+  - **What you choose,** in a small dialog:
+    - **Width:** 320, 480 (the default), 640 or 800 px; the height follows the shape, and it is never wider than the video.
+    - **Frames a second:** 10, 15 (the default), 20 or 25.
+    - **What it shows:** the whole frame, or the tile's view (its shape, zoom and position).
+    - **Speed:** normal, or the tile's speed.
+    - **Loops:** forever.
+    - **Size:** a rough size estimate updates as you choose. Above 15 s the dialog says GIFs get big and suggests an MP4.
+  - **Saved where:** a Save dialog that starts in the video's folder, with a name like `clip 1.23-1.30.gif`. The original is never touched. The GIF is written under a temporary name and renamed at the end, so a cancelled or failed GIF leaves nothing behind.
+  - **How:** FFmpeg makes the GIF in one pass, offline:
+    - `-ss`/`-t` for the part, then `fps`, `scale` (lanczos), and `crop` for the tile's view;
+    - `setpts` for the speed;
+    - `split` into `palettegen` (stats_mode=diff) and `paletteuse` (bayer dither, diff_mode=rectangle), with `-loop 0`.
+
+    It is made from the original file, also when the tile plays a playable copy or a lighter copy, since the times are the same.
+  - **As a job:** a new kind in `lib/jobs.js`, one at a time, with progress from FFmpeg's time in the job list and the bar. Cancel stops FFmpeg and deletes the temporary file.
+  - **When it is done:** a message with **Show in Explorer** and **Put on the wall** (a new tile beside this one). A GIF saved in a library folder shows up in the library by itself, because it already watches its folders for new files.
+  - **Code:** the FFmpeg arguments, the tile's view turned into a crop (from `view.js`: fill, zoom and position), and the size estimate go in a plain module in `lib/`, tested without FFmpeg.
+  - **Tests:**
+    - Unit: the arguments and the crop for zoomed, moved and fill/whole-frame tiles.
+    - End-to-end: loop a part of the test video and make a GIF. The file must start with `GIF89a`, have several frames and the chosen width. A cancelled job leaves no file.
+  - **Open questions** (when planned): keep it in 1.8.0 or move it earlier (moved: 1.6.5); are the default width and rate (480 px, 15 fps) right?
 - [ ] **F2. Snapshot.** Save a tile's current frame as an image.
 - [ ] **F3. Export the wall as a video.** Every tile in its place, as one MP4 at a chosen size and length, made from the tiles' lighter copies, with progress in the job list. Play it on a smart TV from USB, or share it.
 

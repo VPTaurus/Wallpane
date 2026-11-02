@@ -5,6 +5,27 @@
   var MW = window.MW, G = MW.geo, U = MW.util;
   var S = A.S, $ = A.$, api = A.api, wall = A.wall, clamp = U.clamp;
 
+  /* ---------- ? help: a setting's explanation while the pointer rests on its ?, or while it has focus ---------- */
+  var tipBox = document.createElement('div');
+  tipBox.className = 'tipbox'; tipBox.id = 'tipBox'; tipBox.setAttribute('role', 'tooltip'); tipBox.hidden = true;
+  document.body.appendChild(tipBox);
+  function tipOf(e) { return e.target && e.target.closest ? e.target.closest('.tip[data-tip]') : null; }
+  // Below the ?, or above it near the window's foot; never off a side.
+  function showTip(t) {
+    tipBox.textContent = t.dataset.tip; tipBox.hidden = false;
+    var r = t.getBoundingClientRect(), w = tipBox.offsetWidth, h = tipBox.offsetHeight;
+    var y = r.bottom + 8 + h > window.innerHeight - 8 ? r.top - 8 - h : r.bottom + 8;
+    tipBox.style.left = clamp(r.left + r.width / 2 - w / 2, 8, Math.max(8, window.innerWidth - w - 8)) + 'px';
+    tipBox.style.top = Math.max(8, y) + 'px';
+    t.setAttribute('aria-describedby', 'tipBox');
+  }
+  function hideTip() { tipBox.hidden = true; }
+  document.addEventListener('pointerover', function (e) { var t = tipOf(e); if (t) showTip(t); });
+  document.addEventListener('pointerout', function (e) { var t = tipOf(e); if (t && !(e.relatedTarget && t.contains(e.relatedTarget))) hideTip(); });
+  document.addEventListener('focusin', function (e) { var t = tipOf(e); if (t) showTip(t); });
+  document.addEventListener('focusout', function (e) { if (tipOf(e)) hideTip(); });
+  document.addEventListener('click', function (e) { var t = tipOf(e); if (t) { e.preventDefault(); showTip(t); } });   // a ? only explains
+
   /* ---------- grid size and look ---------- */
   function setGrid(c, r) {
     c = clamp(parseInt(c, 10) || S.cols, 1, 12); r = clamp(parseInt(r, 10) || S.rows, 1, 12);
@@ -194,16 +215,16 @@
     if (res) { A.pushHistory(); A.commitYield(res); A.render(); A.refreshInspector(); }
   });
 
-  // Clear wall (in Settings) takes two clicks: the first arms it for three seconds.
+  // Clear (in the bar) takes two clicks: the first arms it for three seconds.
   var clearArmed = false;
   $('#clearBtn').addEventListener('click', function () {
     var b = this, lbl = b.querySelector('.lbl');
     if (!clearArmed) {
-      clearArmed = true; lbl.textContent = 'Click again to clear the wall'; b.classList.add('armed');
-      setTimeout(function () { clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed'); }, 3000);
+      clearArmed = true; lbl.textContent = 'Click again'; b.classList.add('armed'); A.fitBar();
+      setTimeout(function () { clearArmed = false; lbl.textContent = 'Clear'; b.classList.remove('armed'); A.fitBar(); }, 3000);
       return;
     }
-    clearArmed = false; lbl.textContent = 'Clear wall'; b.classList.remove('armed');
+    clearArmed = false; lbl.textContent = 'Clear'; b.classList.remove('armed'); A.fitBar();
     A.closePops();
     A.pushHistory();
     S.items = []; S.sel = null; S.presetName = null; S.playlists = {}; S.fillPl = null; A.render(); A.refreshInspector();
@@ -408,10 +429,9 @@
   function showPace(i) {
     $('#setPace').value = i.pace;
     var mixed = i.slow && i.main && i.slow < i.main - 1;
-    var t = (mixed ? 'Your main display runs at ' + i.main + ' Hz and the slowest screen at ' + i.slow + ' Hz: Windows paces every window by the main display, so a wall on the slower screen judders unless Wallpane draws at its rate. '
-      : 'Your screens run at the same rate, so Automatic draws as Windows does. ') + 'Drawing now at ' + paceWords(i.now) + '.';
+    var t = (mixed ? 'Screens: main ' + i.main + ' Hz, slowest ' + i.slow + ' Hz. ' : '') + 'Now: ' + paceWords(i.now) + '.';
     var later = i.next !== i.now;
-    if (later) t += ' ' + (i.portable ? 'Close Wallpane and start it again' : 'Restart Wallpane') + ' to draw at ' + paceWords(i.next) + '.';
+    if (later) t += ' ' + (i.portable ? 'Start Wallpane again' : 'Restart') + ' for ' + paceWords(i.next) + '.';
     $('#paceNote').textContent = t;
     $('#paceRow').hidden = !later || i.portable;
   }
@@ -422,7 +442,7 @@
   A.paceHint = function () {
     api.pace().then(function (i) {
       if (i.pace === 'auto' && i.next && i.next !== i.now) {
-        A.toast('Your screens run at different rates. ' + (i.portable ? 'Start Wallpane again' : 'Restart Wallpane') + ' once and a wall on the ' + i.next + ' Hz screen plays smoothly (Settings › Wall mode › Drawing pace).');
+        A.toast('Your screens run at different rates. ' + (i.portable ? 'Start Wallpane again' : 'Restart Wallpane') + ' once and a wall on the ' + i.next + ' Hz screen plays smoothly (Settings › Video › Drawing pace).');
       }
     });
   };

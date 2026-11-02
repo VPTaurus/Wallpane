@@ -33,11 +33,22 @@
     if (z2 === 1) return { mx: v.mx, my: v.my, zoom: 1 };
     return { mx: zoomAxis(v.mx, v.zoom, z2, W, c.w, px), my: zoomAxis(v.my, v.zoom, z2, H, c.h, py), zoom: z2 };
   }
+  // The part of the media a W x H tile shows (v: { mx, my, zoom }), as fractions of the media: { x, y, w, h } from 0
+  // to 1. A screen point s shows the media point u = p * C + (s - p * S) / z, so the tile's 0..S is cut to 0..C.
+  function shown(W, H, a, fit, v) {
+    var c = content(W, H, a, fit);
+    function axis(p, z, S, C) {
+      var u0 = Math.max(0, p * C - p * S / z), u1 = Math.min(C, p * C + (1 - p) * S / z);
+      return [u0 / C, Math.max(0, u1 - u0) / C];
+    }
+    var x = axis(v.mx, v.zoom, W, c.w), y = axis(v.my, v.zoom, H, c.h);
+    return { x: x[0], y: y[0], w: x[1], h: y[1] };
+  }
   // The CSS for a tile's media element.
   function css(it) {
     var v = of(it), pos = (v.mx * 100).toFixed(2) + '% ' + (v.my * 100).toFixed(2) + '%';
     return { objectPosition: pos, transformOrigin: pos, transform: v.zoom > 1.0001 ? 'scale(' + v.zoom.toFixed(4) + ')' : '' };
   }
 
-  return { MAXZ: MAXZ, content: content, of: of, isDefault: isDefault, screenAt: screenAt, pan: pan, zoomAt: zoomAt, css: css };
+  return { MAXZ: MAXZ, content: content, of: of, isDefault: isDefault, screenAt: screenAt, pan: pan, zoomAt: zoomAt, shown: shown, css: css };
 });

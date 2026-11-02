@@ -177,11 +177,11 @@ test('a full wall says so, or with the setting takes the file anyway and fills t
     await expect(tiles(page)).toHaveCount(4);
     await add(tall);
     await expect(toast(page)).toContainText('did not fit');
-    await expect(toast(page)).toContainText('When the wall is full');
+    await expect(toast(page)).toContainText('Settings › Tiles › Full wall');
     await expect(tiles(page)).toHaveCount(4);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabTiles');
     await page.selectOption('#setFullWall', 'fill');
     await page.keyboard.press('Escape');
     await add(tall);
@@ -217,13 +217,108 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
 
     // With the setting off, it keeps playing.
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setPauseMin').uncheck();
     await page.keyboard.press('Escape');
     await win('minimize');
     await page.waitForTimeout(800);
     expect(await playing()).toBe(true);
     await win('restore');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('layouts keep their frames: leftover frames become empty tiles; applied while placed freely, the tiles go back on the grid', async () => {
+  const pic = path.join(dir, 'pic.png');
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  const items = () => page.evaluate(() => window.MW.app.S.items.map((i) => (i.kind === 'empty' ? 'empty' : i.name) + ' ' + i.w + '×' + i.h));
+  const layout = async (name) => { await page.click('#arrangeMenuBtn'); await page.click('#layoutBtn'); await page.locator('#lgrid .lbtn', { hasText: name }).click(); };
+  try {
+    await answer(pic);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect(tiles(page)).toHaveCount(1);
+    // Each ready-made layout shows its frames (in 1.5.0 and 1.6.0 the library's thumbnail style broke these pictures).
+    await page.click('#arrangeMenuBtn'); await page.click('#layoutBtn');
+    const pic6 = await page.locator('#lgrid .lbtn', { hasText: 'Two big' }).locator('.laythumb i').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4; }));
+    expect(pic6).toEqual([true, true, true, true, true, true]);
+    await page.keyboard.press('Escape');
+    // Two big: two 2×2 frames and four 1×1. One picture: the second big frame stays a 2×2 frame, as an empty tile.
+    await layout('Two big');
+    await expect(toast(page)).toContainText('5 frames are empty tiles');
+    expect((await items()).sort()).toEqual(['empty 1×1', 'empty 1×1', 'empty 1×1', 'empty 1×1', 'empty 2×2', 'pic.png 2×2']);
+    // Placed freely, Layouts still works and puts the tiles back on the grid: 3 × 3 takes the six and adds three.
+    await page.click('#modeSeg [data-mode="free"]');
+    await layout('3 × 3');
+    await expect(toast(page)).toContainText('on the grid again');
+    await expect(page.locator('#gridLabel')).toHaveText('3 × 3');
+    expect(await items()).toHaveLength(9);
+    // Fill the wall takes only tiles with media: the eight empty ones make way (and one Ctrl+Z brings them back).
+    await page.click('#arrangeMenuBtn'); await page.click('#fillWallBtn');
+    await expect(toast(page)).toContainText('8 empty tiles made way');
+    expect((await items()).map((s) => s.split(' ')[0])).toEqual(['pic.png']);
+    await page.keyboard.press('Control+z');
+    expect(await items()).toHaveLength(9);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('a single video has Repeat, a picture has neither Repeat nor Pin, a playlist tile has Pin', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), folder = path.join(dir, 'Two');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=3', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  fs.mkdirSync(folder);
+  for (let i = 0; i < 2; i++) fs.writeFileSync(path.join(folder, 'p' + i + '.png'), png(160, 90, [40, 80 * i, 200]));
+  const { app, page, errors, answer } = await start(dir);
+  const tile = (name) => page.locator('#wall .tile[aria-label^="' + name + '"]');
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect(tile('clip.mp4').locator('[data-act="loop"]')).toHaveAttribute('aria-label', 'Repeat this video');
+    // Its menu: what is used most at the top, the rest in Display, File and Tile; → opens one, ← closes it.
+    await tile('clip.mp4').click({ button: 'right' });
+    expect(await page.locator('#ctxMenu .mi').count()).toBeLessThanOrEqual(8);
+    await page.locator('#ctxMenu .mi.hassub', { hasText: 'Display' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#ctxSub')).toBeVisible();
+    await expect(page.locator('#ctxSub .mi').first()).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#ctxSub')).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(tile('pic.png').locator('[data-act="loop"]')).toHaveCount(0);
+    await expect(tile('pic.png').locator('[data-act="pin"]')).toHaveCount(0);
+    // A folder on the picture's tile: a playlist, with Pin (Stay on this file) and no Repeat.
+    const id = await tile('pic.png').getAttribute('data-id');
+    await page.evaluate(([i, f]) => window.wall.expand([f]).then((res) => window.MW.app.assignFolder(window.MW.app.itemById(+i), res)), [id, folder]);
+    const pl = page.locator('#wall .tile[data-id="' + id + '"]');
+    await expect(pl.locator('[data-act="pin"]')).toHaveAttribute('aria-label', 'Stay on this file');
+    await expect(pl.locator('[data-act="loop"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('a wall with videos saves a change within seconds, also once their openings are measured', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // 1.6.0 redrew such a wall every 0.6 s (each answer about openings set off the next question), which kept putting
+  // its save off until the window closed.
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  const savedItems = () => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'data', 'session.json'), 'utf8')).items.length; } catch { return -1; } };
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.evaluate((p) => window.wall.openings([p]).then((r) => !!r[p]), clip), { timeout: 20000 }).toBe(true);
+    await page.waitForTimeout(2500);
+    await answer(pic);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(savedItems, { timeout: 4000 }).toBe(2);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
@@ -252,10 +347,10 @@ test('drawing pace: the rate kept in app.json applies from the start; Settings s
       expect(paced).toBeLessThan(40);
     }
     await s.page.click('#settingsBtn');
-    await s.page.click('#tabWall');
+    await s.page.click('#tabVideo');
     await expect(s.page.locator('#setPace')).toHaveValue('auto');
-    await expect(s.page.locator('#paceNote')).toContainText('Drawing now at 30 frames a second');
-    await expect(s.page.locator('#paceNote')).toContainText("Restart Wallpane to draw at the main display's pace");
+    await expect(s.page.locator('#paceNote')).toContainText('Now: 30 frames a second');
+    await expect(s.page.locator('#paceNote')).toContainText("Restart for the main display's pace");
     await expect(s.page.locator('#paceRow')).toBeVisible();
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(data, 'app.json'), 'utf8')).paceHz).toBe(0);   // the screens as they are now
     expect(s.errors).toEqual([]);
@@ -289,7 +384,7 @@ test('even loudness: a loud video plays quieter, a quiet one keeps its level; Se
     expect(await vol('quiet.mp4')).toBe(1);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setEvenLoud').uncheck();
     await page.keyboard.press('Escape');
     await expect.poll(() => vol('loud.mp4')).toBe(1);
@@ -320,7 +415,7 @@ test('a video that opens on black starts after it, also when it loops; Settings 
     expect(back).toBeLessThan(3);
 
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.locator('#setSkipOpen').uncheck();
     await page.keyboard.press('Escape');
     await expect.poll(() => v.evaluate((m) => m.loop)).toBe(true);
@@ -382,7 +477,7 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
     await expect.poll(async () => (await state('big.mp4')).paused).toBe(true);
     const t = (await state('big.mp4')).t;
     await page.click('#settingsBtn');
-    await page.click('#tabGeneral');
+    await page.click('#tabVideo');
     await page.selectOption('#setProxies', 'off');
     await page.keyboard.press('Escape');
     await expect.poll(() => src('big.mp4')).not.toMatch(/proxies/);

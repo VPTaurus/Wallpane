@@ -54,7 +54,7 @@
     var box = $('#plist');
     api.storeInfo().then(function (info) { $('#storeNote').textContent = 'Stored in ' + info.dir; });
     listPresets().then(function (list) {
-      if (!list.length) { box.innerHTML = '<p class="note">No presets yet. Arrange a wall, name it above and press Save.</p>'; return; }
+      if (!list.length) { box.innerHTML = '<p class="note">No saved walls yet. Arrange a wall, name it above and press Save.</p>'; return; }
       box.innerHTML = list.map(function (p) {
         var n = p.items.length;
         return '<div class="prow" data-name="' + esc(p.name) + '"><div class="pinfo"><div class="pname">' + esc(p.name) + '</div>' +
@@ -147,7 +147,7 @@
         return Promise.all([api.storeSet('presets', list), api.storeSet('layouts', mine.slice(0, 40))]).then(function () {
           A.userLayouts = mine.slice(0, 40);
           A.refreshPresetList();
-          A.toast('Imported ' + added + (added === 1 ? ' preset' : ' presets') + ' and ' + addedL + (addedL === 1 ? ' layout.' : ' layouts.'));
+          A.toast('Imported ' + added + (added === 1 ? ' saved wall' : ' saved walls') + ' and ' + addedL + (addedL === 1 ? ' layout.' : ' layouts.'));
         });
       });
     });
@@ -177,18 +177,31 @@
   }
   function layoutThumb(L) {
     var cells = L.f.map(function (f) { return '<i style="grid-column:' + (f[0] + 1) + ' / span ' + f[2] + ';grid-row:' + (f[1] + 1) + ' / span ' + f[3] + '"></i>'; }).join('');
-    return '<span class="lthumb" style="grid-template-columns:repeat(' + L.cols + ',1fr);grid-template-rows:repeat(' + L.rows + ',1fr)">' + cells + '</span>';
+    return '<span class="laythumb" style="grid-template-columns:repeat(' + L.cols + ',1fr);grid-template-rows:repeat(' + L.rows + ',1fr)">' + cells + '</span>';
   }
+  // The tiles move into the layout's frames in reading order. Frames left over become empty tiles, so the layout keeps
+  // its shape (as Rows and columns does); tiles beyond its frames take the cells the frames leave empty. It is a grid
+  // layout, so a wall placed freely goes back on the grid. Sample tiles make way.
+  function freeOrder(a, b) { return ((a.fy || 0) - (b.fy || 0)) || ((a.fx || 0) - (b.fx || 0)); }
   function applyLayout(L) {
-    var slots = G.layoutSlots(L);
-    if (S.items.length > slots.length) {
-      A.toast('This layout has ' + slots.length + ' cells but the wall has ' + S.items.length + ' tiles. Remove some tiles or pick a bigger layout.');
+    var slots = G.layoutSlots(L), keep = S.items.filter(function (i) { return !i.sample; });
+    if (keep.length > slots.length) {
+      A.toast('This layout has ' + slots.length + ' places but the wall has ' + keep.length + ' tiles. Remove some tiles or pick a bigger layout.');
       return false;
     }
     A.pushHistory();
-    S.items.slice().sort(U.readingOrder).forEach(function (it, i) { var g = slots[i]; it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; });
-    S.cols = L.cols; S.rows = L.rows;
+    var wasFree = S.mode === 'free', order = keep.sort(wasFree ? freeOrder : U.readingOrder), empties = 0;
+    while (order.length < L.f.length) { order.push(A.makeEmptyItem({ col: 0, row: 0, w: 1, h: 1 })); empties++; }
+    S.items = order.slice();
+    if (S.sel && !A.itemById(S.sel)) S.sel = null;
+    order.forEach(function (it, i) { var g = slots[i]; it.col = g.col; it.row = g.row; it.w = g.w; it.h = g.h; });
+    S.mode = 'grid'; S.cols = L.cols; S.rows = L.rows;
+    A.autoFill(false);   // a running folder playlist fills the new empty tiles
     A.savePrefs(); A.render(); A.refreshInspector();
+    var msg = [];
+    if (wasFree) msg.push('The tiles are on the grid again, in the layout’s frames.');
+    if (empties) msg.push(empties + (empties === 1 ? ' frame is an empty tile' : ' frames are empty tiles') + ': drop media on them, or add a folder as a playlist.');
+    if (msg.length) A.toast(msg.join(' '));
     return true;
   }
   A.renderLayouts = function () {
@@ -230,7 +243,7 @@
   });
 
   /* ---------- the last wall, offered at the start ---------- */
-  // The wall starts empty and offers the last one (Settings › General › When Wallpane starts). While the offer stands
+  // The wall starts empty and offers the last one (Settings › General › On start). While the offer stands
   // and the wall is still empty, the last wall is not saved over. Starting empty, or putting something on the empty
   // wall, keeps it in Saved walls as "Last wall".
   var LAST = 'Last wall', offered = null;   // { rec (cleaned), raw (as it was saved) } while the offer stands

@@ -34,6 +34,23 @@
     return '<label class="fld" for="' + id + '"><span>' + label + '</span><select id="' + id + '">' +
       opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>';
   }
+  // How long a playlist plays each video before it moves on (0: the whole clip); another value stays one of them.
+  var CLIPS = [['0', 'Whole clip'], ['10', '10 s'], ['20', '20 s'], ['30', '30 s'], ['60', '1 min'], ['120', '2 min'], ['300', '5 min']];
+  function clipOpts(v) { return CLIPS.some(function (o) { return o[0] === v; }) ? CLIPS : CLIPS.concat([[v, v + ' s']]); }
+  // A part of the card under a heading that folds it away. Which parts are folded is kept (S.propsFold) for every tile.
+  function sec(key, id, label, body) {
+    var shut = S.propsFold.indexOf(key) > -1;
+    return '<div class="sec' + (shut ? ' folded' : '') + '" id="' + id + '" data-fold="' + key + '">' +
+      '<button class="lab foldh" type="button" aria-expanded="' + !shut + '">' + label + '<span class="chev" aria-hidden="true">›</span></button>' +
+      '<div class="secbody">' + body + '</div></div>';
+  }
+  function setFold(s, shut) {
+    var k = s.dataset.fold;
+    s.classList.toggle('folded', shut);
+    s.querySelector('.foldh').setAttribute('aria-expanded', String(!shut));
+    S.propsFold = S.propsFold.filter(function (x) { return x !== k; }).concat(shut ? [k] : []);
+    A.savePrefs();
+  }
   function numFld(id, label, val, min, max, title) {
     return '<label class="fld" for="' + id + '"' + (title ? ' title="' + esc(title) + '"' : '') + '><span>' + label + '</span>' +
       '<input id="' + id + '" type="number" min="' + min + '" max="' + max + '" value="' + val + '" inputmode="numeric"></label>';
@@ -42,8 +59,8 @@
   /* ---------- a video tile: sound, speed, and a part of the video that loops ---------- */
   function playbackSec(it) {
     var vol = Math.round((it.vol == null ? 1 : it.vol) * 100), loop = !it.pl && P.hasLoop(it);
-    return '<div class="sec" id="pbSec"><span class="lab">Playback</span>' + seg('sMute', 'Sound off', 'Sound on', it.muted) +
-      (it.pl ? '' : seg('sLoop', 'Loop', 'Play once', it.loop)) +
+    return sec('playback', 'pbSec', 'Playback', seg('sMute', 'Sound off', 'Sound on', it.muted) +
+      (it.pl ? '' : seg('sLoop', 'Repeat', 'Play once', it.loop)) +
       '<div class="frow zoomrow"><label for="insVol">Volume</label><div class="row"><input id="insVol" type="range" min="0" max="100" step="1" value="' + vol + '"><span class="gapval" id="insVolVal">' + vol + '%</span></div></div>' +
       '<div class="frow"><label for="insSpeed">Speed</label><select id="insSpeed">' +
       P.SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === (it.speed || 1) ? ' selected' : '') + '>' + s + '×' + (s === 1 ? ' (normal)' : '') + '</option>'; }).join('') + '</select></div>' +
@@ -53,26 +70,27 @@
         '<button class="btn" id="insLoopANow" type="button" title="Start the part where the video is now ( [ )">Now</button>' +
         '<label class="fld" for="insLoopB"><span>End</span><input id="insLoopB" type="text" inputmode="decimal" autocomplete="off" placeholder="the end" value="' + (loop && it.loopB != null ? P.fmtTime(it.loopB, true) : '') + '"></label>' +
         '<button class="btn" id="insLoopBNow" type="button" title="End the part where the video is now ( ] )">Now</button></div>' +
-        (loop ? '<button class="btn" id="insLoopClear" type="button">Stop looping the part</button>' : '<p class="note">Type times like 1:23.5, or play to a spot and press Now.</p>')) +
-      '</div>';
+        (!loop ? '<p class="note">Type times like 1:23.5, or play to a spot and press Now.</p>' : A.hasFfmpeg && it.path
+          ? '<div class="acts"><button class="btn" id="insLoopClear" type="button">Stop looping</button><button class="btn" id="insGif" type="button" title="Save the looped part as a GIF file">Make a GIF…</button></div>'
+          : '<button class="btn" id="insLoopClear" type="button">Stop looping the part</button>')));
   }
 
   /* ---------- a tile that plays a folder: that playlist's own options ---------- */
   function playersOf(it) { return S.items.filter(function (i) { return i.pl === it.pl; }).length; }
   function playlistSec(it) {
     var p = S.playlists[it.pl], users = playersOf(it);
-    return '<div class="sec" id="plSec"><span class="lab">Playlist</span>' +
+    return sec('playlist', 'plSec', 'Playlist',
       '<div class="plhead"><span class="ic" aria-hidden="true">' + A.ICON.folder + '</span><div><b>' + esc(p.name) + '</b><small>' +
       esc(A.plCount(p)) + (p.truncated ? ', the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder' : '') + '</small></div></div>' +
       (users > 1 ? '<p class="note">' + users + ' tiles play this folder. Changes here apply to all of them.</p>' : '') +
-      seg('sPin', 'Rotating', 'Pinned', !it.pinned) +
+      seg('sPin', 'Moves on', 'Stays on this file', !it.pinned) +
       '<div class="plgrid" id="plOpts">' +
       selectFld('pOrder', 'Order', [['name', 'Name order'], ['shuffle', 'Shuffle']], p.shuffle ? 'shuffle' : 'name') +
       numFld('pSecs', 'Image seconds', p.secs, 2, 300) +
       selectFld('pGif', 'GIFs stay', [['secs', 'Image time'], ['once', 'One full play']], p.gifOnce ? 'once' : 'secs') +
       selectFld('pFrom', 'Videos start', [['start', 'Beginning'], ['random', 'Random point']], p.randomStart ? 'random' : 'start') +
       selectFld('pFade', 'Crossfade', [['0', 'Cut'], ['0.5', '0.5 s'], ['1', '1 s'], ['2', '2 s']], String(p.fade || 0)) +
-      numFld('pMax', 'Max clip seconds', p.maxClip, 0, 3600, '0 plays each clip to the end') +
+      selectFld('pMax', 'Clip length', clipOpts(String(p.maxClip || 0)), String(p.maxClip || 0)) +
       selectFld('pView', 'Zoom and position', [['reset', 'New for each file'], ['keep', 'Keep for every file']], p.keepView ? 'keep' : 'reset').replace('class="fld"', 'class="fld wide"') +
       selectFld('pShape', 'Shapes', [['any', 'Any shape'], ['tile', 'Shaped like the tile first']], p.fitShape ? 'tile' : 'any').replace('class="fld"', 'class="fld wide"') +
       '<div class="fld wide"><span>Plays</span><div class="kinds" id="pTypes" role="group" aria-label="Kinds of file this playlist plays">' +
@@ -83,7 +101,7 @@
       '<div class="acts"><button class="btn" id="plPrev"' + (it.pinned || !(it._back && it._back.length) ? ' disabled' : '') + ' title="The file this tile showed before">Previous file</button>' +
       '<button class="btn" id="plNext"' + (it.pinned ? ' disabled title="Pinned: unpin to move on"' : '') + '>Next file</button>' +
       '<button class="btn" id="plChange" title="Play a different folder on this tile">Change folder…</button></div>' +
-      '<button class="btn" id="plLeave" title="Keep showing the file that is on the tile now">Stop the playlist on this tile</button></div>';
+      '<button class="btn" id="plLeave" title="Keep showing the file that is on the tile now">Stop the playlist on this tile</button>');
   }
   function playlistSig(it) {
     var p = it.pl && S.playlists[it.pl];
@@ -116,15 +134,25 @@
 
   /* ---------- the Properties card: floats next to the selected tile, so the wall keeps the whole window ---------- */
   A.propsOpen = false;
-  // `section`: a part of the card to bring into view, e.g. '#plSec' for the playlist options.
+  // `section`: a part of the card to unfold and bring into view, e.g. '#plSec' for the playlist options.
   A.openProps = function (it, section) {
     if (!it) return;
     A.select(it.id);
     A.propsOpen = true; shownKey = null;
     A.refreshInspector();
     var s = section && inspector.querySelector(section);
-    if (s) { s.scrollIntoView({ block: 'nearest' }); s.classList.add('flash'); setTimeout(function () { s.classList.remove('flash'); }, 900); }
+    if (s) {
+      if (s.classList.contains('folded')) { setFold(s, false); placeCard(it); }
+      s.scrollIntoView({ block: 'nearest' }); s.classList.add('flash'); setTimeout(function () { s.classList.remove('flash'); }, 900);
+    }
   };
+  // A heading folds its part away or opens it; the card stays inside the window.
+  inspector.addEventListener('click', function (e) {
+    var h = e.target.closest('.foldh'), it = A.selected();
+    if (!h) return;
+    setFold(h.parentNode, !h.parentNode.classList.contains('folded'));
+    if (it) placeCard(it);
+  });
   A.closeProps = function () {
     A.propsOpen = false; shownKey = null; shownItem = null;
     inspector.hidden = true;
@@ -154,22 +182,22 @@
       '<button class="btn ib closex" id="insClose" type="button" aria-label="Close properties" title="Close (Esc)">' + A.ICON.x + '</button>' +
       '<div class="ins-head"><div class="ins-name">' + esc(it.name) + '</div><div class="ins-meta">' + pills + '</div>' +
       (it.path ? '<div class="ins-path">' + esc(it.path) + '</div>' : '') + '</div>' +
-      '<div class="sec"><span class="lab">' + (S.mode === 'free' ? 'Position and size (pixels)' : 'Position and size (cells)') + '</span><div class="fields">' +
+      sec('place', 'placeSec', S.mode === 'free' ? 'Position and size (pixels)' : 'Position and size (cells)', '<div class="fields">' +
       (S.mode === 'free' ? freeFields(it) :
         field('fCol', 'Column', it.col + 1, S.cols) + field('fRow', 'Row', it.row + 1, S.rows) +
-        field('fW', 'Width', it.w, S.cols) + field('fH', 'Height', it.h, S.rows)) + '</div></div>' +
-      (!A.hasMedia(it) ? '' : '<div class="sec"><span class="lab">Display</span>' + seg('sFit', 'Fill the tile', 'Whole frame', it.fit === 'cover') +
+        field('fW', 'Width', it.w, S.cols) + field('fH', 'Height', it.h, S.rows)) + '</div>') +
+      (!A.hasMedia(it) ? '' : sec('display', 'dispSec', 'Display', seg('sFit', 'Fill the tile', 'Whole frame', it.fit === 'cover') +
         '<div class="frow zoomrow"><label for="insZoom">Zoom</label><div class="row"><input id="insZoom" type="range" min="100" max="' + (MW.view.MAXZ * 100) + '" step="5" value="' + Math.round(MW.view.of(it).zoom * 100) + '"><span class="gapval" id="insZoomVal">' + Math.round(MW.view.of(it).zoom * 100) + '%</span></div></div>' +
         '<div class="acts"><button class="btn" id="insRepos" title="Drag the media inside the tile; scroll to zoom"><span class="ic" aria-hidden="true">' + A.ICON.move + '</span>Reposition</button>' +
         '<button class="btn" id="insViewReset" title="Centre the media and zoom out"><span class="ic" aria-hidden="true">' + A.ICON.reset + '</span>Reset</button></div>' +
-        '<button class="btn" id="insFitTile" title="Shrink the tile to the exact shape of its media: no bars, nothing cropped"><span class="ic" aria-hidden="true">' + A.ICON.fit + '</span>Fit tile to media</button></div>') +
+        '<button class="btn" id="insFitTile" title="Shrink the tile to the exact shape of its media: no bars, nothing cropped"><span class="ic" aria-hidden="true">' + A.ICON.fit + '</span>Fit tile to media</button>')) +
       (it.kind === 'video' && !it.missing ? playbackSec(it) : '') +
       (it.pl && S.playlists[it.pl] ? playlistSec(it) : '') +
-      '<div class="sec"><span class="lab">' + (it.kind === 'empty' ? 'Media' : 'File') + '</span><div class="acts">' +
+      sec('file', 'fileSec', it.kind === 'empty' ? 'Media' : 'File', '<div class="acts">' +
       (it.missing ? '<button class="btn pri" id="insRelink">Locate file…</button>' : it.kind === 'empty' ? '<button class="btn pri" id="insReplace">Choose media…</button>' : '<button class="btn" id="insReplace">Replace…</button>') +
-      '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">' + (it.kind === 'empty' ? 'Play a folder…' : 'Own folder…') + '</button>' +
-      (it.path && !it.missing ? '<button class="btn" id="insReveal">Show in folder</button>' : '') +
-      '</div></div>' +
+      '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">Play a folder…</button>' +
+      (it.path && !it.missing ? '<button class="btn" id="insReveal">Show in Explorer</button>' : '') +
+      '</div>') +
       '<button class="btn warn full" id="insRemove"><span class="ic" aria-hidden="true">' + A.ICON.trash + '</span>Remove from wall</button>';
 
     function commit() {
@@ -213,6 +241,7 @@
       $('#insLoopBNow').addEventListener('click', function () { A.setLoop(it, it.loopA || 0, now()); });
     }
     if ($('#insLoopClear')) $('#insLoopClear').addEventListener('click', function () { A.setLoop(it, null, null); });
+    if ($('#insGif')) $('#insGif').addEventListener('click', function () { A.makeGif(it); });
     if ($('#sPin')) $('#sPin').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; A.setPinned(it, b.dataset.v === 'b'); });
     // Playlist options apply at once to the folder this tile plays (and to every tile that plays it).
     if ($('#plOpts')) $('#plOpts').addEventListener('change', function () {
@@ -238,7 +267,7 @@
       A.pushHistory();
       if (next.shuffle !== p.shuffle) { p.order = null; p.pos = 0; }   // a new round, in the new order
       Object.assign(p, next);
-      $('#pSecs').value = p.secs; $('#pMax').value = p.maxClip;
+      $('#pSecs').value = p.secs; $('#pMax').value = String(p.maxClip || 0);
       shownKey = keyOf(it);   // the card already shows these values
       // Tiles showing a kind of file this playlist no longer plays move on now.
       if (typesChanged) {

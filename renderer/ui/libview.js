@@ -20,13 +20,15 @@
 
   // The view's settings, from what was saved (anything odd falls back to the default).
   // folder or coll: what it shows (one library folder, or one collection); sort for folders, csort in a collection.
-  var DEFAULTS = { place: 'drawer', side: 'left', open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null, coll: null };
+  // side: right by default, beside the Library button; sideSet: chosen by hand (before 1.6.1 the left was saved
+  // without a choice, so such a wall follows the default).
+  var DEFAULTS = { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null, coll: null };
   var SORTS = ['added', 'changed', 'length', 'size', 'random'];
   function cleanPrefs(l) {
     var one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
     if (!l || typeof l !== 'object') return Object.assign({}, DEFAULTS);
     return {
-      place: one(l.place, ['panel', 'window']) || 'drawer', side: one(l.side, ['right']) || 'left', open: l.open === true,
+      place: one(l.place, ['panel', 'window']) || 'drawer', side: l.sideSet === true && l.side === 'left' ? 'left' : 'right', sideSet: l.sideSet === true, open: l.open === true,
       w: U.clamp(+l.w || 400, 260, 4000), size: U.clamp(+l.size || 110, 60, 240),
       sort: one(l.sort, SORTS) || 'name', csort: one(l.csort, SORTS.concat('name')) || 'order', rev: l.rev === true,
       kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
