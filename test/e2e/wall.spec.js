@@ -228,6 +228,32 @@ test('minimized, the wall pauses, and plays on when the window is back', async (
   } finally { await app.close(); }
 });
 
+test('a single video has Repeat, a picture has neither Repeat nor Pin, a playlist tile has Pin', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), folder = path.join(dir, 'Two');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=3', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 120, 40]));
+  fs.mkdirSync(folder);
+  for (let i = 0; i < 2; i++) fs.writeFileSync(path.join(folder, 'p' + i + '.png'), png(160, 90, [40, 80 * i, 200]));
+  const { app, page, errors, answer } = await start(dir);
+  const tile = (name) => page.locator('#wall .tile[aria-label^="' + name + '"]');
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect(tile('clip.mp4').locator('[data-act="loop"]')).toHaveAttribute('aria-label', 'Repeat this video');
+    await expect(tile('pic.png').locator('[data-act="loop"]')).toHaveCount(0);
+    await expect(tile('pic.png').locator('[data-act="pin"]')).toHaveCount(0);
+    // A folder on the picture's tile: a playlist, with Pin (Stay on this file) and no Repeat.
+    const id = await tile('pic.png').getAttribute('data-id');
+    await page.evaluate(([i, f]) => window.wall.expand([f]).then((res) => window.MW.app.assignFolder(window.MW.app.itemById(+i), res)), [id, folder]);
+    const pl = page.locator('#wall .tile[data-id="' + id + '"]');
+    await expect(pl.locator('[data-act="pin"]')).toHaveAttribute('aria-label', 'Stay on this file');
+    await expect(pl.locator('[data-act="loop"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('a wall with videos saves a change within seconds, also once their openings are measured', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   // 1.6.0 redrew such a wall every 0.6 s (each answer about openings set off the next question), which kept putting

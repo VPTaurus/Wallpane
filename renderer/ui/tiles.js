@@ -96,10 +96,11 @@
     var nm = document.createElement('span'); nm.className = 'tname'; nm.textContent = it.name; nm.title = it.path || it.name;
     var bt = document.createElement('span'); bt.className = 'hbtns';
     bt.innerHTML =
-      (it.pl ? '<button class="hb" data-act="pin" aria-label="Pin to this tile">' + ICON.pin + '</button>' : '') +
+      (it.pl ? '<button class="hb" data-act="pin" aria-label="Stay on this file">' + ICON.pin + '</button>' : '') +
       (it.pl && it._back && it._back.length ? '<button class="hb" data-act="prev" aria-label="Previous in playlist" title="The file this tile showed before">' + ICON.prev + '</button>' : '') +
       (it.pl ? '<button class="hb" data-act="next" aria-label="Next in playlist" title="Next in playlist">' + ICON.next + '</button>' : '') +
-      (it.pl ? '' : '<button class="hb" data-act="loop" aria-label="Loop on or off">' + ICON.loop + '</button>') +
+      // Repeat is for a single video (a picture does not play, a GIF always repeats); a playlist tile has Pin instead.
+      (!it.pl && it.kind === 'video' ? '<button class="hb" data-act="loop" aria-label="Repeat this video">' + ICON.loop + '</button>' : '') +
       '<button class="hb" data-act="fit" aria-label="Fit">' + ICON.fit + '</button>' +
       '<button class="hb danger" data-act="remove" aria-label="Remove from wall">' + ICON.trash + '</button>';
     hud.appendChild(nm); hud.appendChild(bt);
@@ -626,13 +627,13 @@
       var pb = el.querySelector('[data-act="pin"]');
       if (pb) {
         pb.classList.toggle('on', !!it.pinned);
-        pb.title = it.pinned ? 'Pinned. Click to let the playlist continue' : 'Pin: keep this on the tile';
+        pb.title = it.pinned ? 'Stays on this file. Click to carry on with the playlist' : 'Stay on this file (the playlist waits)';
         pb.setAttribute('aria-pressed', String(!!it.pinned));
       }
       var lb = el.querySelector('[data-act="loop"]');
       if (lb) {
         lb.classList.toggle('on', it.loop);
-        lb.title = it.loop ? 'Looping. Click to play once' : 'Plays once. Click to loop';
+        lb.title = it.loop ? 'Repeats. Click to play it once' : 'Plays once. Click to repeat it';
         lb.setAttribute('aria-pressed', String(it.loop));
       }
     }
@@ -778,7 +779,7 @@
     $('#loopAll').disabled = !vl.length;
     $('#loopAll').classList.toggle('on', loop === 'on' && vl.length > 0);
     $('#loopAll').setAttribute('aria-pressed', loop === 'mixed' ? 'mixed' : String(loop === 'on'));
-    iconBtn($('#loopAll'), 'loop', 'Loop all videos', 'Loop: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'loop every video'));
+    iconBtn($('#loopAll'), 'loop', 'Repeat all videos', 'Repeat: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'repeat every video'));
     var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
     iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
     var loud = vi.some(function (i) { return !i.muted; });

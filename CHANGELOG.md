@@ -3,6 +3,7 @@
 ## 1.6.1 (in the works)
 
 - **A wall with videos is saved again while it plays.** In 1.6.0 such a wall redrew itself every half second or so, which kept putting off its save until the window closed: after a crash or a power cut, recent changes were lost. It now redraws only when something changes, and saves within a second of a change.
+- **Repeat and Stay on this file:** a tile with one video has **Repeat** (on, or play it once), a tile playing a folder has **Stay on this file** (the pin), in its buttons, its right-click menu and Properties alike; pictures and GIFs no longer show a loop button that did nothing. "Loop a part" keeps its name.
 - **Less work at rest:** the clock in the bar ticks once a second (four times while a stopwatch or timer runs, ten while its popover shows tenths), and no longer asks Windows for its time format on every tick.
 
 ## 1.6.0: Previews and a smoother wall

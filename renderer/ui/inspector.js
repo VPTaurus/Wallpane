@@ -43,7 +43,7 @@
   function playbackSec(it) {
     var vol = Math.round((it.vol == null ? 1 : it.vol) * 100), loop = !it.pl && P.hasLoop(it);
     return '<div class="sec" id="pbSec"><span class="lab">Playback</span>' + seg('sMute', 'Sound off', 'Sound on', it.muted) +
-      (it.pl ? '' : seg('sLoop', 'Loop', 'Play once', it.loop)) +
+      (it.pl ? '' : seg('sLoop', 'Repeat', 'Play once', it.loop)) +
       '<div class="frow zoomrow"><label for="insVol">Volume</label><div class="row"><input id="insVol" type="range" min="0" max="100" step="1" value="' + vol + '"><span class="gapval" id="insVolVal">' + vol + '%</span></div></div>' +
       '<div class="frow"><label for="insSpeed">Speed</label><select id="insSpeed">' +
       P.SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === (it.speed || 1) ? ' selected' : '') + '>' + s + '×' + (s === 1 ? ' (normal)' : '') + '</option>'; }).join('') + '</select></div>' +
@@ -65,7 +65,7 @@
       '<div class="plhead"><span class="ic" aria-hidden="true">' + A.ICON.folder + '</span><div><b>' + esc(p.name) + '</b><small>' +
       esc(A.plCount(p)) + (p.truncated ? ', the first ' + PL.MAX_FILES.toLocaleString('en-US') + ' in the folder' : '') + '</small></div></div>' +
       (users > 1 ? '<p class="note">' + users + ' tiles play this folder. Changes here apply to all of them.</p>' : '') +
-      seg('sPin', 'Rotating', 'Pinned', !it.pinned) +
+      seg('sPin', 'Moves on', 'Stays on this file', !it.pinned) +
       '<div class="plgrid" id="plOpts">' +
       selectFld('pOrder', 'Order', [['name', 'Name order'], ['shuffle', 'Shuffle']], p.shuffle ? 'shuffle' : 'name') +
       numFld('pSecs', 'Image seconds', p.secs, 2, 300) +
