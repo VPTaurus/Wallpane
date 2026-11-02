@@ -61,7 +61,31 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **E4. Duplicates.** The same video under different names, found by comparing frames.
 
 ## F. Make things from the wall (1.8.0)
-- [ ] **F1. Save a looped part** as its own MP4 (copied when the cut allows, else converted), or as a GIF or WebP.
+- [ ] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; planned, not started). The same part as an MP4 or animated WebP comes after, from the same dialog.
+  - **Where:** Properties › Playback shows **Make a GIF…** under Loop a part once a part is looped, and the tile's right-click menu shows it beside Stop looping the part. A single video only: a playlist tile has no looped part.
+  - **What you choose,** in a small dialog:
+    - **Width:** 320, 480 (the default), 640 or 800 px; the height follows the shape, and it is never wider than the video.
+    - **Frames a second:** 10, 15 (the default), 20 or 25.
+    - **What it shows:** the whole frame, or the tile's view (its shape, zoom and position).
+    - **Speed:** normal, or the tile's speed.
+    - **Loops:** forever.
+    - **Size:** a rough size estimate updates as you choose. Above 15 s the dialog says GIFs get big and suggests an MP4.
+  - **Saved where:** a Save dialog that starts in the video's folder, with a name like `clip 1.23-1.30.gif`. The original is never touched. The GIF is written under a temporary name and renamed at the end, so a cancelled or failed GIF leaves nothing behind.
+  - **How:** FFmpeg makes the GIF in one pass, offline:
+    - `-ss`/`-t` for the part, then `fps`, `scale` (lanczos), and `crop` for the tile's view;
+    - `setpts` for the speed;
+    - `split` into `palettegen` (stats_mode=diff) and `paletteuse` (bayer dither, diff_mode=rectangle), with `-loop 0`.
+
+    It is made from the original file, also when the tile plays a playable copy or a lighter copy, since the times are the same.
+  - **As a job:** a new kind in `lib/jobs.js`, one at a time, with progress from FFmpeg's time in the job list and the bar. Cancel stops FFmpeg and deletes the temporary file.
+  - **When it is done:** a message with **Show in Explorer** and **Put on the wall** (a new tile beside this one). A GIF saved in a library folder shows up in the library by itself, because it already watches its folders for new files.
+  - **Code:** the FFmpeg arguments, the tile's view turned into a crop (from `view.js`: fill, zoom and position), and the size estimate go in a plain module in `lib/`, tested without FFmpeg.
+  - **Tests:**
+    - Unit: the arguments and the crop for zoomed, moved and fill/whole-frame tiles.
+    - End-to-end: loop a part of the test video and make a GIF. The file must start with `GIF89a`, have several frames and the chosen width. A cancelled job leaves no file.
+  - **Open questions:**
+    - Keep it in 1.8.0, or move it earlier? It stands alone, so it can go in any release.
+    - Are the default width and rate (480 px, 15 fps) right?
 - [ ] **F2. Snapshot.** Save a tile's current frame as an image.
 - [ ] **F3. Export the wall as a video.** Every tile in its place, as one MP4 at a chosen size and length, made from the tiles' lighter copies, with progress in the job list. Play it on a smart TV from USB, or share it.
 
