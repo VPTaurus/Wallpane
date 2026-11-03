@@ -72,10 +72,15 @@
   };
 
   /* ---------- stored settings (one set per window) ---------- */
-  A.savePrefs = function () {
-    api.storeSet('prefs', { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib, propsFold: S.propsFold });
-  };
+  var prefsRead = false;   // until then the settings here are the defaults, not the saved ones
+  function prefsRecord() {
+    return { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib, propsFold: S.propsFold };
+  }
+  A.savePrefs = function () { api.storeSet('prefs', prefsRecord()); };
+  // A save still under way as the window closes (a change made just before) could be cut off: once more, at once.
+  window.addEventListener('beforeunload', function () { if (prefsRead) api.storeSetSync('prefs', prefsRecord()); });
   A.applyPrefs = function (p) {
+    prefsRead = true;
     if (!p || typeof p !== 'object') return;
     if (p.cols >= 1 && p.cols <= 12) S.cols = p.cols | 0;
     if (p.rows >= 1 && p.rows <= 12) S.rows = p.rows | 0;
