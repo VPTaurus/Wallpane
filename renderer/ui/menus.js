@@ -149,6 +149,7 @@
     if (it.kind !== 'empty' && !it.missing) file.push({ label: 'Replace media…', icon: 'file', act: function () { A.chooseMedia(it); } });
     if (it.kind !== 'empty') file.push({ label: 'Play a folder…', hint: 'This tile plays a folder of its own', icon: 'folder', act: function () { A.ownFolder(it); } });
     if (it.path && !it.missing) file.push({ label: 'Show in Explorer', icon: 'folder', act: function () { A.api.revealFile(it.path); } });
+    if (video && A.hasFfmpeg && it.path) file.push({ label: 'Save this frame…', hint: 'A picture of it at the video\'s full size', icon: 'camera', act: function () { A.snapshot(it); } });
     if (video && A.hasFfmpeg && it.path) file.push({ label: 'Make playable', hint: 'A converted copy, for a video that plays badly or not at all', icon: 'wand', act: function () { A.makePlayable(it); } });
     if (file.length) items.push({ label: 'File', hint: 'Replace, another folder, Explorer', icon: 'folder', sub: file });
     items.push({ label: 'Tile', hint: 'Duplicate, split', icon: 'tile', sub: [

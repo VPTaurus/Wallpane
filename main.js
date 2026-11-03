@@ -34,6 +34,7 @@ const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
 const cutpart = require('./lib/cutpart');
+const snapshot = require('./lib/snapshot');
 const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
@@ -183,6 +184,7 @@ function startBackground() {
   JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.makegif = makeGifKind({ ffmpeg });
   JOB_KINDS.cutpart = cutpart.cutPartKind({ ffmpeg });
+  JOB_KINDS.snapshot = snapshot.snapshotKind({ ffmpeg });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -276,6 +278,21 @@ handle('media:cutPart', async (e, o) => {
   const out = path.extname(r.filePath).toLowerCase() === '.' + ext ? r.filePath : r.filePath + '.' + ext;
   if (path.resolve(out).toLowerCase() === path.resolve(c.file).toLowerCase()) return { status: 'no' };
   const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out, mode: p.mode, keyGap: p.keyGap }, c), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
+// Save the frame a video tile shows as a picture (lib/snapshot.js): PNG, or JPEG when the name chosen ends so. The
+// same answers as media:makeGif.
+handle('media:snapshot', async (e, o) => {
+  const c = snapshot.clean(o);
+  if (!c || !ffmpeg.available() || !jobs || !fs.existsSync(c.file)) return { status: 'no' };
+  const r = await dialog.showSaveDialog(winOf(e), {
+    title: 'Save the frame',
+    defaultPath: path.join(path.dirname(c.file), snapshot.fileName(path.basename(c.file), c.at, 'png')),
+    filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'JPEG', extensions: ['jpg', 'jpeg'] }]
+  });
+  if (r.canceled || !r.filePath) return { status: 'cancelled' };
+  const out = /\.(?:png|jpe?g)$/i.test(r.filePath) ? r.filePath : r.filePath + '.png';
+  const job = jobs.add({ kind: 'snapshot', key: 'snapshot:' + out, label: path.basename(out), input: Object.assign({ out }, c), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.

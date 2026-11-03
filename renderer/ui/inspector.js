@@ -242,6 +242,7 @@
       (it.missing ? '<button class="btn pri" id="insRelink">Locate file…</button>' : it.kind === 'empty' ? '<button class="btn pri" id="insReplace">Choose media…</button>' : '<button class="btn" id="insReplace">Replace…</button>') +
       '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">Play a folder…</button>' +
       (it.path && !it.missing ? '<button class="btn" id="insReveal">Show in Explorer</button>' : '') +
+      (it.kind === 'video' && it.path && !it.missing && A.hasFfmpeg ? '<button class="btn" id="insSnap" title="Save the frame the tile shows now as a picture, at the video\'s full size">Save this frame…</button>' : '') +
       '</div>') +
       '<button class="btn warn full" id="insRemove"><span class="ic" aria-hidden="true">' + A.ICON.trash + '</span>Remove from wall</button>';
 
@@ -338,6 +339,7 @@
     if ($('#insReplace')) $('#insReplace').addEventListener('click', function () { A.chooseMedia(it); });
     if ($('#insRelink')) $('#insRelink').addEventListener('click', function () { A.relinkOne(it); });
     if ($('#insReveal')) $('#insReveal').addEventListener('click', function () { A.api.revealFile(it.path); });
+    if ($('#insSnap')) $('#insSnap').addEventListener('click', function () { A.snapshot(it); });
     $('#insRemove').addEventListener('click', function () { A.removeItem(it.id); });
     $('#insClose').addEventListener('click', A.closeProps);
     inspector.hidden = false;

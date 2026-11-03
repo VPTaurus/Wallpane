@@ -2,7 +2,8 @@
 // shows, speed) with the GIF's size and roughly how big a file it makes. The main process then asks where to save it
 // and makes it as a job (renderer/lib/gifmake.js, lib/makegif.js); when it is done, Show in Explorer or put it on
 // the wall. Save the part as MP4 goes the same way without a dialog: the part is copied, or re-encoded when the
-// keyframe before it is far (lib/cutpart.js).
+// keyframe before it is far (lib/cutpart.js). Save this frame too: the frame a video tile shows now, as a picture at
+// the video's full size (lib/snapshot.js).
 (function (A) {
   'use strict';
   if (!A) return;
@@ -120,6 +121,24 @@
         else if (r.early >= 0.1) notes.push('Copied as it is, so it starts ' + r.early + ' s before the part, on a keyframe.');
         if (ext.toLowerCase() !== 'mp4') notes.push('Its picture or sound cannot go into an MP4 without re-encoding, so it is ' + ext.toUpperCase() + ', like the video.');
         saved(j, notes.join(' '));
+      });
+    });
+  };
+
+  // The frame a video tile shows now (also one a playlist plays), straight to where to save it. At the very end of a
+  // video there is no frame to seek to, so a moment before it.
+  A.snapshot = function (it) {
+    var m = A.videoOf(it);
+    if (!it || it.kind !== 'video' || !it.path || it.missing) return;
+    if (!m || !(m.readyState >= 1)) { A.toast('The video has not loaded yet. Try again in a moment.'); return; }
+    var at = m.currentTime || 0;
+    if (isFinite(m.duration)) at = Math.max(0, Math.min(at, m.duration - 0.1));
+    api.snapshot({ file: it.path, at: at }).then(function (res) {
+      if (res.status === 'cancelled') return;
+      if (res.status !== 'working') { A.toast('The frame could not be saved: the video is not there, or FFmpeg is missing.'); return; }
+      A.watchJob(res.key, function (j) {
+        if (j.state === 'done' && j.result) saved(j);
+        else if (j.state === 'failed') A.toast('The frame could not be saved: ' + j.error);
       });
     });
   };

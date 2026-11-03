@@ -604,3 +604,44 @@ test('save the looped part as MP4: re-encoded when the keyframe before it is far
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('save this frame: a picture of the moment shown, at the video\'s full size, PNG or JPEG', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25:duration=6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  const saveTo = (f) => app.evaluate(({ dialog }, p) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: p }); }, f);
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="clip.mp4"]'), video = tile.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(5);
+    await video.evaluate((v) => { v.pause(); v.currentTime = 2.5; });
+    // The tile is zoomed in: the picture is still the whole frame.
+    await page.evaluate(() => { const it = window.MW.app.S.items.find((i) => i.kind === 'video'); it.zoom = 3; window.MW.app.render(); });
+
+    // From the tile's menu (File), with the name it offers: a PNG of 640 × 360.
+    await saveTo(path.join(dir, 'clip 2.5s.png'));
+    await tile.click({ button: 'right' });
+    await page.locator('#ctxMenu .mi.hassub', { hasText: 'File' }).hover();
+    await page.locator('#ctxSub .mi', { hasText: 'Save this frame' }).click();
+    await expect(toast(page)).toContainText('Saved clip 2.5s.png');
+    const pic = fs.readFileSync(path.join(dir, 'clip 2.5s.png'));
+    expect(pic.subarray(1, 4).toString()).toBe('PNG');
+    expect([pic.readUInt32BE(16), pic.readUInt32BE(20)]).toEqual([640, 360]);
+    expect(fs.existsSync(path.join(dir, 'clip 2.5s.png.part'))).toBe(false);
+
+    // From Properties › File, as a JPEG.
+    await saveTo(path.join(dir, 'still.jpg'));
+    await tile.click();
+    await page.keyboard.press('Alt+Enter');
+    await page.locator('#insSnap').click();
+    await expect(toast(page)).toContainText('Saved still.jpg');
+    const jpg = fs.readFileSync(path.join(dir, 'still.jpg'));
+    expect([jpg[0], jpg[1]]).toEqual([0xff, 0xd8]);
+    const info = await ff.probeRaw(path.join(dir, 'still.jpg'));
+    expect([info.streams[0].width, info.streams[0].height]).toEqual([640, 360]);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

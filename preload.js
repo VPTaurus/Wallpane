@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('wall', {
   } : null),
   // o: { file, start, end } (lib/cutpart.js)
   cutPart: (o) => ipcRenderer.invoke('media:cutPart', o && typeof o === 'object' ? { file: String(o.file), start: +o.start, end: +o.end } : null),
+  // o: { file, at } (lib/snapshot.js)
+  snapshot: (o) => ipcRenderer.invoke('media:snapshot', o && typeof o === 'object' ? { file: String(o.file), at: +o.at } : null),
   loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
   onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),
