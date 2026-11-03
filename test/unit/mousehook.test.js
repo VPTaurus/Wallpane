@@ -40,3 +40,18 @@ test('the helper catches its button in every program, and lets go', { skip }, as
     assert.deepEqual(changes, [true, false]);
   } finally { h.stop(); }
 });
+
+test('after the helper puts its hook in afresh (every 10 s), a press still counts, once', { skip, timeout: 60000 }, async () => {
+  let presses = 0;
+  const h = createMouseHook({ exe, onPress: () => { presses++; } });
+  try {
+    h.start('forward');
+    assert.ok(await until(() => h.ok(), 30000), 'the hook is in place');
+    await new Promise((r) => setTimeout(r, 11000));
+    const sent = await pressSide(2);
+    if (sent !== 2) { test.diagnostic('Windows took no input here, so the press itself was not tried'); return; }
+    assert.ok(await until(() => presses >= 1, 5000), 'the press came through the fresh hook');
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(presses, 1, 'and only once');
+  } finally { h.stop(); }
+});

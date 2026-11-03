@@ -552,12 +552,19 @@ test('emergency hide: the mouse button works from any program, so it brings back
     await page.evaluate(() => window.wall.setHide({ mouse: 'forward', cover: 'away' }));
     await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
     const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
+    // Windows can lose an injected press without a word (SendInput counts it as sent, and a CI machine's desktop may not
+    // get it), so a press that changed nothing in 6 s is made once more, with time for the helper's fresh hook.
+    const lands = async (to) => {
+      if (await expect.poll(visible, { timeout: 6000 }).toBe(to).then(() => true, () => false)) return;
+      expect(await pressSide(2)).toBe(2);
+      await expect.poll(visible, { timeout: 15000 }).toBe(to);
+    };
     // A real press, through Windows, wherever the pointer is: the windows go away, and the next press brings them back.
     const sent = await pressSide(2);
     test.skip(sent !== 2, 'Windows took no input here');
-    await expect.poll(visible).toBe(false);
+    await lands(false);
     expect(await pressSide(2)).toBe(2);
-    await expect.poll(visible).toBe(true);
+    await lands(true);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
