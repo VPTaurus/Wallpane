@@ -22,6 +22,9 @@ GitHub Actions runs all three on every push to `main` or `Dev` and on every pull
 ## Screenshots
 `npm run screenshots` remakes the pictures in `docs/images` (used by the README and the landing page): it starts Wallpane on a fresh data folder in its dark look, sets up a few walls and photographs them, and makes `wall.mp4` with Wallpane's own Record. It takes about five minutes and needs FFmpeg and the demo media: free Pexels clips and photos in `demo-media/`, which is not in git (their licence does not allow passing the files on; `docs/images/CREDITS.md` and ROADMAP G1 say which they are). `DEMO_MEDIA` points it at another folder with the same file names.
 
+## The landing page
+`docs/index.html` is Wallpane's web page, served by GitHub Pages from the `docs` folder of `main` (Settings › Pages › Deploy from a branch: `main`, `/docs`), at https://vptaurus.github.io/Wallpane/. One static file with its CSS inside, the app's fonts in `docs/fonts` and the pictures from `docs/images`; no scripts from elsewhere, no trackers. `docs/.nojekyll` makes Pages serve the folder as it is. Its download buttons fetch `releases/latest/download/Wallpane-Setup.exe` and `Wallpane-Portable.exe`, which the release workflow attaches next to the versioned files. To look at it, open `docs/index.html` in a browser.
+
 ## Build a Windows app
 `npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
 

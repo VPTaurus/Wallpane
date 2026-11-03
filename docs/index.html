@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wallpane</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Wallpane is a free video wall for Windows: your own videos, pictures and GIFs, many at once, arranged your way. It never goes online.">
+<meta property="og:title" content="Wallpane: a video wall for Windows">
+<meta property="og:description" content="Your own videos, pictures and GIFs, many at once, on a wall that fills the screen. Free, offline, open source.">
+<meta property="og:image" content="https://vptaurus.github.io/Wallpane/images/wall.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="images/icon.png">
+<style>
+/* Layout: the page is a wall. The features sit in a grid of tiles with the app's 6 px gaps on its wall colour, some
+   tiles pictures and some text, as Wallpane lays out a wall. Around it, a dark room in the app's own colours. */
+@font-face { font-family: "Bricolage Grotesque"; font-weight: 500; font-display: swap; src: url("fonts/bricolage-grotesque-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Bricolage Grotesque"; font-weight: 700; font-display: swap; src: url("fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
+:root {
+  color-scheme: dark;
+  --room: #0e1218;      /* the page: the app's dark background */
+  --wall: #090c10;      /* behind the tiles, as on a wall */
+  --panel: #161b23;     /* a text tile */
+  --panel-2: #1d232d;
+  --line: #2a3240;
+  --fg: #e7eaf0;
+  --muted: #9aa5b5;
+  --amber: #f0a93a;     /* the app's accent, and the icon's first tile */
+  --amber-ink: #1c1304;
+  --blue: #3b7fc4;      /* the icon's other tiles */
+  --green: #3dab78;
+  --pale: #d9d9d9;
+  --soft: #c9d0db;      /* running text, a step below --fg */
+  --edge: #3a4558;      /* a hovered border */
+  --amber-hi: #f6b955;
+  --blue-text: #7fb4e6;
+  --green-text: #6fd0a2;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --gap: 6px;
+  --max: 1180px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--room); color: var(--fg); font: 500 17px/1.6 var(--display); -webkit-font-smoothing: antialiased; }
+img, video { max-width: 100%; display: block; }
+a { color: inherit; }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: var(--max); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.mono { font-family: var(--mono); font-weight: 400; }
+.label { font: 500 12px/1.4 var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.08; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.5rem, 6.4vw, 4.75rem); letter-spacing: -0.025em; }
+h2 { font-size: clamp(1.75rem, 3.6vw, 2.6rem); letter-spacing: -0.02em; }
+h3 { font-size: 1.3rem; letter-spacing: -0.01em; }
+p { margin: 0; }
+
+/* The mark: the icon's four tiles. */
+.mark { display: inline-grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 2.2fr; gap: 2px; width: 26px; height: 26px; flex: none; }
+.mark i { border-radius: 3px; }
+.mark i:nth-child(1) { background: var(--amber); grid-row: 1 / 3; }
+.mark i:nth-child(2) { background: var(--blue); }
+.mark i:nth-child(3) { background: var(--pale); }
+.mark i:nth-child(4) { background: var(--green); grid-column: 1 / 3; }
+
+/* Top */
+header { padding-block: 20px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 1.2rem; }
+nav { display: flex; gap: 22px; flex-wrap: wrap; font-size: 0.95rem; }
+nav a { text-decoration: none; color: var(--muted); }
+nav a:hover { color: var(--fg); }
+
+/* The opening: what it is, and the wall playing. */
+.hero { padding-block: clamp(28px, 6vw, 72px) 28px; display: grid; gap: 22px; }
+.hero .lede { max-width: 38em; font-size: 1.15rem; color: var(--soft); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 10px; font: 700 1rem var(--display); text-decoration: none; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.btn:hover { border-color: var(--edge); background: var(--panel-2); }
+.btn.pri { background: var(--amber); border-color: var(--amber); color: var(--amber-ink); }
+.btn.pri:hover { background: var(--amber-hi); border-color: var(--amber-hi); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.specs { color: var(--muted); font-size: 13px; }
+.screen { margin: 18px 0 0; padding: var(--gap); background: var(--wall); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45); }
+.screen video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; background: var(--wall); }
+.screen figcaption { padding: 10px 6px 4px; color: var(--muted); font-size: 12.5px; }
+
+/* The features as a wall of tiles. */
+section { padding-block: clamp(48px, 8vw, 96px); }
+.head { display: grid; gap: 12px; margin-bottom: 28px; max-width: 42em; }
+.head p { color: var(--soft); }
+/* dense: a row's picture placed on the left still goes into that row, after its text placed on the right. */
+.wall { display: grid; grid-auto-flow: row dense; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap); background: var(--wall); border-radius: 16px; border: 1px solid var(--line); }
+.tile { border-radius: 9px; overflow: hidden; min-width: 0; }
+.tile.pic { grid-column: span 8; aspect-ratio: 16 / 9; background: var(--panel); }
+.tile.pic img { width: 100%; height: 100%; object-fit: cover; }
+.tile.txt { grid-column: span 4; background: var(--panel); padding: clamp(20px, 2.6vw, 34px); display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; }
+.tile.txt p { color: var(--soft); font-size: 1rem; }
+.tile.third { grid-column: span 4; }
+/* A row with its picture on the left: the text goes to the last four columns, the picture fills the first eight. */
+.tile.txt.right { grid-column: 9 / span 4; }
+.tile.pic.left { grid-column: 1 / span 8; }
+.tile .label { color: var(--amber); }
+.tile.alt .label { color: var(--blue-text); }
+.tile.grn .label { color: var(--green-text); }
+
+/* Private */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
+.fact { display: grid; gap: 8px; align-content: start; padding-top: 18px; border-top: 2px solid var(--line); }
+.fact:nth-child(1) { border-top-color: var(--amber); }
+.fact:nth-child(2) { border-top-color: var(--blue); }
+.fact:nth-child(3) { border-top-color: var(--pale); }
+.fact:nth-child(4) { border-top-color: var(--green); }
+.fact p { color: var(--soft); font-size: 1rem; }
+
+/* Download */
+.get { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap); background: var(--wall); border-radius: 16px; border: 1px solid var(--line); }
+.opt { background: var(--panel); border-radius: 9px; padding: clamp(22px, 3vw, 34px); display: grid; gap: 12px; align-content: start; }
+.opt p { color: var(--soft); }
+.opt .btn { justify-self: start; margin-top: 6px; }
+.warn { grid-column: 1 / -1; background: var(--panel-2); border-radius: 9px; padding: 20px clamp(22px, 3vw, 34px); display: grid; gap: 8px; }
+.warn p { color: var(--soft); font-size: 1rem; max-width: 52em; }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 500 13px var(--mono); color: var(--fg); }
+.steps span { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.steps b { color: var(--muted); font-weight: 400; }
+.meta { margin-top: 16px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* Questions */
+.faq { display: grid; gap: var(--gap); max-width: 860px; }
+details { background: var(--panel); border-radius: 10px; border: 1px solid var(--line); }
+summary { cursor: pointer; list-style: none; padding: 18px 22px; font-weight: 700; display: flex; justify-content: space-between; gap: 16px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font: 400 1.3rem/1 var(--mono); color: var(--amber); }
+details[open] summary::after { content: "−"; }
+details p { padding: 0 22px 20px; color: var(--soft); font-size: 1rem; max-width: 46em; }
+
+footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
+.foot { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: center; }
+.foot nav { gap: 18px; }
+
+@media (max-width: 860px) {
+  .tile.pic, .tile.txt, .tile.third, .tile.txt.right, .tile.pic.left { grid-column: 1 / -1; }
+  .tile.txt { justify-content: flex-start; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .get { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  nav { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap top">
+    <a class="brand" href="#top" aria-label="Wallpane, to the top"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Wallpane</a>
+    <nav aria-label="On this page">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/VPTaurus/Wallpane/blob/main/docs/guide.md">Guide</a>
+      <a href="https://github.com/VPTaurus/Wallpane">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="label">A video wall for Windows · free</span>
+    <h1>All your videos,<br>playing at once.</h1>
+    <p class="lede">Wallpane puts your own videos, pictures and GIFs side by side on a wall that fills the screen. Arrange it on a grid or freely, let whole folders play in turn, and leave it running on a TV. It never goes online.</p>
+    <div class="actions">
+      <a class="btn pri" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Setup.exe">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download for Windows</a>
+      <a class="btn" href="#features">See what it does</a>
+    </div>
+    <p class="specs mono">Windows 10 and 11 · 64-bit · open source (GPL-3.0)</p>
+    <figure class="screen">
+      <video id="wallClip" src="images/wall.mp4" poster="images/wall-poster.jpg" autoplay muted loop playsinline preload="auto" aria-label="Eight videos playing side by side on a Wallpane wall: city traffic at sunset, northern lights, a jellyfish, a fire, a waterfall, ocean waves, coloured ink and neon reflections"></video>
+      <figcaption class="mono">Recorded with Wallpane's own Record button. Clips from Pexels.</figcaption>
+    </figure>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">What it does</span>
+        <h2>A wall you arrange, tile by tile.</h2>
+        <p>Drop files or whole folders from Explorer and they become tiles. Every tile plays on its own: its own file, framing, sound and speed.</p>
+      </div>
+      <div class="wall">
+        <div class="tile txt">
+          <span class="label">Arrange</span>
+          <h3>Grid or free, your way</h3>
+          <p>Snap tiles to a grid, or place and size them by the pixel. Drag an edge and the others make room. Fill the wall turns everything into a collage where each file keeps its own shape.</p>
+        </div>
+        <div class="tile pic"><img src="images/free.jpg" width="1600" height="900" loading="lazy" alt="Ten tiles placed freely, each in its file's shape: a cherry tree, coloured ink, a jellyfish, a city at sunset, a beach, mountains over a lake and northern lights"></div>
+
+        <div class="tile txt alt right">
+          <span class="label">Play</span>
+          <h3>Folders and your library</h3>
+          <p>Give a tile a folder and it plays the files in turn, with its own timing and crossfade. The library shows every file you keep as a thumbnail, with stars, hearts and tags. Drag what you want onto the wall.</p>
+        </div>
+        <div class="tile pic left"><img src="images/library.jpg" width="1600" height="900" loading="lazy" alt="The library open beside the wall, with thumbnails marked with stars and hearts"></div>
+
+        <div class="tile txt grn">
+          <span class="label">Tune</span>
+          <h3>Every tile, just so</h3>
+          <p>Zoom and frame what a tile shows, loop part of a video, set its speed and volume. AVI, WMV and other videos that won't play as they are get converted for you, with FFmpeg built in.</p>
+        </div>
+        <div class="tile pic"><img src="images/properties.jpg" width="1600" height="900" loading="lazy" alt="A tile's Properties card, with fit, zoom, sound, repeat, speed and a looped part from 0:06.5 to 0:14"></div>
+
+        <div class="tile txt third">
+          <span class="label">Leave it running</span>
+          <h3>A wall on its own</h3>
+          <p>Wall mode (F11) fills a display and keeps it awake. With Start with Windows, the wall comes back full screen after a restart. Cast it to a TV or projector.</p>
+        </div>
+        <div class="tile txt third alt">
+          <span class="label">Share</span>
+          <h3>Record and screenshot</h3>
+          <p>Record the wall as it plays, from one click to the next, up to 4K. Take a screenshot, or save a looped part as a GIF or MP4.</p>
+        </div>
+        <div class="tile txt third grn">
+          <span class="label">Ctrl + Shift + H</span>
+          <h3>Gone in a moment</h3>
+          <p>One key or mouse button hides every wall window from any program and silences it. The same again brings it all back.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="private">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Private</span>
+        <h2>It all stays on your PC.</h2>
+      </div>
+      <div class="facts">
+        <div class="fact"><h3>Never online</h3><p>Wallpane plays files from your own drives and never connects to the internet. No account, no ads, no tracking.</p></div>
+        <div class="fact"><h3>Your files untouched</h3><p>Saved walls only point to your files. Copies, thumbnails and previews go into Wallpane's own cache.</p></div>
+        <div class="fact"><h3>Everything inside</h3><p>FFmpeg comes with it, so converting and thumbnails work offline, with nothing more to download.</p></div>
+        <div class="fact"><h3>Open source</h3><p>Free software under the GPL. Read the code, build it yourself, or help shape it on GitHub.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Download</span>
+        <h2>Get Wallpane.</h2>
+        <p>Free, for Windows 10 and 11 (64-bit). About 180 MB, FFmpeg included.</p>
+      </div>
+      <div class="get">
+        <div class="opt">
+          <h3>Installer</h3>
+          <p>Installs Wallpane with a Start menu entry and an uninstaller. Best for most people.</p>
+          <a class="btn pri" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Setup.exe">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download installer</a>
+        </div>
+        <div class="opt">
+          <h3>Portable</h3>
+          <p>One file that runs from anywhere, even a USB stick. Nothing is installed.</p>
+          <a class="btn" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Portable.exe">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download portable</a>
+        </div>
+        <div class="warn">
+          <span class="label">If Windows warns you</span>
+          <p>Wallpane isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC" the first time. That is about the missing signature, not about anything found in the file.</p>
+          <div class="steps"><span>More info</span><b>then</b><span>Run anyway</span></div>
+        </div>
+      </div>
+      <div class="meta">
+        <a href="https://github.com/VPTaurus/Wallpane/blob/main/CHANGELOG.md">What's new</a>
+        <a href="https://github.com/VPTaurus/Wallpane/releases">All releases</a>
+        <a href="https://github.com/VPTaurus/Wallpane/blob/main/docs/guide.md">The guide</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="questions">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Questions</span>
+        <h2>Good to know.</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Is it really free?</summary>
+          <p>Yes. Wallpane is free software under the GNU GPL, version 3 or later: no trial, no ads, no paid tier. If it's useful to you, you can support it on <a href="https://github.com/sponsors/VPTaurus">GitHub Sponsors</a>; it stays free either way.</p>
+        </details>
+        <details>
+          <summary>Which files does it play?</summary>
+          <p>MP4, WebM, MOV, M4V, MKV and OGV videos as they are; AVI, WMV, FLV, MPEG, 3GP and others after a quick conversion it makes by itself, leaving your file as it was. Pictures: JPEG, PNG, GIF, WebP, AVIF, BMP and SVG. HEIC and camera RAW photos need converting to JPEG first.</p>
+        </details>
+        <details>
+          <summary>Does it need the internet?</summary>
+          <p>No. Wallpane never goes online. Everything it needs, FFmpeg included, comes with the download.</p>
+        </details>
+        <details>
+          <summary>Can I use more than one screen?</summary>
+          <p>Yes. Open another wall window for each screen; each has its own wall and settings, and wall mode fills the display you pick. A TV or projector works too, by cable or Miracast.</p>
+        </details>
+        <details>
+          <summary>Is there a Mac or Linux version?</summary>
+          <p>Not yet. Wallpane is for Windows 10 and 11.</p>
+        </details>
+        <details>
+          <summary>Where are my walls kept?</summary>
+          <p>On your PC, in your Windows user folder (<span class="mono">%APPDATA%\Wallpane</span>). Saved walls can be exported to a file and imported on another PC.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Wallpane</a>
+    <nav aria-label="More">
+      <a href="https://github.com/VPTaurus/Wallpane">GitHub</a>
+      <a href="https://github.com/VPTaurus/Wallpane/blob/main/docs/guide.md">Guide</a>
+      <a href="https://github.com/VPTaurus/Wallpane/blob/main/CHANGELOG.md">What's new</a>
+      <a href="https://github.com/sponsors/VPTaurus">Sponsor</a>
+      <a href="https://github.com/VPTaurus/Wallpane/blob/main/LICENSE">Licence (GPL-3.0)</a>
+      <a href="https://github.com/VPTaurus/Wallpane/blob/main/docs/images/CREDITS.md">Media credits</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  // Someone who asked for less motion gets the still picture; the clip plays when they click it.
+  (function () {
+    var v = document.getElementById('wallClip');
+    if (!v || !window.matchMedia || !matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    v.removeAttribute('autoplay'); v.pause(); v.controls = true;
+  })();
+</script>
+</body>
+</html>
