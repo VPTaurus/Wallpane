@@ -176,6 +176,7 @@
         if (it.loop && media.ended) media.play().catch(function () {});
       }
       else if (act === 'play') { if (media.paused) media.play().catch(function () {}); else media.pause(); }
+      else if (act === 'back10' || act === 'on10') A.skip(it, act === 'back10' ? -10 : 10);
     });
     // Double-click toggles: this tile full screen, and back.
     el.addEventListener('dblclick', function (e) {
@@ -214,12 +215,20 @@
   }
 
   /* ---------- video playback: the control bar, volume, speed, and a part that loops ---------- */
-  // A bar along the bottom of a video tile: play, time, a timeline that shows the looped part, mute, volume, speed.
+  // Back or on by `secs` (J and L: 5 s; the bar's buttons: 10 s), within the video.
+  A.skip = function (it, secs) {
+    var v = A.videoOf(it);
+    if (v) v.currentTime = clamp(v.currentTime + secs, 0, isFinite(v.duration) ? v.duration : Infinity);
+  };
+  // A bar along the bottom of a video tile: play, 10 s back and on (on a big tile, or one full screen), time, a
+  // timeline that shows the looped part, mute, volume, speed.
   function buildBar(it, el, media) {
     var bar = document.createElement('div');
     bar.className = 'vbar';
     bar.innerHTML =
       '<button class="hb" type="button" data-act="play" aria-label="Play or pause"></button>' +
+      '<button class="hb vskip" type="button" data-act="back10" aria-label="Back 10 seconds" title="Back 10 s (J: 5 s)">' + ICON.undo + '<span>10</span></button>' +
+      '<button class="hb vskip" type="button" data-act="on10" aria-label="Forward 10 seconds" title="Forward 10 s (L: 5 s)"><span>10</span>' + ICON.redo + '</button>' +
       '<span class="vtime">0:00</span>' +
       '<span class="vtrack"><span class="vloop" hidden></span><input class="vseek" type="range" min="0" max="1000" step="1" value="0" aria-label="Position in the video"></span>' +
       '<button class="hb" type="button" data-act="mute" aria-label="Sound on or off"></button>' +

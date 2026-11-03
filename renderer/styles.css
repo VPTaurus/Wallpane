@@ -250,6 +250,9 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .vloop { position: absolute; top: 50%; z-index: 1; height: 6px; transform: translateY(-50%); border-radius: 3px; background: color-mix(in srgb, var(--accent) 60%, transparent); pointer-events: none; }
 .vbar .vvol { width: 64px; height: 20px; margin: 0; accent-color: #fff; }
 .vbar .vspeed { height: 26px; max-width: 64px; padding: 0 4px; border: 0; border-radius: 6px; background: rgba(0, 0, 0, 0.55); color: #fff; font: 500 11px var(--mono); }
+/* 10 s back and on: a curved arrow and "10", only on a big tile (or one full screen). */
+.vbar .vskip { width: auto; display: flex; align-items: center; gap: 1px; padding: 0 5px; font: 700 11px/1 var(--ui); }
+@container (max-width: 480px) { .vbar .vskip { display: none; } }
 @container (max-width: 380px) { .vbar .vvol { display: none; } }
 @container (max-width: 260px) { .vbar .vtime { display: none; } }
 @container (max-width: 190px) { .vbar .vspeed { display: none; } }

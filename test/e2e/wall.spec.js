@@ -490,6 +490,35 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
   } finally { await app.close(); }
 });
 
+test('10 s back and on: buttons in the video bar of a big tile or one full screen, not of a small one', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'long.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=40', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="long.mp4"]'), video = tile.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(39);
+    await video.evaluate((v) => { v.pause(); v.currentTime = 5; });
+    await tile.hover();
+    await expect(tile.locator('[data-act="on10"]')).toBeHidden();   // one cell of 4 × 3: too small
+    // Full screen, the buttons show; each jumps 10 s.
+    await tile.dblclick();
+    await expect(tile).toHaveClass(/\bsolo\b/);
+    await tile.hover();
+    const t = () => video.evaluate((v) => v.currentTime);
+    await tile.locator('[data-act="on10"]').click();
+    await expect.poll(t).toBeGreaterThan(14.5);
+    expect(await t()).toBeLessThan(15.5);
+    await tile.locator('[data-act="back10"]').click();
+    await tile.locator('[data-act="back10"]').click();
+    await expect.poll(t).toBe(0);   // never before the start
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('emergency hide: the mouse button works from any program, so it brings back windows that went away', async () => {
   test.skip(process.platform !== 'win32' || (!process.env.WALLPANE_EXE && !fs.existsSync(path.join(root, 'vendor', 'mousehook', 'wallpane-mouse.exe'))),
     'The mouse helper is not built (npm run build-mousehook)');
