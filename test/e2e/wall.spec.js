@@ -488,3 +488,35 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('save the looped part as MP4: copied without re-encoding, from the keyframe before the part', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), out = path.join(dir, 'cut.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-g', '50', '-keyint_min', '50', '-sc_threshold', '0', '-c:a', 'aac', '-shortest', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="clip.mp4"]');
+    await expect.poll(() => tile.locator('video').evaluate((v) => v.duration)).toBeGreaterThan(5);
+    await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 3.3, 5); });
+    // Properties › Playback offers it beside Make a GIF…
+    await tile.click();
+    await page.keyboard.press('Alt+Enter');
+    await expect(page.locator('#insCut')).toBeVisible();
+    await page.keyboard.press('Escape');
+    // From the tile's menu, straight to where to save it.
+    await app.evaluate(({ dialog }, p) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: p }); }, out);
+    await tile.click({ button: 'right' });
+    await page.locator('#ctxMenu .mi', { hasText: 'Save the part as MP4' }).click();
+    await expect(toast(page)).toContainText('Saved cut.mp4');
+    await expect(toast(page)).toContainText('starts 1.3 s before the part');
+    const info = await ff.probeRaw(out);
+    expect(info.streams.map((s) => s.codec_name).sort()).toEqual(['aac', 'h264']);
+    expect(Math.abs(parseFloat(info.format.duration) - 3)).toBeLessThan(0.1);
+    expect(fs.existsSync(path.join(dir, 'cut.part.mp4'))).toBe(false);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

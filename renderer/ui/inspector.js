@@ -71,7 +71,8 @@
         '<label class="fld" for="insLoopB"><span>End</span><input id="insLoopB" type="text" inputmode="decimal" autocomplete="off" placeholder="the end" value="' + (loop && it.loopB != null ? P.fmtTime(it.loopB, true) : '') + '"></label>' +
         '<button class="btn" id="insLoopBNow" type="button" title="End the part where the video is now ( ] )">Now</button></div>' +
         (!loop ? '<p class="note">Type times like 1:23.5, or play to a spot and press Now.</p>' : A.hasFfmpeg && it.path
-          ? '<div class="acts"><button class="btn" id="insLoopClear" type="button">Stop looping</button><button class="btn" id="insGif" type="button" title="Save the looped part as a GIF file">Make a GIF…</button></div>'
+          ? '<div class="acts"><button class="btn" id="insLoopClear" type="button">Stop looping</button><button class="btn" id="insGif" type="button" title="Save the looped part as a GIF file">Make a GIF…</button>' +
+            '<button class="btn" id="insCut" type="button" title="Save the looped part as a video, without re-encoding: it starts on the keyframe before the part">Save as MP4…</button></div>'
           : '<button class="btn" id="insLoopClear" type="button">Stop looping the part</button>')));
   }
 
@@ -242,6 +243,7 @@
     }
     if ($('#insLoopClear')) $('#insLoopClear').addEventListener('click', function () { A.setLoop(it, null, null); });
     if ($('#insGif')) $('#insGif').addEventListener('click', function () { A.makeGif(it); });
+    if ($('#insCut')) $('#insCut').addEventListener('click', function () { A.cutPart(it); });
     if ($('#sPin')) $('#sPin').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; A.setPinned(it, b.dataset.v === 'b'); });
     // Playlist options apply at once to the folder this tile plays (and to every tile that plays it).
     if ($('#plOpts')) $('#plOpts').addEventListener('change', function () {

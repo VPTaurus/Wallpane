@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Save the looped part as MP4:** beside Make a GIF (Properties › Playback and the tile's menu). The part is copied without re-encoding, so it is saved at once with nothing lost; it starts on the keyframe before the part, and the message says how early. A video whose picture or sound cannot go into an MP4 without re-encoding stays its own kind of file.
 - **Empty tiles in Free (pixels) look like empty cells on the grid:** only the faint +, with "Drop or click" under the pointer, instead of the Empty tile card with File… and Folder…. A click chooses the tile's media; its right-click menu still offers a folder.
 - **Fixed: the message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
 

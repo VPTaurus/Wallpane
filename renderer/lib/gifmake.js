@@ -45,15 +45,16 @@
   // Seconds the GIF lasts, and roughly how many bytes it takes.
   function seconds(g) { return (g.end - g.start) / (g.speed || 1); }
   function estimate(secs, fps, w, h) { return Math.round(secs * fps * w * h * BPP); }
-  // "clip 1m23.5s-1m30s.gif" for the part 1:23.5 to 1:30 of "clip.mp4" (Windows allows no colons in names).
+  // "clip 1m23.5s-1m30s.gif" for the part 1:23.5 to 1:30 of "clip.mp4" (Windows allows no colons in names); ext
+  // gives another kind of file (lib/cutpart.js saves the part as a video).
   function stamp(s) {
     s = Math.round(s * 10) / 10;
     var m = Math.floor(s / 60), r = Math.round((s - m * 60) * 10) / 10, rs = r % 1 ? r.toFixed(1) : String(r);
     return (m ? m + 'm' + (r < 10 ? '0' : '') : '') + rs + 's';
   }
-  function fileName(name, start, end) {
+  function fileName(name, start, end, ext) {
     var base = String(name || 'video').replace(/\.[^.\\/]+$/, '') || 'video';
-    return base + ' ' + stamp(start) + '-' + stamp(end) + '.gif';
+    return base + ' ' + stamp(start) + '-' + stamp(end) + '.' + (ext || 'gif');
   }
   function fx(v) { return String(Math.round(v * 1e6) / 1e6); }
   // FFmpeg's arguments to make the GIF `out` (g from clean). `input(file)` gives the arguments that open the file.

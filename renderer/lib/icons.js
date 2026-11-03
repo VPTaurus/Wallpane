@@ -64,6 +64,8 @@
     sortdir: svg('<path d="M5 2.5v11M2.5 11l2.5 2.5 2.5-2.5M11 13.5v-11M8.5 5l2.5-2.5 2.5 2.5"/>'),
     shuffle: svg('<path d="M1.5 4.5h2.5c3.5 0 4.5 7 8 7h2.5M12.5 9.5l2 2-2 2M1.5 11.5h2.5c1.2 0 2-.8 2.7-2M9.3 6.5c.7-1.2 1.5-2 2.7-2h2.5M12.5 2.5l2 2-2 2"/>'),
     // A strip of film: Make a GIF.
-    film: svg('<path d="M2.5 2.5h11v11h-11zM5 2.5v11M11 2.5v11M2.5 5.5H5M2.5 10.5H5M11 5.5h2.5M11 10.5h2.5"/>')
+    film: svg('<path d="M2.5 2.5h11v11h-11zM5 2.5v11M11 2.5v11M2.5 5.5H5M2.5 10.5H5M11 5.5h2.5M11 10.5h2.5"/>'),
+    // Scissors: Save the part as MP4.
+    cut: svg('<circle cx="4.5" cy="11.5" r="2"/><circle cx="11.5" cy="11.5" r="2"/><path d="M5.8 10L12 2.5M10.2 10L4 2.5"/>')
   };
 });

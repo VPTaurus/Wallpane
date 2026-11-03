@@ -1,7 +1,7 @@
 // Make a GIF of a video tile's looped part: a small dialog (width, frames a second, the whole frame or what the tile
 // shows, speed) with the GIF's size and roughly how big a file it makes. The main process then asks where to save it
 // and makes it as a job (renderer/lib/gifmake.js, lib/makegif.js); when it is done, Show in Explorer or put it on
-// the wall.
+// the wall. Save the part as MP4 goes the same way without a dialog: the part is copied, not re-encoded (lib/cutpart.js).
 (function (A) {
   'use strict';
   if (!A) return;
@@ -74,14 +74,17 @@
     if (!box.hidden && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
   }, true);
 
+  // A finished job's file: where it went, with anything worth knowing about it, Show in Explorer and Put on the wall.
+  function saved(j, note) {
+    var p = j.result.path;
+    A.toast('Saved ' + j.label + (j.result.bytes ? ' (' + U.bytes(j.result.bytes) + ')' : '') + '.' + (note ? ' ' + note : ''), [
+      { label: 'Show in Explorer', act: function () { api.revealFile(p); } },
+      { label: 'Put on the wall', act: function () { api.expand([p]).then(function (res) { A.addFiles(res, null); }); } }
+    ]);
+  }
   function done(j) {
-    if (j.state === 'done' && j.result) {
-      var p = j.result.path;
-      A.toast('Saved ' + j.label + (j.result.bytes ? ' (' + U.bytes(j.result.bytes) + ')' : '') + '.', [
-        { label: 'Show in Explorer', act: function () { api.revealFile(p); } },
-        { label: 'Put on the wall', act: function () { api.expand([p]).then(function (res) { A.addFiles(res, null); }); } }
-      ]);
-    } else if (j.state === 'failed') A.toast('The GIF could not be made: ' + j.error);
+    if (j.state === 'done' && j.result) saved(j);
+    else if (j.state === 'failed') A.toast('The GIF could not be made: ' + j.error);
   }
   $('#gifMake').addEventListener('click', function () {
     var it = cur, p = it && A.itemById(it.id) && part(it);
@@ -95,4 +98,26 @@
       A.watchJob(res.key, done);
     });
   });
+
+  // Save the looped part as a video of its own, straight to where to save it. A copy can only start on a keyframe, so
+  // the message says when it starts before the part, and when the video's picture or sound kept it from being an MP4.
+  A.cutPart = function (it) {
+    if (!it || it.kind !== 'video' || !it.path || it.pl || it.missing) return;
+    if (!P.hasLoop(it)) { A.toast('Loop a part of the video first: Properties › Playback, or [ and ] while it plays.'); return; }
+    var p = part(it);
+    if (!p) { A.toast('The video has not loaded yet. Try again in a moment.'); return; }
+    api.cutPart({ file: it.path, start: p.a, end: p.b }).then(function (res) {
+      if (res.status === 'cancelled') return;
+      if (res.status !== 'working') { A.toast('The part could not be saved: the video is not there, or FFmpeg is missing.'); return; }
+      A.toast('Saving the part…');
+      A.watchJob(res.key, function (j) {
+        if (j.state === 'failed') { A.toast('The part could not be saved: ' + j.error); return; }
+        if (j.state !== 'done' || !j.result) return;
+        var r = j.result, notes = [], ext = (/\.([^.\\/]+)$/.exec(r.path) || ['', ''])[1];
+        if (ext.toLowerCase() !== 'mp4') notes.push('Its picture or sound cannot go into an MP4 without re-encoding, so it is ' + ext.toUpperCase() + ', like the video.');
+        if (r.early >= 0.1) notes.push('It starts ' + r.early + ' s before the part, on the keyframe there: a copy without re-encoding starts on one.');
+        saved(j, notes.join(' '));
+      });
+    });
+  };
 })(window.MW.app);

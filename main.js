@@ -31,6 +31,7 @@ const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
+const cutpart = require('./lib/cutpart');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
@@ -178,6 +179,7 @@ function startBackground() {
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
   JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.makegif = makeGifKind({ ffmpeg });
+  JOB_KINDS.cutpart = cutpart.cutPartKind({ ffmpeg });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -250,6 +252,25 @@ handle('media:makeGif', async (e, o) => {
   const out = /\.gif$/i.test(r.filePath) ? r.filePath : r.filePath + '.gif';
   if (path.resolve(out).toLowerCase() === path.resolve(g.file).toLowerCase()) return { status: 'no' };
   const job = jobs.add({ kind: 'makegif', key: 'makegif:' + out, label: path.basename(out), input: Object.assign({ out }, g), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
+// Save a looped part as a video of its own, without re-encoding (lib/cutpart.js): an MP4 when the video's picture and
+// sound go into one, else the video's own kind of file. Asks where to save it, then a job copies it. The same answers
+// as media:makeGif.
+handle('media:cutPart', async (e, o) => {
+  const c = cutpart.clean(o);
+  if (!c || !ffmpeg.available() || !jobs || !fs.existsSync(c.file)) return { status: 'no' };
+  let ext = 'mp4';
+  try { ext = cutpart.extFor(mediainfo.describe(await ffmpeg.probeRaw(c.file)), c.file); } catch { /* not readable: try an MP4 */ }
+  const r = await dialog.showSaveDialog(winOf(e), {
+    title: 'Save the part',
+    defaultPath: path.join(path.dirname(c.file), gifmake.fileName(path.basename(c.file), c.start, c.end, ext)),
+    filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
+  });
+  if (r.canceled || !r.filePath) return { status: 'cancelled' };
+  const out = path.extname(r.filePath).toLowerCase() === '.' + ext ? r.filePath : r.filePath + '.' + ext;
+  if (path.resolve(out).toLowerCase() === path.resolve(c.file).toLowerCase()) return { status: 'no' };
+  const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out }, c), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.

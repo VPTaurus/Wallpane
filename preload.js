@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('wall', {
     file: String(o.file), start: +o.start, end: +o.end, width: +o.width, fps: +o.fps, speed: +o.speed,
     crop: o.crop ? { x: +o.crop.x, y: +o.crop.y, w: +o.crop.w, h: +o.crop.h } : null
   } : null),
+  // o: { file, start, end } (lib/cutpart.js)
+  cutPart: (o) => ipcRenderer.invoke('media:cutPart', o && typeof o === 'object' ? { file: String(o.file), start: +o.start, end: +o.end } : null),
   loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
   onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),

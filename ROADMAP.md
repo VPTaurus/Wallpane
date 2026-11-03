@@ -77,6 +77,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 
 ## F. Make things from the wall (1.8.0)
 - [x] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; done the same day, brought forward into 1.6.5). The same part as an MP4 or animated WebP comes after, from the same dialog.
+  - **Save the part as MP4** (done 2026-11-03, not in a dialog after all): a menu item and a Properties button that go straight to Save as. Copied without re-encoding, as asked: instant and lossless, starting on the keyframe before the part (the message says how early). An MP4 when the picture and sound go into one, else the video's own kind of file. Code: `lib/cutpart.js` (job kind 'cutpart'). An exact cut (re-encoding) and animated WebP stay open.
   - **Done, and where it differs from the plan below:**
     - **Code:** the choices, the check of what the page asks for, the sizes, the file name and FFmpeg's arguments are in `renderer/lib/gifmake.js`, which the main process uses too. The job kind is in `lib/makegif.js`, and what a tile shows comes from `view.js` `shown()`.
     - **Limits:** a part longer than a minute is refused. Above 15 s the dialog says GIFs get big and suggests a shorter part, a smaller width or fewer frames; an MP4 comes with the MP4 option.
