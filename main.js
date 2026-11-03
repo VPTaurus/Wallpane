@@ -340,6 +340,32 @@ handle('library:editCollection', (_e, op, a, b, c) => {
     default: return null;
   }
 });
+// Your marks on library files: stars, the favourite heart and tags, for one file or many at once (lib/library.js
+// mark: { stars, fav, addTags, dropTags }). Returns how many files changed.
+handle('library:mark', (_e, ids, change) => {
+  libFolders.ready();
+  return library.mark(Array.isArray(ids) ? ids.filter((v) => typeof v === 'string') : [], change && typeof change === 'object' ? change : {});
+});
+// Every tag in use, with how many files have it: [{ name, files }].
+handle('library:tags', () => { libFolders.ready(); return library.tags(); });
+// rename (tag, new name) · drop (tag). Returns how many files changed.
+handle('library:editTag', (_e, op, a, b) => {
+  libFolders.ready();
+  const s = (x) => (typeof x === 'string' ? x : '');
+  if (op === 'rename') return library.renameTag(s(a), s(b));
+  if (op === 'drop') return library.dropTag(s(a));
+  return null;
+});
+// What the library knows of files on the wall: { path: { id, stars, fav, tags } } for those in it.
+handle('library:about', (_e, paths) => {
+  libFolders.ready();
+  const out = {};
+  (Array.isArray(paths) ? paths : []).forEach((p) => {
+    const e = typeof p === 'string' ? library.find(p) : null;
+    if (e) out[p] = { id: e.id, stars: e.stars || 0, fav: !!e.fav, tags: e.tags || [] };
+  });
+  return out;
+});
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
 handle('library:thumbs', (_e, ids) => { libFolders.ready(); return thumbs.want(ids); });

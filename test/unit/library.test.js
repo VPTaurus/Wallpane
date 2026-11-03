@@ -35,7 +35,7 @@ test('a scan brings in media only, and everything comes back after a restart', (
   assert.ok(lib.setInfo(id, { w: 1920, h: 1080, dur: 12.5, v: 'h264', play: 'none', junk: 1, fps: 'fast' }));
   assert.ok(lib.flush());
   const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(saved.version, 1);
+  assert.equal(saved.version, 2);
   assert.deepEqual(Object.keys(saved.files[id]).sort(), ['added', 'dur', 'h', 'kind', 'mtime', 'path', 'play', 'size', 'v', 'w']);
 
   const again = createLibrary({ file });
@@ -292,6 +292,64 @@ test('collections: made, filled, reordered, searched, kept, and they follow thei
   assert.ok(again.dropCollection(c.id));
   assert.equal(again.dropCollection(c.id), false);
   assert.deepEqual(again.collections().map((x) => x.name), ['New collection']);
+});
+
+test('marks: stars, the heart and tags, on many files at once; found, filtered, sorted, renamed and deleted', () => {
+  const { lib, root } = make();
+  const d = path.join(root, 'Clips'), id = (n) => lib.find(path.join(d, n)).id, names = namesOf(lib);
+  lib.addFolder(d);
+  lib.sync(d, [f(path.join(d, 'a.mp4'), 1), f(path.join(d, 'b.mp4'), 2), f(path.join(d, 'c.mp4'), 3)]);
+  assert.equal(lib.mark([id('a.mp4'), id('b.mp4'), 'nope'], { stars: 4, addTags: ['Beach', ' sun  set ', 'beach'] }), 2);
+  assert.equal(lib.mark([id('c.mp4')], { stars: 9, fav: true, addTags: ['BEACH'] }), 1);
+  assert.deepEqual(lib.get(id('c.mp4')).tags, ['Beach'], 'a tag in use keeps its spelling');
+  assert.equal(lib.get(id('c.mp4')).stars, undefined, 'stars out of range are left alone');
+  assert.deepEqual(lib.tags(), [{ name: 'Beach', files: 3 }, { name: 'sun set', files: 2 }]);
+  assert.equal(lib.mark([id('a.mp4')], { stars: 4 }), 0, 'nothing new');
+  lib.mark([id('b.mp4')], { stars: 5, dropTags: ['SUN SET'] });
+  assert.deepEqual(names({ text: 'beach' }), ['a.mp4', 'b.mp4', 'c.mp4'], 'a search finds tags');
+  assert.deepEqual(names({ tag: 'Sun Set' }), ['a.mp4']);
+  assert.deepEqual(names({ fav: true }), ['c.mp4']);
+  assert.deepEqual(names({ stars: 4 }), ['a.mp4', 'b.mp4']);
+  assert.deepEqual(lib.query({ sort: 'rating' }).items.map((i) => [i.name, i.stars, i.fav]), [['b.mp4', 5, false], ['a.mp4', 4, false], ['c.mp4', 0, true]]);
+  assert.deepEqual(names({ sort: 'rating', reverse: true }), ['c.mp4', 'a.mp4', 'b.mp4']);
+  lib.mark([id('c.mp4')], { stars: 0, fav: false });
+  assert.deepEqual([lib.get(id('c.mp4')).stars, lib.get(id('c.mp4')).fav], [undefined, undefined], 'no stars, no heart');
+  // Renamed into a tag in use: the two merge, written as typed; a.mp4 had both and keeps one.
+  assert.equal(lib.renameTag('sun set', 'beach'), 3);
+  assert.deepEqual(lib.tags(), [{ name: 'beach', files: 3 }]);
+  assert.equal(lib.renameTag('beach', ' '), -1);
+  assert.equal(lib.dropTag('BEACH'), 3);
+  assert.deepEqual(lib.tags(), []);
+  assert.deepEqual(names({ text: 'beach' }), []);
+});
+
+test('marks stay with a changed, moved or copied file, and after a restart; an older library.json reads as before', () => {
+  const { lib, file, root } = make();
+  const d = path.join(root, 'Clips'), at = (p) => lib.find(path.join(d, p));
+  lib.addFolder(d);
+  lib.sync(d, [f(path.join(d, 'a.mp4'), 1), f(path.join(d, 'b.mp4'), 2), f(path.join(d, 'copy', 'b.mp4'), 2), f(path.join(d, 'c.mp4'), 3)]);
+  lib.mark([at('a.mp4').id], { stars: 3, addTags: ['moved'] });
+  lib.mark([at('b.mp4').id], { stars: 5, fav: true, addTags: ['copied'] });
+  lib.mark([at('c.mp4').id], { fav: true });
+  // c.mp4 changes, a.mp4 moves into a subfolder, and b.mp4 goes while its copy stays.
+  lib.sync(d, [f(path.join(d, 'sub', 'a.mp4'), 1), f(path.join(d, 'copy', 'b.mp4'), 2), f(path.join(d, 'c.mp4'), 33)]);
+  assert.equal(at('c.mp4').fav, true, 'a changed file keeps its marks');
+  assert.deepEqual([at(path.join('sub', 'a.mp4')).stars, at(path.join('sub', 'a.mp4')).tags], [3, ['moved']]);
+  const copy = at(path.join('copy', 'b.mp4'));
+  assert.deepEqual([copy.stars, copy.fav, copy.tags], [5, true, ['copied']], 'the copy takes over its marks');
+  assert.deepEqual(namesOf(lib)({ text: 'copied' }), ['b.mp4']);
+  assert.ok(lib.flush());
+  const again = createLibrary({ file });
+  again.load();
+  assert.deepEqual(again.query({ sort: 'rating' }).items, lib.query({ sort: 'rating' }).items);
+  assert.deepEqual(again.tags(), lib.tags());
+  // A library.json from before marks (version 1) is read, and saved again, as usual.
+  const old = JSON.parse(fs.readFileSync(file, 'utf8'));
+  old.version = 1;
+  fs.writeFileSync(file, JSON.stringify(old));
+  const older = createLibrary({ file });
+  assert.equal(older.load().readOnly, undefined);
+  assert.equal(older.readOnly(), false);
 });
 
 test('saving waits for a quiet moment, but never too long', async () => {

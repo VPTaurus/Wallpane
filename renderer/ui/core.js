@@ -101,7 +101,7 @@
     var tb = p.timeBar;
     if (tb && typeof tb === 'object') S.timeBar = { clock: tb.clock !== false, sw: tb.sw === true, tm: tb.tm === true, ct: tb.ct === true };
     if (Number.isFinite(p.counter)) S.counter = MW.util.clamp(Math.round(p.counter), -999999, 999999);
-    if (Array.isArray(p.propsFold)) S.propsFold = p.propsFold.filter(function (k) { return ['place', 'display', 'playback', 'playlist', 'file'].indexOf(k) > -1; });
+    if (Array.isArray(p.propsFold)) S.propsFold = p.propsFold.filter(function (k) { return ['place', 'display', 'playback', 'playlist', 'lib', 'file'].indexOf(k) > -1; });
     if (p.lib && typeof p.lib === 'object') S.lib = A.libView.cleanPrefs(p.lib);
     var m = p.music;
     if (m && typeof m === 'object') {

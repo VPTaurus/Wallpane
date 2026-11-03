@@ -70,7 +70,19 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
   - **Saved walls:** nothing to migrate. Tiles that Fit to media shaped keep their places and their Whole frame setting.
 
 ## E. Library, part 2 (1.7.0)
-- [ ] **E1. Tags, ratings and favourites**, also for many files at once.
+- [x] **E1. Tags, ratings and favourites**, also for many files at once. Planned and done on 2026-11-03 (the user chose stars and a heart, set in the library and on wall tiles). Where it differs from the plan below: the tile's right-click menu gets one **Library ›** group (Favourite, the ratings, Tags… which opens Properties), whose hint shows the marks, instead of three items at the top level, so the menu 1.6.5 shortened stays short.
+  - **What a file gets:** 1 to 5 **stars** (or none), a **favourite** heart, and any number of **tags** (short names; "Beach" and "beach" are one tag, written the way it was first typed). Only files in the library have them, since they live in `library.json` with the file. A changed file keeps them; a moved or renamed one does too (it keeps its id), and so does a copy that takes over from a file that left.
+  - **Store** (`lib/library.js`): `stars`, `fav`, `tags` per file; `library.json` goes to version 2, so an older Wallpane opens it read-only and never drops them. `mark(ids, { stars, fav, addTags, dropTags })` for one file or many at once, `tags()` with how many files have each, `renameTag` (into an existing one merges them) and `dropTag`. Searching also matches tag names. Query: `fav`, `stars` (at least), `tag` (one tag shown, like a collection), and a **Rating** sort (most stars first, favourites first among equals).
+  - **In the library:**
+    - **Thumbnails:** a small heart in the top corner for favourites, and the stars along the foot.
+    - **Right-click** (on one file or a selection): Favourite / Not a favourite, **Rating ›** (★ to ★★★★★, No rating), **Tags…**.
+    - **Keys:** 1 to 5 set the stars, 0 clears them, F toggles the heart, T opens Tags….
+    - **Tags…:** a small box with the tags all the selected files share (× takes one off them all), a field to type a tag (existing ones offered as you type; Enter adds it to them all), and the other tags in use as one-click chips.
+    - **The folder row's list** gets a **Tags** section under Collections: a tag shows the files that have it; right-click renames or deletes it (deleting takes it off the files, which stay).
+    - **Filters:** Favourites only, and Rating: any, 1+ … 5. **Sort:** Rating.
+  - **On the wall,** for a tile whose file is in the library: its right-click menu gets Favourite and Rating › (in the Tile group's neighbourhood, at the top level), and Properties gets a **Library** part: five stars to click, the heart, and its tags (× to take one off, a field to add one). A tile whose file is not in the library shows none of this.
+  - **Not in E1:** a tag or rating playing as a playlist (that is E2, saved searches), and tag colours.
+  - **Tests:** unit tests for the store (marking many, tags merging and renaming, surviving a changed, moved or returning file, version 2 read-only for older, the query and sort); one end-to-end test in `library.spec.js` (rate, heart and tag from the menu and keys, filter and sort by them, the tag in the folder list, the tile's Properties).
 - [ ] **E2. Saved searches as playlists.** A search or filter that a tile plays and that follows the library as it changes (folder playlists become one kind of these).
 - [ ] **E3. Markers.** Suggested from scene changes and set by hand; loop a marked part; a playlist of marked moments.
 - [ ] **E4. Duplicates.** The same video under different names, found by comparing frames.

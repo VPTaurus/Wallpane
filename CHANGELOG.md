@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (1.7.0)
+
+- **Stars, hearts and tags for library files:** 1 to 5 stars, a favourite heart and any tags, for one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart and the stars. Filters for rating and favourites, a Rating sort, a search that finds tags, and a Tags section in the folder row's list (right-click a tag to rename or delete it). On the wall, a tile whose file is in the library has a Library group in its menu and a Library part in Properties. `library.json` becomes version 2, which an older Wallpane opens read-only, so it never drops them.
+
 ## 1.6.6: The looped part as MP4, and a surer emergency hide
 
 Download **Wallpane Setup 1.6.6.exe** (installer) or **Wallpane 1.6.6.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

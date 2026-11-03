@@ -97,9 +97,22 @@
   menu.addEventListener('keydown', function (e) { keys(menu, e); });
   sub.addEventListener('keydown', function (e) { keys(sub, e); });
 
+  function starText(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  // The tile's file's marks in the library (lib: { id, stars, fav, tags }), as one submenu whose hint shows them.
+  function libraryGroup(it, lib) {
+    var mark = function (change) { A.api.markLibrary([lib.id], change); };
+    var now = [lib.stars ? starText(lib.stars) : '', lib.fav ? '♥' : '', lib.tags.join(', ')].filter(Boolean).join(' · ');
+    return { label: 'Library', hint: now || 'Rating, favourite, tags', icon: 'star', sub: [
+      { label: lib.fav ? 'Not a favourite' : 'Favourite', icon: 'heart', act: function () { mark({ fav: !lib.fav }); } },
+      '-'
+    ].concat([5, 4, 3, 2, 1, 0].map(function (n) {
+      return { label: n ? starText(n) : 'No rating', icon: n === lib.stars ? 'star' : '', hint: n === lib.stars ? 'Now' : '', act: function () { mark({ stars: n }); } };
+    }), ['-', { label: 'Tags…', icon: 'hash', hint: 'In Properties', act: function () { A.openProps(it, '#libSec'); } }]) };
+  }
   // A tile's menu: what is used most at the top (a missing file's Locate, a video's sound, repeat and looped part, a
-  // playlist's own), the rest in three submenus (Display, File, Tile), then Properties and Remove.
-  function tileMenu(it, x, y) {
+  // playlist's own), the rest in submenus (Library when its file is in the library, Display, File, Tile), then
+  // Properties and Remove.
+  function tileMenu(it, x, y, lib) {
     var media = A.hasMedia(it), video = media && it.kind === 'video', items = [];
     if (it.kind === 'empty') {
       items.push({ label: 'Choose media…', icon: 'file', act: function () { A.chooseMedia(it); } },
@@ -124,6 +137,7 @@
         { label: 'Playlist settings…', hint: 'Order, timing, crossfade for this folder', icon: 'playlist', act: function () { A.openProps(it, '#plSec'); } });
     }
     items.push('-');
+    if (lib) items.push(libraryGroup(it, lib));
     if (media) {
       var display = [{ label: 'Reposition and zoom', hint: 'Drag the media; scroll to zoom', icon: 'move', act: function () { A.startRepos(it); } }];
       if (!V.isDefault(it)) display.push({ label: 'Reset position and zoom', icon: 'reset', act: function () { A.resetView(it); } });
@@ -170,7 +184,7 @@
     }
     var t = e.target.closest('.tile');
     var it = t && !t._dead ? A.itemById(+t.dataset.id) : null;
-    if (it) { A.select(it.id); tileMenu(it, e.clientX, e.clientY); }
+    if (it) { A.select(it.id); A.libraryMarksOf(it).then(function (lib) { tileMenu(it, e.clientX, e.clientY, lib); }); }
     else wallMenu(e);
   });
 })(window.MW.app);

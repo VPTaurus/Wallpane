@@ -627,6 +627,35 @@ body.clean .lib { display: none !important; }
 .lthumb.bare { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; color: var(--muted); }
 .ltname { max-width: 100%; font-size: 11px; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .lbadge { position: absolute; right: 4px; bottom: 4px; font: 500 10px/1 var(--mono); padding: 3px 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.65); color: #fff; pointer-events: none; }
+/* Your marks (ui/libview.js): the favourite heart in the top corner, the stars along the foot on the left (the length
+   is on the right). Above a hover preview. */
+.lthumb .lfav, .lthumb .lstars { position: absolute; z-index: 1; padding: 3px 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.6); pointer-events: none; }
+.lthumb .lfav { top: 4px; right: 4px; font: 12px/1 var(--ui); color: #ff6b88; }
+.lthumb .lstars { left: 4px; bottom: 4px; font: 10px/1 var(--ui); letter-spacing: 1px; color: #ffcf40; }
+/* Tags… (ui/libview.js): the files' tags (dashed: only some have it), a field to give one, the other tags in use. */
+.ltagbox { display: flex; flex-direction: column; gap: 8px; flex: none; padding: 10px; border: 1px solid var(--accent); border-radius: var(--r); background: var(--panel); }
+.ltbhead { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ltbhead > .ic { color: var(--accent); }
+.ltbhead b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ltbhead .btn.ib { width: 26px; height: 26px; background: transparent; border-color: transparent; }
+.ltbchips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; }
+.ltbchips:empty::before { content: attr(data-empty); font-size: 12px; color: var(--muted); }
+.ltbchips .chip { height: 26px; font-size: 12px; }
+.ltbchips .chip.part { border-style: dashed; color: var(--muted); }
+.ltbchips .chip .x { margin-left: 2px; padding: 0 2px; opacity: 0.6; }
+.ltbchips .chip .x:hover { opacity: 1; color: var(--danger); }
+.ltagbox input { height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 13px; outline: none; }
+.ltagbox input:focus { border-color: var(--accent); }
+.ltblab { font: 500 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+/* Properties › Library (ui/inspector.js): five stars to click (hovering fills them up to the pointer), the heart, the
+   tags and a field to give one. */
+.stars { display: flex; gap: 2px; }
+.stars .star { width: 26px; height: 26px; padding: 0; border: 0; background: transparent; font: 19px/1 var(--ui); color: var(--line); cursor: pointer; }
+.stars .star.on, .stars:hover .star { color: #f2b200; }
+.stars .star:hover ~ .star { color: var(--line); }
+#insFav.on { border-color: #e0436a; color: #e0436a; font-weight: 700; }
+#insTagInput { height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 13px; outline: none; }
+#insTagInput:focus { border-color: var(--accent); }
 /* A hover preview over the thumbnail, under its badge (ui/libview.js); a thin bar runs along its foot while it is made. */
 .lthumb .lprev { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .lthumb.lwait::before { content: ""; position: absolute; left: 0; bottom: 0; z-index: 1; width: 30%; height: 3px; background: var(--accent); animation: lwait 0.9s linear infinite; }

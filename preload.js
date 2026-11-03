@@ -63,6 +63,15 @@ contextBridge.exposeInMainWorld('wall', {
   collectionFiles: (id) => ipcRenderer.invoke('library:collectionFiles', String(id)),
   editCollection: (op, a, b, c) => ipcRenderer.invoke('library:editCollection', String(op), a, b, c),
   onLibrary: (cb) => { ipcRenderer.on('library:changed', () => cb()); },
+  // your marks on library files: change { stars, fav, addTags, dropTags } for one or many; the tags in use; a tag
+  // renamed or deleted; the marks of files on the wall, by path
+  markLibrary: (ids, change) => ipcRenderer.invoke('library:mark', Array.isArray(ids) ? ids.map(String) : [], change && typeof change === 'object' ? {
+    stars: change.stars === undefined ? undefined : +change.stars, fav: typeof change.fav === 'boolean' ? change.fav : undefined,
+    addTags: Array.isArray(change.addTags) ? change.addTags.map(String) : [], dropTags: Array.isArray(change.dropTags) ? change.dropTags.map(String) : []
+  } : {}),
+  libraryTags: () => ipcRenderer.invoke('library:tags'),
+  editTag: (op, a, b) => ipcRenderer.invoke('library:editTag', String(op), a == null ? '' : String(a), b == null ? '' : String(b)),
+  libraryAbout: (paths) => ipcRenderer.invoke('library:about', Array.isArray(paths) ? paths.map(String) : []),
   libraryThumbs: (ids) => ipcRenderer.invoke('library:thumbs', Array.isArray(ids) ? ids.map(String) : []),
   onLibraryThumbs: (cb) => { ipcRenderer.on('library:thumbsMade', (_e, made) => cb(made)); },
   libraryPreview: (id) => ipcRenderer.invoke('library:preview', String(id)),

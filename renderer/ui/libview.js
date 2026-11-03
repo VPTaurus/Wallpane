@@ -19,11 +19,12 @@
   function nameOf(p) { return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p; }
 
   // The view's settings, from what was saved (anything odd falls back to the default).
-  // folder or coll: what it shows (one library folder, or one collection); sort for folders, csort in a collection.
+  // folder, coll or tag: what it shows (one library folder, one collection, or the files with one tag); sort for
+  // folders and tags, csort in a collection. fav, stars: only favourites, only files with at least so many stars.
   // side: right by default, beside the Library button; sideSet: chosen by hand (before 1.6.1 the left was saved
   // without a choice, so such a wall follows the default).
-  var DEFAULTS = { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null, coll: null };
-  var SORTS = ['added', 'changed', 'length', 'size', 'random'];
+  var DEFAULTS = { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, fav: false, stars: 0, folder: null, coll: null, tag: null };
+  var SORTS = ['added', 'changed', 'length', 'size', 'rating', 'random'];
   function cleanPrefs(l) {
     var one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
     if (!l || typeof l !== 'object') return Object.assign({}, DEFAULTS);
@@ -33,8 +34,9 @@
       sort: one(l.sort, SORTS) || 'name', csort: one(l.csort, SORTS.concat('name')) || 'order', rev: l.rev === true,
       kinds: (Array.isArray(l.kinds) ? l.kinds : []).filter(function (k) { return ['video', 'gif', 'image'].indexOf(k) > -1; }),
       shape: one(l.shape, ['landscape', 'portrait', 'square']), length: one(l.length, ['short', 'medium', 'long']),
-      res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, folder: typeof l.folder === 'string' && l.folder ? l.folder : null,
-      coll: typeof l.coll === 'string' && l.coll ? l.coll : null
+      res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, fav: l.fav === true, stars: U.clamp(Math.round(+l.stars) || 0, 0, 5),
+      folder: typeof l.folder === 'string' && l.folder ? l.folder : null,
+      coll: typeof l.coll === 'string' && l.coll ? l.coll : null, tag: typeof l.tag === 'string' && l.tag ? l.tag : null
     };
   }
 
@@ -55,15 +57,23 @@
       '<select id="libShape" aria-label="Shape"><option value="">Any shape</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option><option value="square">Square</option></select>' +
       '<select id="libLength" aria-label="Length"><option value="">Any length</option><option value="short">Under 30 s</option><option value="medium">30 s to 5 min</option><option value="long">Over 5 min</option></select>' +
       '<select id="libRes" aria-label="Resolution"><option value="">Any resolution</option><option value="sd">Below HD</option><option value="hd">HD</option><option value="fhd">Full HD</option><option value="4k">4K and up</option></select>' +
+      '<select id="libStars" aria-label="Rating"><option value="0">Any rating</option><option value="1">★ and up</option><option value="2">★★ and up</option><option value="3">★★★ and up</option><option value="4">★★★★ and up</option><option value="5">★★★★★</option></select>' +
+      '<label class="check"><input type="checkbox" id="libFav"><span>Favourites only</span></label>' +
       '<label class="check"><input type="checkbox" id="libCopy"><span>Needs a playable copy</span></label>' +
       '<button class="btn" id="libFiltClear" type="button">Clear filters</button></div>' +
     '<div class="lfolderpick" id="libFolderPick">' +
       '<button type="button" class="lfolderbtn" id="libFolderBtn" aria-haspopup="true" aria-expanded="false" aria-controls="libFolderList" title="Show one library folder, or all of them">' +
         '<span class="ic" id="libFolderIc"></span><span class="lfname" id="libFolderName"></span><span class="lnumr" id="libFolderNum"></span><span class="ic">' + ICON.chev + '</span></button>' +
       '<div class="lfolders" id="libFolderList" role="list" aria-label="Library folders" hidden></div></div>' +
+    '<div class="ltagbox" id="libTagBox" role="dialog" aria-labelledby="libTagTitle" hidden>' +
+      '<div class="ltbhead"><span class="ic">' + ICON.hash + '</span><b id="libTagTitle"></b><button class="btn ib" id="libTagClose" type="button" aria-label="Done with tags" title="Done (Esc)"><span class="ic">' + ICON.x + '</span></button></div>' +
+      '<div class="ltbchips" id="libTagHave" data-empty="No tags yet."></div>' +
+      '<input id="libTagInput" type="text" list="libTagNames" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Type a tag, then Enter" aria-label="A tag to give them">' +
+      '<datalist id="libTagNames"></datalist>' +
+      '<span class="ltblab" id="libTagOtherLab">Other tags</span><div class="ltbchips" id="libTagOther"></div></div>' +
     '<div class="lgrid" id="libGrid" tabindex="0" role="listbox" aria-label="Files" aria-multiselectable="true"><div class="lspace" id="libSpace"></div><div class="lempty" id="libEmpty" hidden></div></div>' +
     '<div class="lfoot"><span class="lshown" id="libShown"></span><span class="sp"></span>' +
-      '<select id="libSort" aria-label="Sort by"><option value="order">Collection order</option><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="random">Random</option></select>' +
+      '<select id="libSort" aria-label="Sort by"><option value="order">Collection order</option><option value="name">Name</option><option value="added">Date added</option><option value="changed">Date changed</option><option value="length">Length</option><option value="size">File size</option><option value="rating">Rating</option><option value="random">Random</option></select>' +
       '<button class="btn ib" id="libRev" type="button" aria-pressed="false" aria-label="Reverse the order" title="Reverse the order"><span class="ic">' + ICON.sortdir + '</span></button>' +
       '<button class="btn ib" id="libShuffle" type="button" aria-label="Shuffle again" title="Shuffle again" hidden><span class="ic">' + ICON.shuffle + '</span></button>' +
       '<input type="range" id="libSize" min="60" max="240" step="10" aria-label="Thumbnail size" title="Thumbnail size"></div>' +
@@ -71,7 +81,7 @@
 
   var grid = $('#libGrid'), space = $('#libSpace'), emptyBox = $('#libEmpty'), folderBox = $('#libFolderList'), folderPick = $('#libFolderPick');
   var GAP = 4;
-  var results = [], index = new Map(), total = 0, folders = [], colls = [], layout = { rows: [], boxes: [], height: 0 };
+  var results = [], index = new Map(), total = 0, folders = [], colls = [], tagList = [], layout = { rows: [], boxes: [], height: 0 };
   var els = new Map();       // id -> thumbnail element on screen
   var thumbs = new Map();    // id -> thumbnail URL
   var asked = new Set();     // ids whose thumbnails were asked for
@@ -81,10 +91,11 @@
   function sortNow() { return S.lib.coll ? S.lib.csort : S.lib.sort; }
   function query() {
     var l = S.lib;
-    return { text: text, folder: l.coll ? null : l.folder, collection: l.coll, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, sort: sortNow(), reverse: l.rev, seed: seed };
+    return { text: text, folder: l.coll || l.tag ? null : l.folder, collection: l.coll, tag: l.coll ? null : l.tag, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, fav: l.fav, stars: l.stars, sort: sortNow(), reverse: l.rev, seed: seed };
   }
-  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.folder || l.coll); }
+  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.fav || l.stars || l.folder || l.coll || l.tag); }
   function collNow() { return S.lib.coll ? colls.filter(function (c) { return c.id === S.lib.coll; })[0] || null : null; }
+  function tagNow() { var k = S.lib.tag && S.lib.tag.toLowerCase(); return k ? tagList.filter(function (t) { return t.name.toLowerCase() === k; })[0] || null : null; }
   // Dragging inside a collection changes its order: when it shows in its own order, not reversed.
   function canReorder() { return !!S.lib.coll && S.lib.csort === 'order' && !S.lib.rev; }
   function refresh() {
@@ -102,10 +113,10 @@
   }
   function refreshFolders() {
     if (!host.isOpen()) return;
-    Promise.all([api.libraryFolders(), api.libraryCollections()]).then(function (got) {
-      folders = got[0]; colls = got[1] || [];
-      var gone = (S.lib.folder && !folders.some(function (f) { return f.path === S.lib.folder; })) || (S.lib.coll && !collNow());
-      if (gone) { S.lib.folder = null; S.lib.coll = null; showSortButtons(); refresh(); }
+    Promise.all([api.libraryFolders(), api.libraryCollections(), api.libraryTags()]).then(function (got) {
+      folders = got[0]; colls = got[1] || []; tagList = got[2] || [];
+      var gone = (S.lib.folder && !folders.some(function (f) { return f.path === S.lib.folder; })) || (S.lib.coll && !collNow()) || (S.lib.tag && !tagNow());
+      if (gone) { S.lib.folder = null; S.lib.coll = null; S.lib.tag = null; showSortButtons(); refresh(); }
       if (!editing) drawFolders();   // never under a name being typed
       showCounts();
     });
@@ -116,6 +127,7 @@
     var l = S.lib;
     Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', String(l.kinds.indexOf(b.dataset.kind) > -1)); });
     $('#libShape').value = l.shape; $('#libLength').value = l.length; $('#libRes').value = l.res; $('#libCopy').checked = l.copy;
+    $('#libStars').value = String(l.stars); $('#libFav').checked = l.fav;
     $('#libRev').setAttribute('aria-pressed', String(l.rev)); $('#libSize').value = l.size;
     showFilterCount(); showSortButtons();
     root.style.setProperty('--libw', l.w + 'px');
@@ -153,7 +165,7 @@
     });
   });
   function showFilterCount() {
-    var l = S.lib, n = (l.shape ? 1 : 0) + (l.length ? 1 : 0) + (l.res ? 1 : 0) + (l.copy ? 1 : 0), el = $('#libFiltN');
+    var l = S.lib, n = (l.shape ? 1 : 0) + (l.length ? 1 : 0) + (l.res ? 1 : 0) + (l.copy ? 1 : 0) + (l.fav ? 1 : 0) + (l.stars ? 1 : 0), el = $('#libFiltN');
     el.hidden = !n; el.textContent = String(n);
   }
   $('#libFiltBtn').addEventListener('click', function () {
@@ -165,14 +177,16 @@
     $(x[0]).addEventListener('change', function () { S.lib[x[1]] = this.value; showFilterCount(); changed(); });
   });
   $('#libCopy').addEventListener('change', function () { S.lib.copy = this.checked; showFilterCount(); changed(); });
+  $('#libFav').addEventListener('change', function () { S.lib.fav = this.checked; showFilterCount(); changed(); });
+  $('#libStars').addEventListener('change', function () { S.lib.stars = +this.value || 0; showFilterCount(); changed(); });
   $('#libFiltClear').addEventListener('click', function () {
-    S.lib.shape = ''; S.lib.length = ''; S.lib.res = ''; S.lib.copy = false;
-    $('#libShape').value = ''; $('#libLength').value = ''; $('#libRes').value = ''; $('#libCopy').checked = false;
+    S.lib.shape = ''; S.lib.length = ''; S.lib.res = ''; S.lib.copy = false; S.lib.fav = false; S.lib.stars = 0;
+    $('#libShape').value = ''; $('#libLength').value = ''; $('#libRes').value = ''; $('#libCopy').checked = false; $('#libFav').checked = false; $('#libStars').value = '0';
     showFilterCount(); changed();
   });
   function clearAll() {
     $('#libSearch').value = ''; text = '';
-    S.lib.kinds = []; S.lib.folder = null; S.lib.coll = null;
+    S.lib.kinds = []; S.lib.folder = null; S.lib.coll = null; S.lib.tag = null;
     Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', 'false'); });
     $('#libFiltClear').click();
     showSortButtons(); drawFolders();
@@ -197,14 +211,16 @@
     clearTimeout(sizeSave); sizeSave = setTimeout(A.savePrefs, 400);
   });
 
-  /* ---------- the folders and collections: one row that says which shows, and opens the list of them ---------- */
+  /* ---------- the folders, collections and tags: one row that says which shows, and opens the list of them ---------- */
   function folderLabel(f) { return f.path ? nameOf(f.path) + (f.available === false ? ' (not found)' : '') : 'All folders'; }
-  var editing = null;   // the collection being named in the list ('new' for a new one), or null
-  function show1(folder, coll) {
+  // What is being named in the list: a collection's id ('new' for a new one), 'tag:' and a tag's name, or null.
+  var editing = null;
+  function show1(folder, coll, tag) {
+    tag = tag || null;
     openFolders(false);
     $('#libFolderBtn').focus();
-    if (S.lib.folder === folder && S.lib.coll === coll) return;
-    S.lib.folder = folder; S.lib.coll = coll;
+    if (S.lib.folder === folder && S.lib.coll === coll && S.lib.tag === tag) return;
+    S.lib.folder = folder; S.lib.coll = coll; S.lib.tag = tag;
     showSortButtons(); drawFolders(); changed();
   }
   function row(icon, label, num, current, cls) {
@@ -218,11 +234,11 @@
     folderBox.appendChild(b);
     return b;
   }
-  // A name box in the list, for a new collection or a new name. Enter keeps it, Esc lets it be.
-  function nameBox(value, done) {
+  // A name box in the list, for a new collection or a new name (of a collection or a tag). Enter keeps it, Esc lets it be.
+  function nameBox(value, done, what) {
     var box = document.createElement('input');
-    box.type = 'text'; box.className = 'lfinput'; box.value = value; box.maxLength = 60; box.spellcheck = false;
-    box.placeholder = 'Name of the collection';
+    box.type = 'text'; box.className = 'lfinput'; box.value = value; box.maxLength = what === 'tag' ? 40 : 60; box.spellcheck = false;
+    box.placeholder = what === 'tag' ? 'Name of the tag' : 'Name of the collection';
     box.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); editing = null; done(box.value); }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing = null; drawFolders(); $('#libFolderBtn').focus(); }
@@ -241,14 +257,14 @@
     folderPick.hidden = !folders.length;
     if (!folders.length) { openFolders(false); return; }
     var all = { path: null, files: folders.reduce(function (s, f) { return s + f.files; }, 0) };
-    var c = collNow(), f1 = folders.filter(function (f) { return f.path === S.lib.folder; })[0], now = c ? null : f1 || all;
-    $('#libFolderIc').innerHTML = c ? ICON.playlist : now.path ? ICON.folder : ICON.library;
-    $('#libFolderName').textContent = c ? c.name : folderLabel(now);
-    $('#libFolderNum').textContent = c ? c.files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
-    $('#libFolderBtn').classList.toggle('off', !c && now.available === false);
-    $('#libFolderBtn').classList.toggle('one', !!(c || now.path));
+    var c = collNow(), t = c ? null : tagNow(), f1 = folders.filter(function (f) { return f.path === S.lib.folder; })[0], now = c || t ? null : f1 || all;
+    $('#libFolderIc').innerHTML = c ? ICON.playlist : t ? ICON.hash : now.path ? ICON.folder : ICON.library;
+    $('#libFolderName').textContent = c ? c.name : t ? t.name : folderLabel(now);
+    $('#libFolderNum').textContent = c || t ? (c || t).files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
+    $('#libFolderBtn').classList.toggle('off', !!now && now.available === false);
+    $('#libFolderBtn').classList.toggle('one', !!(c || t || now.path));
     [all].concat(folders).forEach(function (f) {
-      var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && S.lib.folder === f.path, f.available === false ? 'off' : '');
+      var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && !S.lib.tag && S.lib.folder === f.path, f.available === false ? 'off' : '');
       if (f.path) {
         b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.';
         b.draggable = true;
@@ -281,6 +297,44 @@
       var add = row('plus', 'New collection', '', false, 'newcoll');
       add.addEventListener('click', function () { editing = 'new'; drawFolders(); });
     }
+    // Tags: the files that have one; right-click to rename or delete it. New tags are given to files (Tags…).
+    if (!tagList.length) return;
+    var th = document.createElement('div');
+    th.className = 'lfhead'; th.textContent = 'Tags';
+    folderBox.appendChild(th);
+    tagList.forEach(function (x) {
+      if (editing === 'tag:' + x.name) {
+        nameBox(x.name, function (v) {
+          api.editTag('rename', x.name, v).then(function () {
+            if (t && t.name === x.name) S.lib.tag = v.replace(/\s+/g, ' ').trim() || x.name;
+            refreshFolders(); refresh();
+          });
+        }, 'tag');
+        return;
+      }
+      var b = row('hash', x.name, x.files.toLocaleString('en'), !S.lib.coll && t === x, 'tag');
+      b.dataset.tag = x.name;
+      b.title = x.name + '\nThe files with this tag.\nRight-click to rename or delete it.';
+      b.addEventListener('click', function () { show1(null, null, x.name); });
+      b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); tagMenu(x, e.clientX, e.clientY); });
+    });
+  }
+  function tagMenu(x, px, py) {
+    A.showMenu(px, py, [
+      { label: 'Rename', icon: 'file', hint: 'Into a tag in use, the two become one', act: function () { editing = 'tag:' + x.name; openFolders(true); drawFolders(); } },
+      { label: 'Delete…', icon: 'trash', hint: 'It comes off its files, which stay', act: function () {
+        A.showMenu(px, py, [
+          { label: 'Delete the tag "' + x.name + '"', icon: 'trash', hint: 'It comes off ' + count(x.files, 'file', 'files') + '; the files stay where they are', act: function () {
+            api.editTag('drop', x.name).then(function () {
+              if (tagNow() === x) { S.lib.tag = null; showSortButtons(); changed(); }
+              A.toast('The tag "' + x.name + '" is deleted. Its files are still there.');
+              refreshFolders(); refresh();
+            });
+          } },
+          { label: 'Keep it', icon: 'x', act: function () {} }
+        ]);
+      } }
+    ]);
   }
   function collMenu(x, px, py) {
     A.showMenu(px, py, [
@@ -354,7 +408,7 @@
   }
   // A thumbnail on screen stays as it is (so it never flickers, or vanishes under the pointer) until its file's
   // details change.
-  function sigOf(it) { return [it.name, it.path, it.kind, it.w, it.h, it.dur].join('|'); }
+  function sigOf(it) { return [it.name, it.path, it.kind, it.w, it.h, it.dur, it.stars, it.fav].join('|'); }
   function paint() {
     var top = grid.scrollTop, v = J.visible(layout.rows, top - 300, top + grid.clientHeight + 300), shown = new Set();
     var at = top > 0 ? J.visible(layout.rows, top, top) : null, first = at && layout.rows[at.first];
@@ -400,6 +454,9 @@
       badge.textContent = it.kind === 'gif' ? 'GIF' : clock(it.dur);
       el.appendChild(badge);
     }
+    // Your marks: a heart in the top corner, the stars along the foot.
+    if (it.fav) { var h = document.createElement('span'); h.className = 'lfav'; h.textContent = '♥'; h.title = 'Favourite'; el.appendChild(h); }
+    if (it.stars) { var st = document.createElement('span'); st.className = 'lstars'; st.textContent = '★★★★★'.slice(0, it.stars); st.title = it.stars + (it.stars === 1 ? ' star' : ' stars'); el.appendChild(st); }
     return el;
   }
   // Without a thumbnail yet: the kind's icon and the name.
@@ -550,6 +607,88 @@
     }
     return out;
   }
+  /* ---------- your marks: stars, the favourite heart, tags ---------- */
+  function itemsOf(ids) { return ids.map(function (id) { return results[index.get(id)]; }).filter(Boolean); }
+  function allFav(ids) { var its = itemsOf(ids); return its.length > 0 && its.every(function (it) { return it.fav; }); }
+  function markFiles(ids, change) {
+    if (!ids.length) return Promise.resolve(0);
+    return api.markLibrary(ids, change).then(function (n) { refresh(); refreshFolders(); return n; });
+  }
+  function starText(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  // The marks part of the files' right-click menu.
+  function markItems(ids) {
+    var its = itemsOf(ids), fav = allFav(ids);
+    var now = its.length && its.every(function (it) { return it.stars === its[0].stars; }) ? its[0].stars : -1;
+    return [
+      { label: fav ? 'Not a favourite' : 'Favourite', icon: 'heart', hint: 'F', act: function () { markFiles(ids, { fav: !fav }); } },
+      { label: 'Rating', icon: 'star', hint: now > 0 ? starText(now) : now === 0 ? 'None yet · keys 1 to 5' : 'Not the same for all', sub: [5, 4, 3, 2, 1, 0].map(function (n) {
+        return { label: n ? starText(n) : 'No rating', hint: (n === now ? 'Now · ' : '') + 'Key ' + n, act: function () { markFiles(ids, { stars: n }); } };
+      }) },
+      { label: 'Tags…', icon: 'hash', hint: 'T', act: function () { openTags(ids); } }
+    ];
+  }
+
+  // Tags…: the tags of the files it is for (dashed: only some of them have it; a click gives it to all, × takes it off
+  // all), a field to type one (Enter gives it to all), and the other tags in use (a click gives it to all).
+  var tagBox = $('#libTagBox'), tagFiles = [];   // [{ id, path, name }] the box is for
+  function openTags(ids) {
+    tagFiles = itemsOf(ids).map(function (it) { return { id: it.id, path: it.path, name: it.name }; });
+    if (!tagFiles.length) return;
+    tagBox.hidden = false;
+    drawTags();
+    $('#libTagInput').value = '';
+    $('#libTagInput').focus();
+  }
+  function closeTags() {
+    if (tagBox.hidden) return;
+    tagBox.hidden = true; tagFiles = [];
+    grid.focus();
+  }
+  function tagChip(name, cls, title, onClick, onX) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip' + (cls ? ' ' + cls : ''); b.title = title;
+    b.appendChild(document.createTextNode(name));
+    if (onX) { var x = document.createElement('span'); x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-hidden', 'true'); b.appendChild(x); }
+    b.addEventListener('click', function (e) { if (onX && e.target.classList.contains('x')) onX(); else onClick(); });
+    return b;
+  }
+  function giveTags(change) {
+    markFiles(tagFiles.map(function (f) { return f.id; }), change).then(drawTags);
+  }
+  function drawTags() {
+    var mine = tagFiles;
+    if (!mine.length) return;
+    Promise.all([api.libraryAbout(mine.map(function (f) { return f.path; })), api.libraryTags()]).then(function (got) {
+      if (mine !== tagFiles) return;
+      var about = got[0], all = got[1] || [], n = mine.length, have = new Map();
+      mine.forEach(function (f) {
+        ((about[f.path] || {}).tags || []).forEach(function (t) { var k = t.toLowerCase(); if (!have.has(k)) have.set(k, { name: t, n: 0 }); have.get(k).n++; });
+      });
+      $('#libTagTitle').textContent = 'Tags of ' + (n === 1 ? mine[0].name : count(n, 'file', 'files'));
+      var hb = $('#libTagHave'), ob = $('#libTagOther'), dl = $('#libTagNames');
+      hb.innerHTML = ''; ob.innerHTML = ''; dl.innerHTML = '';
+      have.forEach(function (t) {
+        var part = t.n < n;
+        hb.appendChild(tagChip(t.name + (part ? ' (' + t.n + ')' : ''), part ? 'part' : '',
+          part ? t.n + ' of ' + n + ' have it. Click to give it to all; × takes it off all.' : '× takes it off',
+          function () { if (part) giveTags({ addTags: [t.name] }); }, function () { giveTags({ dropTags: [t.name] }); }));
+      });
+      all.forEach(function (t) {
+        var o = document.createElement('option'); o.value = t.name; dl.appendChild(o);
+        if (!have.has(t.name.toLowerCase())) ob.appendChild(tagChip(t.name, '', 'Give it to ' + (n === 1 ? 'this file' : 'all ' + n), function () { giveTags({ addTags: [t.name] }); }));
+      });
+      ob.hidden = $('#libTagOtherLab').hidden = !ob.childNodes.length;
+    });
+  }
+  $('#libTagInput').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    var v = this.value.replace(/\s+/g, ' ').trim();
+    this.value = '';
+    if (v) giveTags({ addTags: [v] });
+  });
+  $('#libTagClose').addEventListener('click', closeTags);
+
   function pick(e, id) {
     var i = index.get(id);
     if (e.shiftKey && anchor > -1) {
@@ -577,7 +716,7 @@
     if (!el) return;
     e.preventDefault();
     if (!sel.has(el.dataset.id)) pick({}, el.dataset.id);
-    host.menu(selectedPaths(), e.clientX, e.clientY, ['-'].concat(collItems(selectedIds())));
+    host.menu(selectedPaths(), e.clientX, e.clientY, ['-'].concat(markItems(selectedIds()), '-', collItems(selectedIds())));
   });
   // A drag of files carries their paths for the wall and their ids for collections (info.reorder: within this one).
   grid.addEventListener('dragstart', function (e) {
@@ -657,6 +796,7 @@
     e.stopPropagation();
     if (e.key === 'Escape') {
       if (!folderBox.hidden) { openFolders(false); $('#libFolderBtn').focus(); return; }
+      if (!tagBox.hidden) { closeTags(); return; }
       if (e.target.id === 'libSearch' && e.target.value) return;   // the search box empties itself
       if (sel.size) { sel.clear(); anchor = -1; paintSel(); return; }
       host.close();
@@ -666,6 +806,10 @@
     if (ctrl && k === 'a') { e.preventDefault(); results.forEach(function (it) { sel.add(it.id); }); paintSel(); }
     else if (e.key === 'Enter' && sel.size) { e.preventDefault(); host.put(selectedPaths()); }
     else if (e.key === 'Delete' && sel.size && S.lib.coll) { e.preventDefault(); takeOut(selectedIds()); }
+    // Your marks on the selected files: 1 to 5 stars (0: none), F the heart, T their tags.
+    else if (sel.size && !ctrl && !e.altKey && /^[0-5]$/.test(e.key)) { e.preventDefault(); markFiles(selectedIds(), { stars: +e.key }); }
+    else if (sel.size && !ctrl && !e.altKey && k === 'f') { e.preventDefault(); markFiles(selectedIds(), { fav: !allFav(selectedIds()) }); }
+    else if (sel.size && !ctrl && !e.altKey && k === 't') { e.preventDefault(); openTags(selectedIds()); }
   });
   $('#libResize').addEventListener('pointerdown', function (e) {
     e.preventDefault();

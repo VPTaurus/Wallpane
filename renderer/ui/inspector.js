@@ -135,18 +135,61 @@
 
   /* ---------- the Properties card: floats next to the selected tile, so the wall keeps the whole window ---------- */
   A.propsOpen = false;
-  // `section`: a part of the card to unfold and bring into view, e.g. '#plSec' for the playlist options.
+  // `section`: a part of the card to unfold and bring into view, e.g. '#plSec' for the playlist options. The Library
+  // part comes once the library has answered, so it is shown then.
+  var wantSection = null;
+  function showSection(s, it) {
+    if (s.classList.contains('folded')) { setFold(s, false); placeCard(it); }
+    s.scrollIntoView({ block: 'nearest' }); s.classList.add('flash'); setTimeout(function () { s.classList.remove('flash'); }, 900);
+  }
   A.openProps = function (it, section) {
     if (!it) return;
     A.select(it.id);
     A.propsOpen = true; shownKey = null;
     A.refreshInspector();
     var s = section && inspector.querySelector(section);
-    if (s) {
-      if (s.classList.contains('folded')) { setFold(s, false); placeCard(it); }
-      s.scrollIntoView({ block: 'nearest' }); s.classList.add('flash'); setTimeout(function () { s.classList.remove('flash'); }, 900);
-    }
+    wantSection = section && !s ? section : null;
+    if (s) showSection(s, it);
   };
+
+  /* ---------- the Library part: the tile's file's stars, heart and tags, when the file is in the library ---------- */
+  function starText(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  function libBody(lib) {
+    var stars = '';
+    for (var n = 1; n <= 5; n++) stars += '<button type="button" class="star' + (n <= lib.stars ? ' on' : '') + '" data-n="' + n + '" aria-label="' + n + (n === 1 ? ' star' : ' stars') + '" aria-pressed="' + (n === lib.stars) + '" title="' + (n === lib.stars ? 'Click again for no rating' : starText(n)) + '">★</button>';
+    return '<div class="frow"><span>Rating</span><div class="stars" id="insStars" role="group" aria-label="Rating">' + stars + '</div></div>' +
+      '<button class="btn' + (lib.fav ? ' on' : '') + '" id="insFav" type="button" aria-pressed="' + lib.fav + '"><span class="ic" aria-hidden="true">' + A.ICON.heart + '</span>' + (lib.fav ? 'A favourite' : 'Favourite') + '</button>' +
+      '<div class="ltbchips" id="insTags" data-empty="No tags yet.">' + lib.tags.map(function (t) {
+        return '<button type="button" class="chip" data-tag="' + esc(t) + '" title="× takes it off">' + esc(t) + '<span class="x" aria-hidden="true">×</span></button>';
+      }).join('') + '</div>' +
+      '<input id="insTagInput" type="text" list="insTagNames" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Type a tag, then Enter" aria-label="A tag to give it"><datalist id="insTagNames"></datalist>';
+  }
+  // Fills (or fills again) the part for this tile once the library answers; a file not in it shows nothing.
+  function fillLibrary(it) {
+    var slot = $('#insLibSlot');
+    if (!slot || !it.path) return;
+    Promise.all([A.api.libraryAbout([it.path]), A.api.libraryTags()]).then(function (got) {
+      var lib = got[0][it.path];
+      if (!lib || $('#insLibSlot') !== slot || shownItem !== it) return;
+      slot.innerHTML = sec('lib', 'libSec', 'Library', libBody(lib));
+      var mark = function (change) { A.api.markLibrary([lib.id], change).then(function () { fillLibrary(it); }); };
+      $('#insStars').addEventListener('click', function (e) { var b = e.target.closest('.star'); if (b) mark({ stars: +b.dataset.n === lib.stars ? 0 : +b.dataset.n }); });
+      $('#insFav').addEventListener('click', function () { mark({ fav: !lib.fav }); });
+      $('#insTags').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b && e.target.classList.contains('x')) mark({ dropTags: [b.dataset.tag] }); });
+      $('#insTagInput').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var v = this.value.replace(/\s+/g, ' ').trim();
+        if (v) mark({ addTags: [v] });
+      });
+      got[1].forEach(function (t) { var o = document.createElement('option'); o.value = t.name; $('#insTagNames').appendChild(o); });
+      placeCard(it);
+      if (wantSection === '#libSec') { wantSection = null; showSection($('#libSec'), it); }
+    });
+  }
+  A.libraryMarksOf = function (it) { return it && it.path ? A.api.libraryAbout([it.path]).then(function (m) { return m[it.path] || null; }) : Promise.resolve(null); };
+  // Marked in the library (or on another window's tile) meanwhile: the part shows it.
+  A.api.onLibrary(function () { var it = A.selected(); if (A.propsOpen && it && it === shownItem && $('#insLibSlot') && !$('#insLibSlot').contains(document.activeElement)) fillLibrary(it); });
   // A heading folds its part away or opens it; the card stays inside the window.
   inspector.addEventListener('click', function (e) {
     var h = e.target.closest('.foldh'), it = A.selected();
@@ -194,6 +237,7 @@
         '<button class="btn" id="insFitTile" title="Shrink the tile to the exact shape of its media: no bars, nothing cropped"><span class="ic" aria-hidden="true">' + A.ICON.fit + '</span>Fit tile to media</button>')) +
       (it.kind === 'video' && !it.missing ? playbackSec(it) : '') +
       (it.pl && S.playlists[it.pl] ? playlistSec(it) : '') +
+      (it.path && !it.missing && it.kind !== 'empty' ? '<div id="insLibSlot"></div>' : '') +
       sec('file', 'fileSec', it.kind === 'empty' ? 'Media' : 'File', '<div class="acts">' +
       (it.missing ? '<button class="btn pri" id="insRelink">Locate file…</button>' : it.kind === 'empty' ? '<button class="btn pri" id="insReplace">Choose media…</button>' : '<button class="btn" id="insReplace">Replace…</button>') +
       '<button class="btn" id="insFolder" title="Give this tile a folder of its own to play">Play a folder…</button>' +
@@ -298,5 +342,6 @@
     $('#insClose').addEventListener('click', A.closeProps);
     inspector.hidden = false;
     if (moved) placeCard(it);   // a newly shown tile: move the card next to it
+    fillLibrary(it);
   };
 })(window.MW.app);
