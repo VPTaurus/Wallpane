@@ -14,6 +14,7 @@ New:
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
+- **The emergency hide's mouse button holds on when the PC is busy:** Windows waits only a moment for the small helper that catches the button, and can drop it for good when it is late. The helper now answers at once, runs above normal priority, and puts its hook in afresh every 10 seconds, so the button cannot go dead.
 
 Also:
 - **A website and a shorter README:** https://vptaurus.github.io/Wallpane/ shows what Wallpane does, with pictures and a recorded wall. The README on GitHub is now one screen; everything it held is in the [guide](docs/guide.md) and the [developer notes](docs/development.md).
