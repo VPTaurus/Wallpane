@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Empty tiles in Free (pixels) look like empty cells on the grid:** only the faint +, with "Drop or click" under the pointer, instead of the Empty tile card with File… and Folder…. A click chooses the tile's media; its right-click menu still offers a folder.
+- **Fixed: the message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
 
 ## 1.6.5: GIFs and a tidier wall
 
