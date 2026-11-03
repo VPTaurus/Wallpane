@@ -16,8 +16,8 @@ module.exports = [
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } }
   },
   {
-    // End-to-end tests also pass functions to page.evaluate, which run in the page.
-    files: ['test/e2e/**/*.js'],
+    // End-to-end tests and the screenshots script also pass functions to page.evaluate, which run in the page.
+    files: ['test/e2e/**/*.js', 'scripts/screenshots.js'],
     languageOptions: { globals: { ...globals.browser } }
   },
   {

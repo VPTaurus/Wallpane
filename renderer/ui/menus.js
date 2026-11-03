@@ -149,6 +149,7 @@
     if (it.kind !== 'empty' && !it.missing) file.push({ label: 'Replace media…', icon: 'file', act: function () { A.chooseMedia(it); } });
     if (it.kind !== 'empty') file.push({ label: 'Play a folder…', hint: 'This tile plays a folder of its own', icon: 'folder', act: function () { A.ownFolder(it); } });
     if (it.path && !it.missing) file.push({ label: 'Show in Explorer', icon: 'folder', act: function () { A.api.revealFile(it.path); } });
+    if (video && A.hasFfmpeg && it.path) file.push({ label: 'Save this frame…', hint: 'A picture of it at the video\'s full size', icon: 'camera', act: function () { A.snapshot(it); } });
     if (video && A.hasFfmpeg && it.path) file.push({ label: 'Make playable', hint: 'A converted copy, for a video that plays badly or not at all', icon: 'wand', act: function () { A.makePlayable(it); } });
     if (file.length) items.push({ label: 'File', hint: 'Replace, another folder, Explorer', icon: 'folder', sub: file });
     items.push({ label: 'Tile', hint: 'Duplicate, split', icon: 'tile', sub: [
@@ -179,7 +180,9 @@
   wall.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (document.body.classList.contains('clean')) {
-      A.showMenu(e.clientX, e.clientY, [{ label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }]);
+      // While recording, it can stop here too (the bar is hidden).
+      A.showMenu(e.clientX, e.clientY, [{ label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }]
+        .concat(A.recording() ? [{ label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }] : []));
       return;
     }
     var t = e.target.closest('.tile');

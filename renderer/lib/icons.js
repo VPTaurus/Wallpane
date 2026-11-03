@@ -69,6 +69,9 @@
     heart: svg('<path d="M8 13.5S2 10 2 5.9A3 3 0 0 1 8 4.3a3 3 0 0 1 6 1.6C14 10 8 13.5 8 13.5z"/>'),
     star: svg('<path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/>'),
     // Scissors: Save the part as MP4.
-    cut: svg('<circle cx="4.5" cy="11.5" r="2"/><circle cx="11.5" cy="11.5" r="2"/><path d="M5.8 10L12 2.5M10.2 10L4 2.5"/>')
+    cut: svg('<circle cx="4.5" cy="11.5" r="2"/><circle cx="11.5" cy="11.5" r="2"/><path d="M5.8 10L12 2.5M10.2 10L4 2.5"/>'),
+    // A picture of a frame or of the wall (a screenshot), and recording the wall as a video.
+    camera: svg('<path d="M2 5.5h2.5L6 3.5h4l1.5 2H14v7H2z"/><circle cx="8" cy="9" r="2.2"/>'),
+    record: svg('<circle cx="8" cy="8" r="5.6"/><circle cx="8" cy="8" r="2.6" fill="currentColor" stroke="none"/>')
   };
 });

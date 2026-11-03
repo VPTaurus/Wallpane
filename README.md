@@ -1,181 +1,46 @@
-# Wallpane
+<p align="center"><img src="build/icon.png" width="88" alt=""></p>
 
-A video wall for Windows: your own videos, images and GIFs, many at once, arranged on a grid or placed freely by the pixel, on one screen or several. Drop files or folders from Explorer, resize tiles by their edges, play folders as playlists, and save walls to come back to (they link to your files; nothing is copied).
+<h1 align="center">Wallpane</h1>
 
-Everything stays on your computer: Wallpane plays local files only and never connects to the internet.
+<p align="center"><b>Your own videos, pictures and GIFs, many at once, on a wall that fills the screen.</b><br>
+Free for Windows. Everything stays on your PC: Wallpane never goes online.</p>
 
-Wallpane used to be called Media Wall. On its first start it copies your saved walls and settings from the old `%APPDATA%\Media Wall` folder, which stays as a backup; older exports import as before.
+<p align="center"><a href="https://github.com/VPTaurus/Wallpane/releases/latest"><b>Download for Windows</b></a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a></p>
 
-Wallpane is free software under the [GNU General Public License, version 3 or later](LICENSE).
+![A wall of eight videos in Wallpane's wall mode](docs/images/wall.jpg)
 
-If Wallpane is useful to you, you can support its development on [GitHub Sponsors](https://github.com/sponsors/VPTaurus). It stays free either way.
+## What it does
 
-## Run it
-1. Install Node.js 22 or newer (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS`).
-2. In this folder: `npm install`
-3. `npm run fetch-ffmpeg` once: it downloads the pinned FFmpeg build (about 95 MB, checked against its SHA-256) and keeps what Wallpane uses in `vendor/ffmpeg`, which is not in git. Wallpane runs without it, but then it cannot convert or read media files with FFmpeg.
-4. `npm start` (or `npm run dev` for developer tools, F12). It first builds the emergency hide's small mouse helper into `vendor/mousehook` with the C# compiler that comes with Windows (`npm run build-mousehook`; nothing is downloaded).
+**Arrange the wall your way.** Snap tiles to a grid, or place and size them freely by the pixel. Drop files or whole folders from Explorer, drag a tile's edges to resize it, and Fill the wall turns everything into a collage in which each file keeps its own shape. Ready-made layouts, your own, and undo for all of it.
 
-## Build a Windows app
-`npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
+![Free layout after Fill the wall: clips and photos of every shape](docs/images/free.jpg)
 
-### Releases
-1. Raise `version` in `package.json` (`npm version 1.6.8 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
-2. On GitHub: Releases › Draft a new release › tag `v1.6.8` (the same version) on `main`, paste the changelog section, Publish.
-3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
+**Play folders, and your library.** A tile can play a whole folder in turn, with its own timing, order and crossfade, and new files join as they appear. The library shows every file in your folders as a thumbnail, with search, filters, stars, a favourite heart and tags; drag files onto the wall, or play a collection.
 
-### FFmpeg inside Wallpane
-Wallpane ships FFmpeg 9.0.2, the shared Windows build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (`ffmpeg.exe`, `ffprobe.exe` and their libraries), under the GPL version 3. It is pinned in `scripts/fetch-ffmpeg.js` by URL and SHA-256 and lands in `resources/ffmpeg` of the installed app, next to its licence (`LICENSE.txt`) and the build's `README.txt`, which names the exact FFmpeg source ([commit 946fcce07b](https://github.com/FFmpeg/FFmpeg/commit/946fcce07b)) and the libraries in it. Settings › About shows the version and links to that source. Wallpane only ever gives FFmpeg local files; it never goes online. To move to a newer build, change the version, URL, SHA-256 and source in that script.
+![The library beside the wall, with stars and hearts on the thumbnails](docs/images/library.jpg)
 
-### Code signing
-Unsigned builds work, but Windows SmartScreen warns on other PCs ("Windows protected your PC"). To sign, get a code-signing certificate (.pfx) and set two environment variables before `npm run dist`; electron-builder picks them up:
-- `CSC_LINK`: path to the .pfx file (or its base64 text)
-- `CSC_KEY_PASSWORD`: its password
+**Fine-tune every tile.** Zoom and frame what each tile shows, loop a part of a video, change its speed and volume, all in one card. Videos that don't play as they are (AVI, WMV and more) are converted for you, with the FFmpeg inside Wallpane.
 
-The GitHub workflow does the same with repository secrets of the same names.
+![A tile's Properties, with a looped part](docs/images/properties.jpg)
 
-## Data
-Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`. Settings › About shows the folder, and Saved walls > Show file opens it. Saved walls > Export/Import moves them between PCs.
+**Run a wall on its own.** Wall mode (F11) shows only the wall, on the display you pick, also a TV or projector. With Start with Windows, a wall comes back full screen after a restart, and keeps the display awake.
 
-## The window
-- Top bar, in groups, left to right:
-  - **The wall's contents:** **Add** (files, a folder as tiles, or a folder as a playlist; when a folder has more files than the wall has room for, on the grid or in Free (pixels), the new tiles play all of them in turn); **Clear** (the red bin: takes every tile off; the first click arms it for three seconds, Ctrl+Z brings the tiles back); undo and redo.
-  - **Its layout:** columns, rows, gap and cell shape (the "4 × 3" button; placed freely, only the gap changes and the wall keeps the shape the grid gave it), **Snap to grid / Free (pixels)**, and **Arrange**: **Fill the wall** (every tile in its media's shape, edge to edge) and **Layouts…** (ready-made layouts, rows and columns, and your own saved ones). Each says when it switches the wall to Free or back.
-  - **Playback:** play, mute and repeat for every video, and **background music** (♪).
-  - On the right: the **clock** (and background work while it runs); **what the wall plays**: the **Library** (Ctrl+L), **Saved walls** and **Playlist**; and **the app**: **?** (getting started), **Settings** (the cog), **New wall window** (the window icon) and **Wall mode**.
-- **At the start** the wall is empty and offers your last wall: Restore it, or Start empty. Until you choose (or put something on the empty wall) the last wall is kept as it was; starting empty keeps it in Saved walls as "Last wall". Settings › General › When Wallpane starts can open the last wall straight away or always start empty instead. A wall that starts in wall mode always opens the last wall. The last wall's videos carry on where they were (a folder's tile on the file it was on, from where it was), unless that was in their last second or outside their looped part. Where each video is gets saved as Wallpane closes, and every 20 seconds while videos play, so after a crash or a power cut they carry on near where they were. Saved walls you name start their videos as usual. In a narrow window the bar keeps to one line by showing some buttons as icons only and shortening the mode names to Grid / Free.
-- The **clock** opens a **stopwatch** (with laps) and a **countdown timer** (type minutes like 5, or 1:30, or pick 1 to 60 minutes). Each has an **In the bar** box, which alone decides what the bar shows: a ticked stopwatch or timer is a chip with a start/pause button (a finished timer's button resets it); unticking it takes it off the bar and resets it. Without the clock ticked, a small clock icon stays to open the popover. Both keep running when the popover is closed and in wall mode. At zero the timer beeps three times and its chip flashes until you reset it. A **counter** counts anything you like (−, + and Reset; kept for next time); in the bar its + adds one and a right-click on it takes one away, and unticking it resets it to 0. The clock follows Windows' 12 or 24-hour format unless you choose one (Settings › General, or the 24-hour box in the clock).
-- **Settings** opens a panel with its sections down the side (arrow keys move between them). Each setting has a short name; the **?** beside it explains it while the pointer rests on it (or it has keyboard focus).
-  - **General**: start with Windows, what the start brings, the clock's format.
-  - **Tiles**: how tiles give way when one grows, what a full wall does, playlists matching tile shapes.
-  - **Video**: full-screen sound, even loudness, skipping black openings, pausing when minimized, making videos playable, GIFs as videos, lighter copies, the drawing pace.
-  - **Wall mode**: which display, start in wall mode, keep the display awake, a TV or projector.
-  - **Emergency hide**: the key, a mouse button, and what the windows show (see below).
-  - **Keys**: every keyboard shortcut.
-  - **About**: version, licence, source code, and the folder your data is in.
+**Record it, share it.** Record the wall as it plays and stop when you like; take a screenshot; save a looped part as a GIF or MP4, or a frame as a picture. Background music can play behind it all.
 
-  Help (**?**) has buttons that open Keys and About.
-- The wall has the whole window. The selected tile has an orange ring with round grips at its corners; drag a grip or any edge to resize. A pinned playlist tile shows a pin badge.
-- Right-click a tile: what you use most is at the top (a video's sound, Repeat and Loop a part; a playlist's Previous, Next, Stay on this file and Playlist settings), the rest in three groups that open beside the menu: **Display** (reposition and zoom, reset, fill or whole frame, fit tile to media), **File** (replace, play a folder, Show in Explorer, make playable) and **Tile** (duplicate, split in two). Then Properties and Remove. Arrow keys move through it (right opens a group, left closes it). Right-click empty wall to add media or a folder right there, or to make a new empty tile.
-- **Properties** (right-click a tile, or Alt+Enter) opens a card next to the tile with its exact position and size (cells, or pixels in Free mode), how the media fits and its zoom, playback, playlist and file actions. Each part folds away under its heading, and stays folded for every tile until you open it again; Position and size starts folded. Esc or × closes the card; selecting another tile moves it there.
-- A tile that plays a folder has **Playlist settings** (right-click, or the Playlist part of Properties): the folder and its number of files, rotating or pinned, order, image seconds, GIFs, where videos start, crossfade, clip length (the whole clip, or 10 s to 5 min of each video), and Zoom and position (new for each file, or kept for every file: images, GIFs and videos alike), Shapes (any shape, or shaped like the tile first: of its next files, a tile takes one close to its own shape), plus Previous file, Next file, Change folder and Stop the playlist on this tile (it keeps the file it shows). Previous goes back through the files the tile showed (the tile's ‹ button too), without changing the playlist's order. Fill the wall switches Shapes on for the playlists on the wall (Settings › General can leave them be). Changes apply at once and can be undone; when several tiles play the same folder, they all follow. The Playlist button in the top bar holds the options for new playlists.
+**Private.** Wallpane plays your local files only and never connects to the internet; your files are never changed. One key (or mouse button) hides every wall window at once, from any program.
 
-## Tiles
-- Empty tiles are frames without media: size and place them first, then drop media or a folder on them, click File… or Folder… (the tile then plays the folder's files in turn), or add a folder as a playlist (playlists fill empty tiles first, also in Free layout). On the grid they give way: when a tile grows or moves and there is no other room, it takes their cells and they go (before any tile is shrunk). In Free (pixels) they are pushed and squeezed like other tiles, and look like an empty cell on the grid: only the faint +. Click one to choose its media; its right-click menu also offers a folder.
-- A video tile has a control bar along its bottom (it shows when the pointer is over the tile): play, time, a timeline you can drag, sound, volume and speed. A big tile (wider than about 480 px), or one full screen, also has 10 s back and 10 s on (J and L skip 5 s). With the pointer over the timeline, the time there shows above it, and the frame there too: a strip of small frames from across the video (about one a second, at most 100, read from its key frames, so a film takes seconds) is made the first time and kept in the cache. Properties > Playback holds the same, plus **Loop a part**: type a start and end time (like 1:23.5) or play to a spot and press Now, and the video repeats just that part; the timeline shows it. Volume, speed and the looped part are saved with the wall.
-- **Make a GIF** of a looped part (Properties › Playback, or the tile's right-click menu, once a part is looped). Choose:
-  - **Width:** 320, 480, 640 or 800 px, never wider than the video.
-  - **Frames a second:** 10, 15, 20 or 25.
-  - **Shows:** the whole frame, or what the tile shows (its shape, zoom and position).
-  - **Speed:** normal, or the tile's own speed when it plays faster or slower.
+## Download and install
+1. Get **Wallpane Setup** (installer) or **Wallpane** (portable, no install) from the [latest release](https://github.com/VPTaurus/Wallpane/releases/latest). For Windows 10 and 11, 64-bit.
+2. Wallpane is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info**, then **Run anyway**.
 
-  The dialog shows the GIF's size and roughly how big the file will be, and a part longer than a minute is refused. Save asks where to put the GIF (next to the video by default, named like `clip 1m23.5s-1m30s.gif`), and FFmpeg makes it as a job in the bar, which you can stop. Then **Show in Explorer** or **Put on the wall**. The video itself is never changed, and a stopped GIF leaves no file behind. A GIF saved in a library folder shows up in the library by itself.
-- **Save the part as MP4** (beside Make a GIF: **Save as MP4…** in Properties, **Save the part as MP4…** in the tile's menu): no dialog, straight to where to save it (named like `clip 1m23.5s-1m30s.mp4`). A copy without re-encoding takes a moment and loses nothing, but can only start on a keyframe, and many videos have one only every few seconds. So when the last keyframe before the part is within half a second of it, the picture and sound are copied (starting on that keyframe; the message says how early); otherwise the part is re-encoded (H.264 and AAC, on the graphics card when it can) to start and end exactly on it. A copy of a video whose picture or sound cannot go into an MP4 without re-encoding (an older WebM's VP8 and Vorbis) is saved as its own kind of file instead.
-- **Even loudness** (Settings › General, on by default): each video on the wall has its loudness measured once (EBU R128, from its sound alone, so a film takes seconds; kept in `loudness.json` in the data folder), and one louder than -18 LUFS plays that much quieter, so a loud clip and a quiet one sound alike when unmuted. It only ever makes a video quieter, so a quiet one keeps its own level; the tile's own volume applies on top.
-- **Skip black openings** (Settings › General, on by default): each video's first 12 seconds are looked at once (kept in `openings.json`), and one that opens on a black picture starts after it, also each time it loops; while you hear it, after an opening silence too. Not for a playlist that starts at random or a tile with a looped part, and not when the black lasts the whole 12 seconds or over a third of the video.
-- Media inside a tile can be moved and zoomed: scroll the wheel over the selected tile to zoom (up to 8×) around the pointer; Reposition and zoom (right-click menu or Properties) lets you drag the media inside the tile. Reset puts it back. Each tile remembers this in saved walls.
-- **A full wall:** media added with no room left (from the library, Add, or a drop) is left out with a message, by default. Settings › General › When the wall is full › Add and fill the wall again gives each new file a tile shaped like it instead, and Fill the wall then arranges every tile again with the new ones last (switching to Free (pixels) on the grid). Up to 64 tiles, at most 24 new ones at a time; more files play in turn on the new tiles. One Ctrl+Z undoes it.
-- Arrange > **Fill the wall** arranges every tile in rows (or columns) so each keeps its media's exact shape and together they fill the wall edge to edge, like a photo collage. Only tiles with media take part: empty tiles (and the sample cards) make way, and a tile whose file was not found stays. Tiles keep their reading order unless regrouping them crops clearly less; whatever small difference is left is shared by all tiles (the message says how much). On the grid it switches to Free (pixels) first; Ctrl+Z undoes it.
-- Arrange > **Layouts…** moves your tiles into a layout's frames in reading order; frames left over become empty tiles, so the layout keeps its shape. Ready-made ones (Quad, Hero left, Two big, Mosaic, …) and your own (Save current names the wall's frames on the grid) put the tiles on the grid, also from Free.
-- Layouts › Rows and columns builds the wall from rows (or columns) with their own number of tiles, for example 3 in the first row and 4 in the second. When the rows share a grid of up to 12 cells (3 and 4 do: 12) the wall stays on the grid; otherwise it switches to Free (pixels). Tiles move into the new frames in reading order and leftover frames become empty tiles.
+It plays MP4, WebM, MOV, MKV and more, and JPEG, PNG, GIF, WebP and other pictures. See [Formats](docs/guide.md#formats).
 
-## Keys
-- F11 wall mode on or off, Esc leaves wall mode / fullscreen
-- Ctrl+L opens or closes the library; in it, Ctrl+A selects everything shown, Enter puts the selection on the wall, 1 to 5 rate the selection (0 clears), F gives or takes the heart, T opens its tags, Esc clears the search, then the selection, then closes it
-- Ctrl+Shift+H emergency hide, from any program (see below); press again to come back
-- Tab moves between tiles and selects them; Enter selects or lets go
-- Arrows move the selected tile, Shift+arrows resize, Delete removes it
-- Alt+Enter opens Properties for the selected tile; Esc closes it (or the right-click menu, or Reposition), and a second Esc lets go of the tile
-- On a selected video: Space or K plays and pauses, J / L skip 5 seconds back / on, [ and ] set where the looped part starts and ends, \ stops looping it, < and > change the speed, M mutes
-- Ctrl+Z / Ctrl+Y undo / redo
-- While the window is minimized its wall rests: videos pause and playlists stop moving on, and they carry on when it is back (Settings › General; background music keeps playing).
-- Double-click a tile for single-tile full screen (Esc or another double-click ends it). It plays that tile's sound and the others go quiet until it ends; Settings › General can turn that off. A tile playing a folder keeps moving on to its next files in full screen.
+## More
+- [Guide](docs/guide.md): everything Wallpane does, with all its keys
+- [What's new](CHANGELOG.md) and the [roadmap](ROADMAP.md)
+- [Developing Wallpane](docs/development.md): run it from source, test, build and release
 
-## Formats
-Playback uses Chromium's built-in codecs, so these work: MP4 (H.264, and HEVC where Windows has the decoder), WebM, MOV, M4V, MKV and OGV video; JPEG, PNG, GIF, WebP, AVIF, BMP and SVG images.
+If Wallpane is useful to you, you can support it on [GitHub Sponsors](https://github.com/sponsors/VPTaurus). It stays free either way.
 
-**Make playable.** Other videos play too: AVI, WMV, FLV, MPEG, MPEG-TS, VOB, 3GP, RealMedia and DivX, and MKV or MP4 files whose sound Chromium cannot play (AC3, DTS, E-AC3) or whose picture it cannot (10-bit H.264, HEVC where Windows lacks it, MPEG-2, …). The bundled FFmpeg first reads what the file holds, then makes a playable copy the cheapest way that works: re-wrapped into MP4 in seconds when only the container is the problem, only the sound converted when only the sound is, or converted to H.264 (on the graphics card when it can: NVIDIA, Intel or AMD, else on the processor). The tile shows what it is doing and switches to the copy by itself; a playlist tile moves on meanwhile and plays the file once its copy is there. Copies go to the cache (Settings › Storage); your files are never changed, and saved walls keep pointing at them. A video that still fails to play is converted after all, and right-click › Make playable does that by hand. Settings › General can switch the automatic copies off. The bar shows a small indicator while this runs, with a list where each job can be stopped.
-
-**GIFs as videos.** A big GIF (by default over 2 MB; Settings › General: off, 2 MB, 10 MB or all GIFs) gets a small video copy in the background and then plays from it: far smoother and lighter, still silent and looping, and still a GIF everywhere else (playlists time it as a GIF). Transparent parts turn black, as they look on a tile anyway.
-
-**Lighter copies for small tiles.** Decoding a 4K video for a tile a few hundred pixels wide costs the graphics card many times what the tile shows, and a wall of such tiles adds up. So a video of 1440 pixels or more (on its long side) on a tile of at most 960 screen pixels plays from a lighter copy: at most 960 pixels and 30 frames a second, with its sound, made once in the background (the original read on two processor threads, the graphics card encoding when it can) and kept in the cache (Settings › Storage). The tile switches to it from the same moment, playing or paused as it was, and back to the original when it grows past about 1100 pixels or plays full screen. A playlist tile asks for a copy of each big file it shows; one it has moved past is dropped before it starts. Settings › General › Lighter copies for small tiles can turn this off.
-
-**Which graphics card.** On a PC with two (the processor's own and an NVIDIA or AMD card) Wallpane asks Windows for the faster one. Settings › About shows the one that plays the wall and whether it decodes the videos; if it names the processor's graphics, choose High performance for Wallpane in Windows Settings › System › Display › Graphics.
-
-HEIC, TIFF, PSD and camera RAW pictures cannot be shown. The app tells you when it finds them; convert them to JPEG or PNG.
-
-## Wall mode and unattended walls
-- Wall mode (F11) hides the controls and fills the display picked under Settings › Wall mode › Show on.
-- Settings › Wall mode: start this window in wall mode; keep the display awake in wall mode (on by default).
-- Settings › General: start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
-
-  Together these bring a wall back full screen after a restart.
-- Settings › Wall mode › **Drawing pace**: Windows (and Chromium, which draws Wallpane) paces every window by the main display, so beside a faster main display a wall on a slower screen (a 60 Hz one next to a 165 Hz main display) judders. **Automatic** (the default) draws at the slowest screen's rate when the screens differ, and as Windows does when they don't; **The main display's rate** keeps Windows' way; **60 frames a second** always. The pace is set as Wallpane starts: Automatic works it out from the screens and keeps it in `app.json`, so a new screen setup takes effect from the next start (Wallpane says so once, and Settings has a Restart button; the portable .exe is started again by hand).
-
-## Background music
-The ♪ button in the top bar plays a folder of your own music behind the wall: MP3, M4A, AAC, WAV, OGG, Opus and FLAC, from the folder and the folders in it, one track after another, in name order or shuffled, with its own volume, previous and next. It keeps playing in wall mode, pauses with the emergency hide, and starts again on the next start if it was playing. Each wall window has its own. Videos on the wall keep their own sound settings, so mute them for music only.
-
-## Library
-Settings › Library holds the folders where you keep your videos, GIFs and pictures. Wallpane looks through each folder and its subfolders when you add it, on every start and whenever something in it changes, and reads every file's details in the background: the size and shape of its picture, how long it runs, and whether it plays as it is. A portrait phone photo or video counts as portrait. Then it makes a small thumbnail of each file (for a video, a typical frame, not a black one), kept in the cache (Settings › Storage). A folder on a drive that is not connected keeps its files in the library until the drive is back. Removing a folder only takes it out of the library; Wallpane never changes, moves or deletes your files.
-
-**Library** in the bar (Ctrl+L) opens it as a drawer over the wall; the wall keeps playing behind it. Its header's panel button (or Settings › Library › Show the library as) makes it a panel beside the wall instead, which makes the wall narrower while it is open, or a window of its own, for a second screen. The drawer and the panel go on the right of the wall, beside the Library button, or on its left (the same menu, or Settings › Library › On the side; a side you pick stays). Files dragged from the library window are ordinary Windows file drags, so any wall window takes them; double-click or Enter there sends a file to the wall window used last. Closing the library window only hides it.
-- **Finding files:** search by name (file and folder names and tags, every word, without accents or case), Videos / GIFs / Pictures, Filters (shape, length, resolution, rating, favourites only, files that need a playable copy), or one library folder (the folder row under the filters opens the list of them, however many there are). Sort by name, date added, date changed, length, file size, rating or at random (shuffle again with its button); the slider sets the thumbnail size, and the drawer's right edge its width.
-- **Stars, hearts and tags:** give files 1 to 5 stars, a favourite heart and tags, one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart in their top corner and the stars along their foot.
-  - **Tags…** lists the tags the selected files have (a dashed one only some of them have: click it to give it to all; × takes a tag off all), a field to type one (tags in use are offered as you type; Enter gives it to all), and the other tags in use, a click each. "Beach" and "beach" are one tag, written the way it was first typed.
-  - **The folder row's list** has a Tags section: pick one to see its files. Right-click a tag to rename it (into a tag in use, the two become one) or delete it (it comes off its files, which stay).
-  - **On the wall,** a tile whose file is in the library has a **Library** group in its right-click menu (its hint shows the stars, heart and tags; Favourite and the rating are in it) and a **Library** part in Properties: five stars to click (the same star again clears them), the heart, and the tags (× takes one off, the field gives one).
-  - They live with the file in `library.json`, so a file changed, moved or renamed inside the library keeps them. That file is now version 2: an older Wallpane opens it read-only, so it never drops them.
-- **Onto the wall:** drag thumbnails onto the wall or onto a tile: it works as a drop from Explorer does. Once a drag leaves the drawer, the drawer fades, so a tile under it can take the drop too (drag out, then back over it). Hold Shift while dropping several on a tile to make that tile play them in turn. Drag a folder from the list to make a tile (or the empty tiles) play it.
-- **Hover previews:** rest the pointer on a video's thumbnail and it plays a few seconds of the video: four short parts from across it (a short video: its start), small and silent. The first time, a thin bar runs along the thumbnail's foot while the clip is made (about half a second); it is kept in the cache (Settings › Storage, Previews). A GIF's thumbnail plays the GIF itself. Settings › Library can turn them off, for the library window too.
-- **Without dragging:** double-click a thumbnail (or select and press Enter) to put it on the selected tile, or else into the empty tiles. Right-click for the same, for Show in Explorer, and for stars, the heart and tags.
-- **Selecting:** click, Ctrl+click, Shift+click, and Ctrl+A for everything shown.
-- **Collections** are your own lists of files, under Collections in the folder row's list.
-  - **Filling one:** right-click files › Add to "…" or Add to a new collection, or drag them onto a collection in that list (held over the folder row, the list opens).
-  - **In a collection:** sorted by Collection order, drag thumbnails to change the order, or right-click › Move to the start / end. Delete (or right-click › Take out) takes files out of it, never off the disk.
-  - **Renaming and deleting:** right-click a collection in the list.
-  - **On the wall:** drag a collection onto a tile and the tile plays it, following it as it changes (new files join, its order is kept). Dropped elsewhere, it fills the empty tiles and cells as a folder does.
-- **Adding folders:** drop folders from Explorer onto the drawer, or use its + button.
-
-## On a TV or projector
-Settings › Wall mode › **Connect a wireless display…** opens Windows' display settings, where "Connect to a wireless display" (or Win+K) casts to a TV, projector or stick that supports Miracast. Choose **Extend** so it becomes a display of its own; Wallpane notices and lists it under Show on, and wall mode then fills it. Chromecast is not supported.
-
-## Emergency hide
-Press **Ctrl+Shift+H** in any program and every wall window hides at once: the sound goes off (the window is muted, not just the videos), videos and playlists pause, and the windows show something else. Press it again and everything comes back as it was, the videos playing on. Starting Wallpane again also brings it back, in case the key slips your mind.
-
-Settings › Emergency hide:
-- **Key**: click it and press the new key: any one key alone, or with Ctrl, Alt, Shift or Win (not F11, the wall mode key, or Alt+F4). Other programs no longer get the key while Wallpane runs; for a key that types something, like a letter, Settings says that typing it anywhere hides the wall. If another program already holds the key, Settings says so, and it then works only while Wallpane is the active window.
-- **Or one press**: pick F9, Scroll Lock, or your keyboard's Mute or Play/Pause key with a click. A media key then stops doing its usual job while Wallpane runs.
-- **Mouse button**: click it, then press the mouse button to use: back or forward (the side buttons) or middle. Esc stops listening, Clear takes the button off. Like the key, it hides and brings back from any program, also when the windows have gone away, and other programs no longer get that button while Wallpane runs (Back no longer goes back in a browser). A small helper (`wallpane-mouse.exe`, built from `tools/mousehook`) watches for that one button; if it cannot start, Settings says so and the button works only over a Wallpane window.
-- **Windows show**: a spreadsheet (a plain budget table; you can click cells and move with the arrow keys, and the window title changes to match), a black screen, a picture you choose, or nothing at all: the windows go away, off the taskbar too.
-- **Hide now** tries it.
-
-While hidden, keys, drops and right-clicks don't reach the wall, so nothing on it can change by accident. The settings are shared by all wall windows (`hide.json`).
-
-## Notes
-- Playlist: choose a folder (Playlist > Choose folder, or Add > Folder as a playlist) and it fills the empty cells, one file per tile; rows or columns you add later fill too. Drop a folder on a tile to give just that tile the folder. Options: order, image seconds, GIFs, crossfade, random video start, max clip length, and Plays: videos, GIFs and images, any mix (a tile's Playlist settings change it for a playlist that is already playing; tiles showing a kind you untick move on at once). New files in the folder join the queue as they appear (the app watches the folder, and also rescans every two minutes for network drives). A playlist tile's pin button (Stay on this file) keeps it on the file it shows, repeating, until you let it carry on; a tile with a single video has Repeat instead (on, or play it once), and pictures and GIFs have neither. A folder is read up to 3,000 files.
-- Dropping a folder on empty space: on the grid it plays as a playlist; in Free layout each file gets its own tile.
-- Tiles: Snap to grid, or Free (pixels). Free lets you place and size every tile by the pixel: edges snap to other tiles and the wall (Alt turns that off), Shift while resizing keeps the tile's shape, arrow keys move 1 px (Ctrl: 10) and Properties takes exact pixel values. Switching keeps every tile where it is.
-  - Moving: the tile follows the pointer and the others make room, each only further to its own side, never jumping over the tile you drag. Where they cannot, they stay, and dropping on one swaps the two; anywhere else the tile goes back.
-  - Resizing: the edge you drag first takes the free space up to the next tile; then the tiles beside it slide into any free space beyond them, and then all of them shrink evenly. Settings › General › Growing a tile can switch to the older way: they are pushed and only the one at the wall shrinks.
-  - Media added in Free (pixels) gets a tile with the media's exact shape as soon as it has loaded.
-- Fill the wall gives every tile its media's shape; "Fit tile to media" (a tile's right-click menu › Display, or Properties) does it for one tile, shrinking it inside its place (switching to Free if needed). Both undoable.
-- Settings › Tiles › New tiles: whether media fills a new tile (a little may be cropped) or shows whole; each tile's fit button changes just that tile.
-- Settings › General › Open another wall window: another wall (for a second monitor); each window has its own wall and settings, saved walls and frame layouts are shared; windows reopen on the next start.
-- Clear (the red bin in the top bar, beside Add) takes two clicks; Ctrl+Z brings the wall back.
-
-## Development
-- `npm run lint`: ESLint
-- `npm test`: unit tests (Node's built-in test runner), for the logic in `renderer/lib` and `lib`, plus checks that the page, preload and main process are wired together
-- `npm run test:e2e`: starts the real app with Playwright and goes through the main features (test data in a temporary folder)
-- `npm run check`: all three
-
-GitHub Actions runs all three on every push to `main` or `Dev` and on every pull request. Running the workflow by hand, or publishing a release (see Releases above), also builds the .exe files.
-
-### Code map
-- `main.js`: windows, dialogs, file access, wall-mode wake lock, start with Windows, the emergency hide key and mouse button. Every call from the page goes through `handle()`, which only accepts our own wall windows.
-- `preload.js`: the small API the page gets (`window.wall`).
-- `lib/`: main-process helpers: scanning folders, GIF lengths, safe JSON saves (`files.js`), watching playlist folders (`watch.js`), running FFmpeg (`ffmpeg.js`), what a file holds and what it needs (`mediainfo.js`), making a playable copy, a GIF's video copy and a lighter copy (`playable.js`), a GIF of a looped part (`makegif.js`), the looped part copied into an MP4 (`cutpart.js`), the emergency hide's mouse button in every program (`mousehook.js`, running the helper built from `tools/mousehook/MouseHook.cs`), the background job queue (`jobs.js`), the cache (`cache.js`) and the library: its folders, files, search and filters, kept in `library.json` (`library.js`, designed in `docs/library-design.md`), kept in step with the folders on disk (`libraryfolders.js`), with picture sizes read from the files' first bytes (`imagesize.js`) and thumbnails and hover previews in the cache (`thumbs.js`, `previews.js`); a video tile's timeline pictures (`strips.js`); each video's loudness and black or silent opening, measured once (`loudness.js`, `openings.js`, on `measures.js`); the drawing pace for screens of different rates (`pace.js`); what a resting pointer asks for, made one at a time, the latest first (`latest.js`).
-- `scripts/fetch-ffmpeg.js`: the pinned FFmpeg build, fetched into `vendor/ffmpeg`. `scripts/build-mousehook.js`: the mouse helper, built into `vendor/mousehook`.
-- `renderer/lib/`: plain logic with no DOM, also loaded by the tests: formats, grid and free-layout geometry (pushing and squeezing included), playlists, saved records, the pan and zoom maths and what a tile shows of its media (`view.js`), Make a GIF's choices, sizes and FFmpeg arguments (`gifmake.js`, also used by the main process), video playback times (`playback.js`), shortcut keys (`hotkey.js`, also used by the main process), the stopwatch and timer (`clock.js`) and Fill the wall (`collage.js`), the library's thumbnails in even rows (`justify.js`), and the icons (`icons.js`).
-- `renderer/ui/`: the page, one file per area. `core.js` holds the shared state (`MW.app`, called `A`); the other files add their functions to it: `tiles.js`, `inspector.js`, `media.js`, `playlists.js`, `presets.js`, `controls.js`, `menus.js` (right-click menus), `builder.js` (rows and columns), `hide.js` (emergency hide), `clock.js` (the time in the bar), `music.js` (background music), `playable.js` (tiles waiting for a playable copy, GIFs as videos, small tiles on lighter copies), `jobs.js` (background work in the bar, Settings › Storage), `library.js` (the library in the wall page, Settings › Library), `libview.js` (the library's browsing view, also used by the library window), and `boot.js` last.
-- `renderer/library.html` with `renderer/libwin/`: the library window, the same view on its own.
+## License
+Wallpane is free software under the [GNU General Public License, version 3 or later](LICENSE). It includes FFmpeg, also under the GPL. The media in the pictures above is from [Pexels](docs/images/CREDITS.md).

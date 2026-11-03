@@ -72,5 +72,5 @@
       '-loop', '0', '-f', 'gif', '-progress', 'pipe:1', '-nostats', out]);
   }
 
-  return { WIDTHS: WIDTHS, RATES: RATES, LONG: LONG, MAX: MAX, clean: clean, outSize: outSize, seconds: seconds, estimate: estimate, fileName: fileName, args: args };
+  return { WIDTHS: WIDTHS, RATES: RATES, LONG: LONG, MAX: MAX, clean: clean, outSize: outSize, seconds: seconds, estimate: estimate, stamp: stamp, fileName: fileName, args: args };
 });

@@ -35,7 +35,7 @@ jobs:
 
   # Builds the installer and the portable .exe when you run the workflow by hand, or when you publish a release on
   # GitHub (tag v1.2.0 for version 1.2.0): then the two .exe files are attached to that release.
-  # Signing happens only if the CSC_LINK (certificate) and CSC_KEY_PASSWORD secrets are set; see README.
+  # Signing happens only if the CSC_LINK (certificate) and CSC_KEY_PASSWORD secrets are set; see docs/development.md.
   build:
     needs: check
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'

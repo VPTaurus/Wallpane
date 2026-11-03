@@ -30,6 +30,21 @@ contextBridge.exposeInMainWorld('wall', {
   } : null),
   // o: { file, start, end } (lib/cutpart.js)
   cutPart: (o) => ipcRenderer.invoke('media:cutPart', o && typeof o === 'object' ? { file: String(o.file), start: +o.start, end: +o.end } : null),
+  // o: { file, at } (lib/snapshot.js)
+  snapshot: (o) => ipcRenderer.invoke('media:snapshot', o && typeof o === 'object' ? { file: String(o.file), at: +o.at } : null),
+  // The wall as it plays now (renderer/lib/wallvideo.js clean checks it in the main process).
+  wallVideo: (r) => ipcRenderer.invoke('wall:video', r && typeof r === 'object' ? JSON.parse(JSON.stringify(r)) : null),
+  // A screenshot of the wall's part of the window (r: { x, y, w, h } in the page), then where to save it.
+  wallShot: (r) => ipcRenderer.invoke('wall:shot', r && typeof r === 'object' ? { x: +r.x, y: +r.y, w: +r.w, h: +r.h } : {}),
+  saveWallShot: () => ipcRenderer.invoke('wall:saveShot'),
+  // Recording the wall live (renderer/ui/recorder.js, lib/recfile.js): the folder (d: Settings' choice, or null for
+  // Videos), start, each piece of the video as it comes, stop.
+  recFolder: (d) => ipcRenderer.invoke('rec:folder', typeof d === 'string' ? d : null),
+  recChooseFolder: (d) => ipcRenderer.invoke('rec:chooseFolder', typeof d === 'string' ? d : null),
+  recOpenFolder: (d) => ipcRenderer.invoke('rec:openFolder', typeof d === 'string' ? d : null),
+  recStart: (o) => ipcRenderer.invoke('rec:start', { ext: o && o.ext === 'webm' ? 'webm' : 'mp4', dir: o && typeof o.dir === 'string' ? o.dir : null }),
+  recData: (bytes) => ipcRenderer.invoke('rec:data', bytes instanceof Uint8Array ? bytes : new Uint8Array(0)),
+  recStop: () => ipcRenderer.invoke('rec:stop'),
   loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
   onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),

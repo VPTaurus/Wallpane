@@ -34,6 +34,10 @@ const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
 const cutpart = require('./lib/cutpart');
+const snapshot = require('./lib/snapshot');
+const wallexport = require('./lib/wallexport');
+const { createRecordings } = require('./lib/recfile');
+const wallvideo = require('./renderer/lib/wallvideo');
 const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
@@ -183,6 +187,9 @@ function startBackground() {
   JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.makegif = makeGifKind({ ffmpeg });
   JOB_KINDS.cutpart = cutpart.cutPartKind({ ffmpeg });
+  JOB_KINDS.snapshot = snapshot.snapshotKind({ ffmpeg });
+  // Its pieces go in Windows' temporary folder (local, not roamed), removed when the video is made.
+  JOB_KINDS.wallvideo = wallexport.wallVideoKind({ ffmpeg, cache, tmp: path.join(app.getPath('temp'), 'Wallpane wall video') });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -278,6 +285,89 @@ handle('media:cutPart', async (e, o) => {
   const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out, mode: p.mode, keyGap: p.keyGap }, c), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
+// Save the frame a video tile shows as a picture (lib/snapshot.js): PNG, or JPEG when the name chosen ends so. The
+// same answers as media:makeGif.
+handle('media:snapshot', async (e, o) => {
+  const c = snapshot.clean(o);
+  if (!c || !ffmpeg.available() || !jobs || !fs.existsSync(c.file)) return { status: 'no' };
+  const r = await dialog.showSaveDialog(winOf(e), {
+    title: 'Save the frame',
+    defaultPath: path.join(path.dirname(c.file), snapshot.fileName(path.basename(c.file), c.at, 'png')),
+    filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'JPEG', extensions: ['jpg', 'jpeg'] }]
+  });
+  if (r.canceled || !r.filePath) return { status: 'cancelled' };
+  const out = /\.(?:png|jpe?g)$/i.test(r.filePath) ? r.filePath : r.filePath + '.png';
+  const job = jobs.add({ kind: 'snapshot', key: 'snapshot:' + out, label: path.basename(out), input: Object.assign({ out }, c), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
+// Save the wall as a video (lib/wallexport.js): asks where, in Videos by default, then a job makes it. The same
+// answers as media:makeGif.
+// "Wallpane 2026-11-03 14.05.12.png": a name for the wall saved now, in Windows' folder of that kind (Videos,
+// Pictures), else Documents.
+function wallName(ext) {
+  const d = new Date(), two = (n) => String(n).padStart(2, '0');
+  return 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.' + two(d.getSeconds()) + '.' + ext;
+}
+function windowsFolder(kind) {
+  try { return app.getPath(kind); } catch { return app.getPath('documents'); }
+}
+function wallFile(kind, ext) { return path.join(windowsFolder(kind), wallName(ext)); }
+handle('wall:video', async (e, r) => {
+  const req = wallvideo.clean(r);
+  if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
+  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: wallFile('videos', 'mp4'), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
+  if (s.canceled || !s.filePath) return { status: 'cancelled' };
+  const out = /\.mp4$/i.test(s.filePath) ? s.filePath : s.filePath + '.mp4';
+  if (req.tiles.some((t) => path.resolve(t.file).toLowerCase() === path.resolve(out).toLowerCase())) return { status: 'no' };
+  const job = jobs.add({ kind: 'wallvideo', key: 'wallvideo:' + out, label: path.basename(out), input: { out, req }, priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
+// A screenshot of the wall: the page asks once only its media shows (ui/wallvideo.js), and the part of the window
+// with the wall is taken at the screen's own resolution ({ w, h } in pixels, or null). The picture waits here until
+// wall:saveShot asks where it goes: PNG, or JPEG when the name chosen ends so ({ status: 'saved', path, bytes },
+// 'cancelled' or 'no').
+const shots = new Map();   // the page's webContents id -> its screenshot
+handle('wall:shot', async (e, r) => {
+  const x = Math.round(+r.x), y = Math.round(+r.y), width = Math.round(+r.w), height = Math.round(+r.h);
+  if (!(x >= 0 && y >= 0 && width >= 1 && height >= 1)) return null;
+  const img = await e.sender.capturePage({ x, y, width, height });
+  if (img.isEmpty()) return null;
+  shots.set(e.sender.id, img);
+  const s = img.getSize();
+  return { w: s.width, h: s.height };
+});
+handle('wall:saveShot', async (e) => {
+  const img = shots.get(e.sender.id);
+  shots.delete(e.sender.id);
+  if (!img) return { status: 'no' };
+  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the screenshot', defaultPath: wallFile('pictures', 'png'), filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'JPEG', extensions: ['jpg', 'jpeg'] }] });
+  if (s.canceled || !s.filePath) return { status: 'cancelled' };
+  const out = /\.(?:png|jpe?g)$/i.test(s.filePath) ? s.filePath : s.filePath + '.png';
+  const data = /\.jpe?g$/i.test(out) ? img.toJPEG(92) : img.toPNG();
+  try { await fsp.writeFile(out, data); } catch { return { status: 'no' }; }
+  return { status: 'saved', path: out, bytes: data.length };
+});
+// Recording the wall live (renderer/ui/recorder.js, lib/recfile.js): the folder Settings › Recording chose while it is
+// there, else Videos. rec:start names the file there ({ path } or { error }), rec:data writes each piece as it comes,
+// rec:stop finishes it; a window that closes while recording keeps what it recorded (createWindow).
+const recordings = createRecordings({ ffmpeg });
+function recFolder(d) {
+  try { if (typeof d === 'string' && d && fs.statSync(d).isDirectory()) return d; } catch { /* gone: Videos */ }
+  return windowsFolder('videos');
+}
+handle('rec:folder', (_e, d) => recFolder(d));
+handle('rec:chooseFolder', async (e, d) => {
+  const r = await dialog.showOpenDialog(winOf(e), { title: 'Where recordings are saved', defaultPath: recFolder(d), properties: ['openDirectory', 'createDirectory'] });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+handle('rec:openFolder', (_e, d) => shell.openPath(recFolder(d)));
+handle('rec:start', async (e, o) => {
+  const out = path.join(recFolder(o && o.dir), wallName(o && o.ext === 'webm' ? 'webm' : 'mp4'));
+  try { await recordings.start(e.sender.id, out); } catch (err) { return { error: err.message }; }
+  return { path: out };
+});
+handle('rec:data', (e, bytes) => recordings.write(e.sender.id, Buffer.from(bytes)));
+handle('rec:stop', (e) => recordings.stop(e.sender.id));
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.
 handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
@@ -850,6 +940,7 @@ function createWindow(id, given) {
     opts.x = 60 * id; opts.y = 60 * id;
   }
   const win = new BrowserWindow(opts);
+  const page = win.webContents.id;   // still known once the window is gone
   wins.set(id, win);
   let lastBounds = win.getBounds();
   const remember = () => { if (!win.isDestroyed() && !win.isMaximized() && !win.isFullScreen()) lastBounds = win.getBounds(); };
@@ -866,6 +957,7 @@ function createWindow(id, given) {
   win.on('minimize', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', true); });
   win.on('restore', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', false); });
   win.on('closed', () => {
+    if (recordings.recording(page)) recordings.stop(page).catch(() => { /* what was written stays as .part */ });   // keeps what it recorded
     wins.delete(id);
     if (!wins.size && libWin && !libWin.isDestroyed()) libWin.destroy();   // the library window goes with the last wall
     watchers.dropOwner(id);

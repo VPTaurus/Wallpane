@@ -18,6 +18,7 @@
       music: { root: null, shuffle: false, vol: 0.6, on: false },   // background music: its folder, and whether it plays
       timeBar: { clock: true, sw: false, tm: false, ct: false },    // what the bar always shows of the clock popover
       counter: 0,                                                    // the counter in the clock popover
+      rec: MW.wallvideo.cleanRec(null),                              // Settings › Recording (ui/recorder.js)
       // The library: how it shows (a drawer over the wall, a panel beside it, or a window of its own) and on which side,
       // open or not, its width, the thumbnail size, the order, and what it shows (ui/libview.js checks what was saved).
       lib: { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, folder: null }
@@ -74,7 +75,7 @@
   /* ---------- stored settings (one set per window) ---------- */
   var prefsRead = false;   // until then the settings here are the defaults, not the saved ones
   function prefsRecord() {
-    return { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib, propsFold: S.propsFold };
+    return { cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, display: S.display, mode: S.mode, startWall: S.startWall, awake: S.awake, clock24: S.clock24, soloSound: S.soloSound, evenLoud: S.evenLoud, skipOpen: S.skipOpen, fillShapes: S.fillShapes, pauseMin: S.pauseMin, startWith: S.startWith, resizeMode: S.resizeMode, fullWall: S.fullWall, autoConvert: S.autoConvert, gifVideo: S.gifVideo, proxies: S.proxies, music: S.music, timeBar: S.timeBar, counter: S.counter, lib: S.lib, propsFold: S.propsFold, rec: S.rec };
   }
   A.savePrefs = function () { api.storeSet('prefs', prefsRecord()); };
   // A save still under way as the window closes (a change made just before) could be cut off: once more, at once.
@@ -108,6 +109,7 @@
     if (Number.isFinite(p.counter)) S.counter = MW.util.clamp(Math.round(p.counter), -999999, 999999);
     if (Array.isArray(p.propsFold)) S.propsFold = p.propsFold.filter(function (k) { return ['place', 'display', 'playback', 'playlist', 'lib', 'file'].indexOf(k) > -1; });
     if (p.lib && typeof p.lib === 'object') S.lib = A.libView.cleanPrefs(p.lib);
+    if (p.rec && typeof p.rec === 'object') S.rec = MW.wallvideo.cleanRec(p.rec);
     var m = p.music;
     if (m && typeof m === 'object') {
       S.music = {

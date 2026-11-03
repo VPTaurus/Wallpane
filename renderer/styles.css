@@ -74,6 +74,12 @@ select { padding-right: 8px; max-width: 220px; }
 .btn [data-icon="chev"] svg { width: 13px; height: 13px; }
 .btn.ib { width: 34px; padding: 0; justify-content: center; }
 .btn.on { color: var(--accent); }
+/* Record while recording: red, with the time so far (ui/recorder.js). */
+#recordBtn.rec { width: auto; gap: 5px; padding: 0 9px; color: #fff; background: #d93636; border-color: #d93636; }
+#recordBtn.rec .ic svg { animation: recblink 1.2s steps(2, jump-none) infinite; }
+#recordBtn .rectime { font: 600 12px var(--mono); }
+@keyframes recblink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { #recordBtn.rec .ic svg { animation: none; } }
 input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; margin: 0; }
 .gapval { font: 400 12px var(--mono); color: var(--muted); min-width: 34px; }
 .step { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); overflow: hidden; height: 34px; }
@@ -765,6 +771,13 @@ body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
 
 /* ---------- wall mode ---------- */
 .exit { display: none; }
+/* The moment a screenshot of the wall is taken (ui/wallvideo.js): only its media shows. No selection, tile controls
+   or empty cells, nor anything that lies over the wall (popovers, menus, the drawer, a message). */
+body.shot .tile, body.shot .tile.sel, body.shot .slot { outline-color: transparent; box-shadow: none; transition: none; }
+body.shot .slot { border-color: transparent; background: transparent; }
+body.shot .slot > *, body.shot .tile.is-empty, body.shot .hud, body.shot .vbar, body.shot .rz, body.shot .pinmark, body.shot .ghost,
+body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel) { visibility: hidden !important; }
+
 body.clean { padding: 0; }
 body.clean .bar, body.clean .props { display: none; }
 body.clean .app { height: 100%; gap: 0; }

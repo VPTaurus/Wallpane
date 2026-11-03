@@ -28,6 +28,7 @@
     "check": "npm run lint && npm test && npm run test:e2e",
     "fetch-ffmpeg": "node scripts/fetch-ffmpeg.js",
     "build-mousehook": "node scripts/build-mousehook.js",
+    "screenshots": "node scripts/screenshots.js",
     "predist": "node scripts/fetch-ffmpeg.js && node scripts/build-mousehook.js",
     "dist": "electron-builder --win --publish never"
   },

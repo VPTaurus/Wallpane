@@ -1,5 +1,16 @@
 # Changelog
 
+## Not released yet
+
+New:
+- **Save this frame:** a video tile's right-click menu (File) and Properties › File save the frame the tile shows as a PNG or JPEG: the whole frame at the video's own size, from the original file, also when the tile is zoomed or plays a lighter copy.
+- **Screenshot of the wall:** a camera button in the top bar saves the wall as it shows now as a picture (PNG or JPEG) at the screen's resolution, with only the media in it: no selection, tile controls or empty cells.
+- **Record the wall:** the Record button beside it starts recording the wall as it plays, and stops it; the MP4 is saved at once in the folder set in Settings › Recording (Videos by default). Only the media is recorded, each tile in its place, with the sound you hear from the wall. Settings › Recording sets the size (as on screen, or 720p to 4K), 30 or 60 frames a second, the quality, the sound and the folder.
+- **Save the wall as a video:** Saved walls › Save as a video… makes one MP4 of the whole wall, every tile in its place, at 720p to 4K in the wall's shape, 10 s to 10 minutes long. The wall goes on in it as it would on screen: each tile from where it is, with its looped part, speed and zoom, playlists moving on with their own order and timing, and the sound of the tiles you hear plus the music. Made offline with FFmpeg as a job in the bar.
+
+Fixed:
+- **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
+
 ## 1.6.8: Stars, hearts and tags; the looped part as MP4; a wall that carries on where it was
 
 Download **Wallpane Setup 1.6.8.exe** (installer) or **Wallpane 1.6.8.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
@@ -19,7 +30,6 @@ Tidier:
 Fixed:
 - **The emergency hide's mouse button works from any program:** it worked only with the pointer over a Wallpane window, so once the windows had gone away ("Nothing" shown) the button could not bring them back. Now a small helper catches that one button in every program, like the key, and other programs no longer get it while Wallpane runs.
 - **The message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
-- **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
 
 ## 1.6.5: GIFs and a tidier wall
 

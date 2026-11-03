@@ -246,6 +246,17 @@
     A.render();
   }
   api.onOpenings(opened);
+  // What is known of these files, for Save the wall as a video: each one's even-loudness gain (when below 1) and its
+  // openings, as the wall would use them with the settings as they are.
+  A.heardHints = function (paths) {
+    var gain = {}, open = {};
+    paths.forEach(function (p) {
+      var g = A.levelOf({ path: p });
+      if (g < 1) gain[p] = g;
+      if (S.skipOpen && openings[p]) open[p] = openings[p];
+    });
+    return { gain: gain, open: open };
+  };
   $('#setSkipOpen').addEventListener('change', function () { S.skipOpen = this.checked; A.savePrefs(); A.render(); });
 
   // The videos on the wall, a moment after it changed: their loudness and openings. Asked again only when they (or
