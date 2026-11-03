@@ -452,6 +452,17 @@ test('split a tile from the right-click menu; the new half is an empty tile', as
   await expect(tiles()).toHaveCount(count + 1);
   await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
   expect((await layout()).overlaps).toBe(0);
+  // Placed freely, an empty tile looks like an empty cell on the grid: only the quiet +. A click chooses its media.
+  await expect(page.locator('#modeSeg [data-mode="free"]')).toHaveAttribute('aria-pressed', 'true');
+  const empty = page.locator('#wall .tile.is-empty');
+  await expect(empty.locator('.plus')).toBeVisible();
+  await expect(empty.locator('.empty-ph .sub')).toBeHidden();
+  await expect(empty.locator('.empty-ph .phbtns')).toBeHidden();
+  await answerDialogs(path.join(media, 'img1.png'));
+  await empty.click();
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('#wall .tile.is-empty')).toHaveCount(1);
 });
 
 test('a tile playing its own folder: playlist settings in its Properties', async () => {

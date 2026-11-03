@@ -20,12 +20,14 @@
     el.setAttribute('aria-label', it.name + ' (' + A.kindLabel(it) + (it.missing ? ', file not found' : '') + ')');
     var media;
     if (it.kind === 'empty') {
-      // A frame without media yet: drop media on it, or choose some.
+      // A frame without media yet: drop media on it, or choose some. In Free layout it shows only the quiet + of an
+      // empty grid cell (styles.css), and a click chooses its media.
       media = document.createElement('div');
       media.className = 'media empty-ph';
       media.innerHTML = '<span class="ic" aria-hidden="true">' + ICON.tile + '</span><span>Empty tile</span><span class="sub">Drop media here, or choose</span>' +
         '<span class="phbtns"><button class="btn" type="button" data-act="choose" title="One file for this tile">File…</button>' +
-        '<button class="btn" type="button" data-act="chooseFolder" title="A folder whose files this tile plays in turn">Folder…</button></span>';
+        '<button class="btn" type="button" data-act="chooseFolder" title="A folder whose files this tile plays in turn">Folder…</button></span>' +
+        '<span class="plus" aria-hidden="true">+</span><span class="hint">Drop or click</span>';
     } else if (it.missing) {
       media = document.createElement('div');
       media.className = 'media offline-ph';
@@ -151,7 +153,11 @@
     el.addEventListener('click', function (e) {
       if (el._moved) { el._moved = false; return; }
       var b = e.target.closest('[data-act]');
-      if (!b) { if (A.reposId !== it.id) A.select(S.sel === it.id ? null : it.id); return; }
+      if (!b) {
+        if (S.mode === 'free' && it.kind === 'empty') { A.select(it.id); A.chooseMedia(it); return; }   // its + says "click"
+        if (A.reposId !== it.id) A.select(S.sel === it.id ? null : it.id);
+        return;
+      }
       e.stopPropagation();
       var act = b.dataset.act;
       if (act === 'remove') { A.removeItem(it.id); return; }

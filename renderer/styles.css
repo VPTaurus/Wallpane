@@ -186,11 +186,11 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
   border: 1px dashed var(--slot-line); border-radius: var(--r); background: var(--slot);
   color: var(--muted); font: 400 11px/1.2 var(--mono); padding: 0; min-width: 0; min-height: 0; overflow: hidden;
 }
-.slot .plus { font: 300 24px/1 var(--ui); opacity: 0.35; transition: opacity 0.15s; }
-.slot .hint { opacity: 0; transition: opacity 0.15s; font-family: var(--ui); font-size: 12px; }
+.slot .plus, .wall.free .empty-ph .plus { font: 300 24px/1 var(--ui); opacity: 0.35; transition: opacity 0.15s; }
+.slot .hint, .wall.free .empty-ph .hint { opacity: 0; transition: opacity 0.15s; font-family: var(--ui); font-size: 12px; }
 .slot:hover { border-color: var(--accent); color: var(--fg); }
-.slot:hover .plus { opacity: 1; color: var(--accent); }
-.slot:hover .hint { opacity: 1; }
+.slot:hover .plus, .wall.free .tile.is-empty:hover .plus { opacity: 1; color: var(--accent); }
+.slot:hover .hint, .wall.free .tile.is-empty:hover .hint { opacity: 1; }
 
 /* ---------- tiles ---------- */
 /* Selection is a ring just outside the tile, with round grips on its corners, so it never covers the media.
@@ -220,6 +220,12 @@ input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; m
 .empty-ph .btn { pointer-events: auto; height: 28px; padding: 0 10px; font-size: 12px; }
 .empty-ph .phbtns { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
 .tile.is-empty:hover .empty-ph { border-color: var(--accent); }
+/* In Free layout an empty tile looks like an empty cell on the grid: only the quiet + (a click chooses its media). */
+.empty-ph .plus, .empty-ph .hint { display: none; }
+.wall.free .empty-ph { gap: 2px; padding: 0; border-width: 1px; font: 400 11px/1.2 var(--mono); }
+.wall.free .empty-ph > :not(.plus):not(.hint) { display: none; }
+.wall.free .empty-ph .plus, .wall.free .empty-ph .hint { display: block; }
+.wall.free .tile.is-empty:hover .empty-ph { color: var(--fg); }
 .tile.is-empty [data-act="play"], .tile.is-empty [data-act="mute"], .tile.is-empty [data-act="loop"], .tile.is-empty [data-act="fit"] { display: none; }
 /* Repositioning the media: drag it inside the tile, scroll to zoom. */
 .tile.repos { cursor: move; outline-color: var(--accent); outline-style: dashed; z-index: 3; }

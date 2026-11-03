@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Empty tiles in Free (pixels) look like empty cells on the grid:** only the faint +, with "Drop or click" under the pointer, instead of the Empty tile card with File… and Folder…. A click chooses the tile's media; its right-click menu still offers a folder.
+
 ## 1.6.5: GIFs and a tidier wall
 
 Download **Wallpane Setup 1.6.5.exe** (installer) or **Wallpane 1.6.5.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
