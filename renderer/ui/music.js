@@ -76,6 +76,14 @@
     $('#musicBtn').title = playing ? 'Background music: ' + title(f) : 'Background music';
   }
   A.refreshMusic = show;
+  // While it plays, for Save the wall as a video: the tracks from the one playing on (a round, then the round again),
+  // where it is in that one, and the volume. Null when no music plays.
+  A.musicNow = function () {
+    if (audio.paused || !current()) return null;
+    var tracks = [];
+    for (var i = 0; i < Math.min(order.length, 200); i++) tracks.push(list[order[(pos + i) % order.length]].path);
+    return { tracks: tracks, at: audio.currentTime || 0, vol: S.music.vol };
+  };
 
   $('#musicFolderBtn').addEventListener('click', chooseFolder);
   $('#musicStop').addEventListener('click', stop);

@@ -44,11 +44,19 @@
     var x = axis(v.mx, v.zoom, W, c.w), y = axis(v.my, v.zoom, H, c.h);
     return { x: x[0], y: y[0], w: x[1], h: y[1] };
   }
+  // Where the media shows in a W x H tile: the part of it shown (crop, as shown() gives it) and the box of the tile
+  // that part fills (dest, in the tile's pixels): the whole tile when the media fills it, less where bars are.
+  function placed(W, H, a, fit, v) {
+    var c = content(W, H, a, fit), crop = shown(W, H, a, fit, v);
+    function axis(p, z, S, C, f0, f) { return [Math.max(0, screenAt(p, z, S, C, f0 * C)), Math.min(S, screenAt(p, z, S, C, (f0 + f) * C))]; }
+    var x = axis(v.mx, v.zoom, W, c.w, crop.x, crop.w), y = axis(v.my, v.zoom, H, c.h, crop.y, crop.h);
+    return { crop: crop, dest: { x: x[0], y: y[0], w: Math.max(0, x[1] - x[0]), h: Math.max(0, y[1] - y[0]) } };
+  }
   // The CSS for a tile's media element.
   function css(it) {
     var v = of(it), pos = (v.mx * 100).toFixed(2) + '% ' + (v.my * 100).toFixed(2) + '%';
     return { objectPosition: pos, transformOrigin: pos, transform: v.zoom > 1.0001 ? 'scale(' + v.zoom.toFixed(4) + ')' : '' };
   }
 
-  return { MAXZ: MAXZ, content: content, of: of, isDefault: isDefault, screenAt: screenAt, pan: pan, zoomAt: zoomAt, shown: shown, css: css };
+  return { MAXZ: MAXZ, content: content, of: of, isDefault: isDefault, screenAt: screenAt, pan: pan, zoomAt: zoomAt, shown: shown, placed: placed, css: css };
 });

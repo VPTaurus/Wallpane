@@ -208,6 +208,7 @@
             <button class="btn" id="importBtn" type="button">Import…</button>
             <button class="btn" id="revealBtn" type="button">Show file</button>
           </div>
+          <button class="btn full" id="wallVideoBtn" type="button" title="Save the wall as it plays as one MP4 video, every tile in its place"><span data-icon="film"></span>Save as a video…</button>
           <p class="note" id="storeNote"></p>
         </div>
       </div>
@@ -475,6 +476,16 @@
   <p class="note" id="gifNote"></p>
   <div class="acts"><button class="btn" id="gifCancel" type="button">Cancel</button><button class="btn pri" id="gifMake" type="button">Save the GIF…</button></div>
 </div>
+<div class="pop gifbox" id="popWv" role="dialog" aria-labelledby="wvTitle" hidden>
+  <button class="btn ib closex" id="wvClose" type="button" aria-label="Close" title="Close (Esc)"><span data-icon="x"></span></button>
+  <div class="ins-head"><div class="ins-name" id="wvTitle">Save the wall as a video</div><div class="ins-sub" id="wvSub"></div></div>
+  <div class="plgrid">
+    <label class="fld" for="wvSize"><span>Size</span><select id="wvSize"></select></label>
+    <label class="fld" for="wvSecs"><span>Length</span><select id="wvSecs"></select></label>
+  </div>
+  <p class="note" id="wvNote"></p>
+  <div class="acts"><button class="btn" id="wvCancel" type="button">Cancel</button><button class="btn pri" id="wvMake" type="button">Save the video…</button></div>
+</div>
 <div class="toast" id="toast" role="status"></div>
 <!-- Plain logic first (also tested in Node), then the page, then startup. -->
 <script src="lib/formats.js"></script>
@@ -489,6 +500,7 @@
 <script src="lib/clock.js"></script>
 <script src="lib/collage.js"></script>
 <script src="lib/gifmake.js"></script>
+<script src="lib/wallvideo.js"></script>
 <script src="lib/justify.js"></script>
 <script src="lib/icons.js"></script>
 <script src="ui/core.js"></script>
@@ -506,6 +518,7 @@
 <script src="ui/playable.js"></script>
 <script src="ui/jobs.js"></script>
 <script src="ui/gif.js"></script>
+<script src="ui/wallvideo.js"></script>
 <script src="ui/library.js"></script>
 <script src="ui/libview.js"></script>
 <script src="ui/boot.js"></script>

@@ -35,6 +35,8 @@ const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
 const cutpart = require('./lib/cutpart');
 const snapshot = require('./lib/snapshot');
+const wallexport = require('./lib/wallexport');
+const wallvideo = require('./renderer/lib/wallvideo');
 const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
@@ -185,6 +187,8 @@ function startBackground() {
   JOB_KINDS.makegif = makeGifKind({ ffmpeg });
   JOB_KINDS.cutpart = cutpart.cutPartKind({ ffmpeg });
   JOB_KINDS.snapshot = snapshot.snapshotKind({ ffmpeg });
+  // Its pieces go in Windows' temporary folder (local, not roamed), removed when the video is made.
+  JOB_KINDS.wallvideo = wallexport.wallVideoKind({ ffmpeg, cache, tmp: path.join(app.getPath('temp'), 'Wallpane wall video') });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -293,6 +297,22 @@ handle('media:snapshot', async (e, o) => {
   if (r.canceled || !r.filePath) return { status: 'cancelled' };
   const out = /\.(?:png|jpe?g)$/i.test(r.filePath) ? r.filePath : r.filePath + '.png';
   const job = jobs.add({ kind: 'snapshot', key: 'snapshot:' + out, label: path.basename(out), input: Object.assign({ out }, c), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
+// Save the wall as a video (lib/wallexport.js): asks where, in Videos by default, then a job makes it. The same
+// answers as media:makeGif.
+handle('wall:video', async (e, r) => {
+  const req = wallvideo.clean(r);
+  if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
+  const d = new Date(), two = (n) => String(n).padStart(2, '0');
+  const name = 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.mp4';
+  let dir;
+  try { dir = app.getPath('videos'); } catch { dir = app.getPath('documents'); }
+  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: path.join(dir, name), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
+  if (s.canceled || !s.filePath) return { status: 'cancelled' };
+  const out = /\.mp4$/i.test(s.filePath) ? s.filePath : s.filePath + '.mp4';
+  if (req.tiles.some((t) => path.resolve(t.file).toLowerCase() === path.resolve(out).toLowerCase())) return { status: 'no' };
+  const job = jobs.add({ kind: 'wallvideo', key: 'wallvideo:' + out, label: path.basename(out), input: { out, req }, priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.

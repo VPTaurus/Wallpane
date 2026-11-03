@@ -645,3 +645,42 @@ test('save this frame: a picture of the moment shown, at the video\'s full size,
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('save the wall as a video: the wall\'s shape at the size chosen, as long as chosen, with the heard tile\'s sound', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=4', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 80, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const video = page.locator('#wall .tile[aria-label^="clip.mp4"] video');
+    await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(3);
+    await page.evaluate(() => { const it = window.MW.app.S.items.find((i) => i.kind === 'video'); it.muted = false; window.MW.app.render(); });
+    // From Saved walls: the dialog says what the video holds.
+    await page.click('#presetBtn');
+    await page.click('#wallVideoBtn');
+    await expect(page.locator('#popWv')).toBeVisible();
+    await page.selectOption('#wvSize', '720');
+    await page.selectOption('#wvSecs', '10');
+    await expect(page.locator('#wvSub')).toHaveText('2 tiles');
+    await expect(page.locator('#wvNote')).toContainText('10 s, with the sound of 1 tile');
+    await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, out);
+    await page.click('#wvMake');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await expect(toast(page)).toContainText('Saved wall.mp4', { timeout: 90000 });
+    const wallBox = await page.locator('#wall').boundingBox();
+    const probe = await ff.probeRaw(out);
+    const v = probe.streams.find((s) => s.codec_type === 'video');
+    expect(v.codec_name).toBe('h264');
+    expect(Math.min(v.width, v.height)).toBe(720);
+    expect(Math.abs(v.width / v.height - wallBox.width / wallBox.height)).toBeLessThan(0.01);
+    expect(probe.streams.some((s) => s.codec_type === 'audio')).toBe(true);
+    expect(Math.abs(parseFloat(probe.format.duration) - 10)).toBeLessThan(0.15);
+    expect(fs.existsSync(path.join(dir, 'wall.part.mp4'))).toBe(false);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

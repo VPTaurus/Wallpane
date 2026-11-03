@@ -9,7 +9,7 @@
   var KIND_NAMES = { converted: 'Playable copies', thumbs: 'Thumbnails', previews: 'Previews', proxies: 'Lighter copies' };
 
   /* ---------- jobs in the bar ---------- */
-  var JOB_WORDS = { playable: 'Making playable', gifvideo: 'GIF to video', libinfo: 'Reading file details', libthumbs: 'Making thumbnails', proxy: 'Lighter copy for a small tile', makegif: 'Making a GIF', cutpart: 'Saving a part', snapshot: 'Saving a frame' };
+  var JOB_WORDS = { playable: 'Making playable', gifvideo: 'GIF to video', libinfo: 'Reading file details', libthumbs: 'Making thumbnails', proxy: 'Lighter copy for a small tile', makegif: 'Making a GIF', cutpart: 'Saving a part', snapshot: 'Saving a frame', wallvideo: 'Saving the wall as a video' };
   var STATE_WORDS = { queued: 'Waiting', done: 'Done', failed: 'Failed', cancelled: 'Stopped' };
   var jobList = [];
   function active(j) { return j.state === 'queued' || j.state === 'running'; }
