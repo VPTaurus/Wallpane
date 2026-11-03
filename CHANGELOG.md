@@ -1,5 +1,10 @@
 # Changelog
 
+## Not released yet
+
+Fixed:
+- **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
+
 ## 1.6.8: Stars, hearts and tags; the looped part as MP4; a wall that carries on where it was
 
 Download **Wallpane Setup 1.6.8.exe** (installer) or **Wallpane 1.6.8.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
@@ -19,7 +24,6 @@ Tidier:
 Fixed:
 - **The emergency hide's mouse button works from any program:** it worked only with the pointer over a Wallpane window, so once the windows had gone away ("Nothing" shown) the button could not bring them back. Now a small helper catches that one button in every program, like the key, and other programs no longer get it while Wallpane runs.
 - **The message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
-- **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
 
 ## 1.6.5: GIFs and a tidier wall
 
