@@ -2,6 +2,8 @@ node_modules/
 dist/
 vendor/
 test-results/
+# Stock media for the screenshots (ROADMAP G): free under the Pexels licence, which does not allow passing the files on.
+demo-media/
 playwright-report/
 *.log
 .DS_Store
