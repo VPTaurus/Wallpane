@@ -18,8 +18,8 @@ test('only ffmpeg, ffprobe and their libraries are kept', () => {
     ['ffmpeg.exe', 'ffprobe.exe', 'avcodec-63.dll']);
 });
 
-test('the built app ships vendor/ffmpeg as resources/ffmpeg', () => {
+test('the built app ships vendor/ffmpeg as resources/ffmpeg, and the mouse helper beside it', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
-  assert.deepEqual(pkg.build.extraResources, [{ from: 'vendor/ffmpeg', to: 'ffmpeg' }]);
-  assert.equal(pkg.scripts.predist, 'node scripts/fetch-ffmpeg.js', 'npm run dist fetches it first');
+  assert.deepEqual(pkg.build.extraResources, [{ from: 'vendor/ffmpeg', to: 'ffmpeg' }, { from: 'vendor/mousehook', to: 'mousehook' }]);
+  assert.equal(pkg.scripts.predist, 'node scripts/fetch-ffmpeg.js && node scripts/build-mousehook.js', 'npm run dist fetches and builds them first');
 });
