@@ -1,7 +1,8 @@
 // Save the wall as a video: a small dialog (size and length) that says what the video will hold, then the main process
 // asks where to save it and makes it as a job (renderer/lib/wallvideo.js, lib/wallexport.js). In the video the wall
 // goes on as it would here: each tile from where it is now, with its looped part, speed, zoom, playlist and sound,
-// and the music if it plays. From Saved walls (Save as a video…) and the wall's right-click menu.
+// and the music if it plays. From the bar's Record button, Saved walls (Save as a video…) and the wall's right-click
+// menu. Beside Record, Screenshot saves the wall as it shows now as a picture.
 (function (A) {
   'use strict';
   if (!A) return;
@@ -75,6 +76,34 @@
     if (!box.hidden && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
   }, true);
   $('#wallVideoBtn').addEventListener('click', A.openWallVideo);
+  $('#recordBtn').addEventListener('click', A.openWallVideo);
+
+  // A screenshot of the wall as it shows now, at the screen's resolution. For the moment it is taken only the media
+  // shows (body.shot: no selection, tile controls, empty cells, nor anything over the wall); then where to save it.
+  function frame() { return new Promise(function (ok) { requestAnimationFrame(function () { requestAnimationFrame(ok); }); }); }
+  A.wallShot = function () {
+    A.closePops();
+    document.body.classList.add('shot');
+    frame().then(function () {
+      var r = wall.getBoundingClientRect();
+      return api.wallShot({ x: r.left, y: r.top, w: r.width, h: r.height });
+    }).then(function (got) {
+      document.body.classList.remove('shot');
+      if (!got) { A.toast('The screenshot could not be taken.'); return null; }
+      return api.saveWallShot();
+    }, function () {
+      document.body.classList.remove('shot');
+      A.toast('The screenshot could not be taken.');
+      return null;
+    }).then(function (res) {
+      if (!res || res.status === 'cancelled') return;
+      if (res.status !== 'saved') { A.toast('The screenshot could not be saved there.'); return; }
+      A.toast('Saved ' + U.baseName(res.path) + ' (' + U.bytes(res.bytes) + ').', [
+        { label: 'Show in Explorer', act: function () { api.revealFile(res.path); } }
+      ]);
+    });
+  };
+  $('#shotBtn').addEventListener('click', A.wallShot);
 
   // The wall as it is at this moment goes to the main process.
   $('#wvMake').addEventListener('click', function () {

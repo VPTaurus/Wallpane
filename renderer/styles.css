@@ -765,6 +765,13 @@ body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
 
 /* ---------- wall mode ---------- */
 .exit { display: none; }
+/* The moment a screenshot of the wall is taken (ui/wallvideo.js): only its media shows. No selection, tile controls
+   or empty cells, nor anything that lies over the wall (popovers, menus, the drawer, a message). */
+body.shot .tile, body.shot .tile.sel, body.shot .slot { outline-color: transparent; box-shadow: none; transition: none; }
+body.shot .slot { border-color: transparent; background: transparent; }
+body.shot .slot > *, body.shot .tile.is-empty, body.shot .hud, body.shot .vbar, body.shot .rz, body.shot .pinmark, body.shot .ghost,
+body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel) { visibility: hidden !important; }
+
 body.clean { padding: 0; }
 body.clean .bar, body.clean .props { display: none; }
 body.clean .app { height: 100%; gap: 0; }

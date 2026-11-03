@@ -4,7 +4,8 @@
 
 New:
 - **Save this frame:** a video tile's right-click menu (File) and Properties › File save the frame the tile shows as a PNG or JPEG: the whole frame at the video's own size, from the original file, also when the tile is zoomed or plays a lighter copy.
-- **Save the wall as a video:** Saved walls › Save as a video… (or right-click an empty part of the wall) makes one MP4 of the whole wall, every tile in its place, at 720p to 4K in the wall's shape, 10 s to 10 minutes long. The wall goes on in it as it would on screen: each tile from where it is, with its looped part, speed and zoom, playlists moving on with their own order and timing, and the sound of the tiles you hear plus the music. Made offline with FFmpeg as a job in the bar.
+- **Screenshot of the wall:** a camera button in the top bar saves the wall as it shows now as a picture (PNG or JPEG) at the screen's resolution, with only the media in it: no selection, tile controls or empty cells.
+- **Record the wall as a video:** the Record button beside it (also Saved walls › Save as a video…, or right-click an empty part of the wall) makes one MP4 of the whole wall, every tile in its place, at 720p to 4K in the wall's shape, 10 s to 10 minutes long. The wall goes on in it as it would on screen: each tile from where it is, with its looped part, speed and zoom, playlists moving on with their own order and timing, and the sound of the tiles you hear plus the music. Made offline with FFmpeg as a job in the bar.
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.

@@ -646,6 +646,45 @@ test('save this frame: a picture of the moment shown, at the video\'s full size,
   } finally { await app.close(); }
 });
 
+test('a screenshot of the wall from the bar: the wall as it shows, at the screen\'s resolution, without the selection', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'shot.png');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 80, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  // Pixels of the saved picture ([r, g, b] at picture pixels), and its size.
+  const read = (f, pts) => app.evaluate(({ nativeImage }, a) => {
+    const img = nativeImage.createFromPath(a.f);
+    return { size: img.getSize(), px: a.pts.map(([x, y]) => { const b = img.crop({ x: Math.round(x), y: Math.round(y), width: 1, height: 1 }).toBitmap(); return [b[2], b[1], b[0]]; }) };
+  }, { f, pts });
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.locator('#wall .tile[aria-label^="clip.mp4"] video').evaluate((v) => v.currentTime)).toBeGreaterThan(0.5);
+    const tile = page.locator('#wall .tile[aria-label^="pic.png"]');
+    await tile.click();   // selected: its ring shows on screen, not in the picture
+    await expect(tile).toHaveClass(/\bsel\b/);
+    await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, out);
+    await page.click('#shotBtn');
+    await expect(toast(page)).toContainText('Saved shot.png');
+    expect(await page.evaluate(() => document.body.classList.contains('shot'))).toBe(false);
+
+    const k = await page.evaluate(() => window.devicePixelRatio);
+    const w = await page.locator('#wall').boundingBox(), t = await tile.boundingBox(), v = await page.locator('#wall .tile[aria-label^="clip.mp4"]').boundingBox();
+    const at = (x, y) => [(x - w.x) * k, (y - w.y) * k];
+    const mid = t.y + t.height / 2;
+    const got = await read(out, [at(t.x + t.width / 2, mid), at(t.x - 4, mid), at(w.x + 2, mid)].concat([0.2, 0.4, 0.6, 0.8].map((f) => at(v.x + v.width * f, v.y + v.height / 2))));
+    expect(Math.abs(got.size.width - w.width * k)).toBeLessThanOrEqual(1);
+    expect(Math.abs(got.size.height - w.height * k)).toBeLessThanOrEqual(1);
+    const close = (a, b) => a.every((c, i) => Math.abs(c - b[i]) <= 6);
+    expect(close(got.px[0], [200, 80, 40])).toBe(true);   // the picture
+    expect(close(got.px[1], got.px[2])).toBe(true);       // where the ring is on screen: the wall, as at its edge
+    expect(got.px.slice(3).some((p) => p[0] + p[1] + p[2] > 60)).toBe(true);   // the video is in it, not black
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('save the wall as a video: the wall\'s shape at the size chosen, as long as chosen, with the heard tile\'s sound', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.mp4');
@@ -660,9 +699,13 @@ test('save the wall as a video: the wall\'s shape at the size chosen, as long as
     const video = page.locator('#wall .tile[aria-label^="clip.mp4"] video');
     await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(3);
     await page.evaluate(() => { const it = window.MW.app.S.items.find((i) => i.kind === 'video'); it.muted = false; window.MW.app.render(); });
-    // From Saved walls: the dialog says what the video holds.
+    // Saved walls has it too; the bar's Record button opens it. The dialog says what the video holds.
     await page.click('#presetBtn');
     await page.click('#wallVideoBtn');
+    await expect(page.locator('#popWv')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await page.click('#recordBtn');
     await expect(page.locator('#popWv')).toBeVisible();
     await page.selectOption('#wvSize', '720');
     await page.selectOption('#wvSecs', '10');

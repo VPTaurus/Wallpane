@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('wall', {
   snapshot: (o) => ipcRenderer.invoke('media:snapshot', o && typeof o === 'object' ? { file: String(o.file), at: +o.at } : null),
   // The wall as it plays now (renderer/lib/wallvideo.js clean checks it in the main process).
   wallVideo: (r) => ipcRenderer.invoke('wall:video', r && typeof r === 'object' ? JSON.parse(JSON.stringify(r)) : null),
+  // A screenshot of the wall's part of the window (r: { x, y, w, h } in the page), then where to save it.
+  wallShot: (r) => ipcRenderer.invoke('wall:shot', r && typeof r === 'object' ? { x: +r.x, y: +r.y, w: +r.w, h: +r.h } : {}),
+  saveWallShot: () => ipcRenderer.invoke('wall:saveShot'),
   loudness: (paths) => ipcRenderer.invoke('media:loudness', Array.isArray(paths) ? paths.map(String) : []),
   onLoudness: (cb) => { ipcRenderer.on('media:loudnessMade', (_e, made) => cb(made)); },
   openings: (paths) => ipcRenderer.invoke('media:openings', Array.isArray(paths) ? paths.map(String) : []),

@@ -301,19 +301,48 @@ handle('media:snapshot', async (e, o) => {
 });
 // Save the wall as a video (lib/wallexport.js): asks where, in Videos by default, then a job makes it. The same
 // answers as media:makeGif.
+// "Wallpane 2026-11-03 14.05.12.png": a name for the wall saved now, in Windows' folder of that kind (Videos,
+// Pictures), else Documents.
+function wallFile(kind, ext) {
+  const d = new Date(), two = (n) => String(n).padStart(2, '0');
+  let dir;
+  try { dir = app.getPath(kind); } catch { dir = app.getPath('documents'); }
+  return path.join(dir, 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.' + two(d.getSeconds()) + '.' + ext);
+}
 handle('wall:video', async (e, r) => {
   const req = wallvideo.clean(r);
   if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
-  const d = new Date(), two = (n) => String(n).padStart(2, '0');
-  const name = 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.mp4';
-  let dir;
-  try { dir = app.getPath('videos'); } catch { dir = app.getPath('documents'); }
-  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: path.join(dir, name), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
+  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: wallFile('videos', 'mp4'), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
   if (s.canceled || !s.filePath) return { status: 'cancelled' };
   const out = /\.mp4$/i.test(s.filePath) ? s.filePath : s.filePath + '.mp4';
   if (req.tiles.some((t) => path.resolve(t.file).toLowerCase() === path.resolve(out).toLowerCase())) return { status: 'no' };
   const job = jobs.add({ kind: 'wallvideo', key: 'wallvideo:' + out, label: path.basename(out), input: { out, req }, priority: 'user' });
   return { status: 'working', key: job.key, path: out };
+});
+// A screenshot of the wall: the page asks once only its media shows (ui/wallvideo.js), and the part of the window
+// with the wall is taken at the screen's own resolution ({ w, h } in pixels, or null). The picture waits here until
+// wall:saveShot asks where it goes: PNG, or JPEG when the name chosen ends so ({ status: 'saved', path, bytes },
+// 'cancelled' or 'no').
+const shots = new Map();   // the page's webContents id -> its screenshot
+handle('wall:shot', async (e, r) => {
+  const x = Math.round(+r.x), y = Math.round(+r.y), width = Math.round(+r.w), height = Math.round(+r.h);
+  if (!(x >= 0 && y >= 0 && width >= 1 && height >= 1)) return null;
+  const img = await e.sender.capturePage({ x, y, width, height });
+  if (img.isEmpty()) return null;
+  shots.set(e.sender.id, img);
+  const s = img.getSize();
+  return { w: s.width, h: s.height };
+});
+handle('wall:saveShot', async (e) => {
+  const img = shots.get(e.sender.id);
+  shots.delete(e.sender.id);
+  if (!img) return { status: 'no' };
+  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the screenshot', defaultPath: wallFile('pictures', 'png'), filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'JPEG', extensions: ['jpg', 'jpeg'] }] });
+  if (s.canceled || !s.filePath) return { status: 'cancelled' };
+  const out = /\.(?:png|jpe?g)$/i.test(s.filePath) ? s.filePath : s.filePath + '.png';
+  const data = /\.jpe?g$/i.test(out) ? img.toJPEG(92) : img.toPNG();
+  try { await fsp.writeFile(out, data); } catch { return { status: 'no' }; }
+  return { status: 'saved', path: out, bytes: data.length };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.
