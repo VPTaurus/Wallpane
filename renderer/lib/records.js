@@ -20,7 +20,9 @@
       // playback: volume 0 to 1, speed, and the part of the video that loops (seconds; null for none or "to the end")
       vol: num(i.vol) === undefined ? 1 : U.clamp(+i.vol, 0, 1), speed: num(i.speed) === undefined ? 1 : U.clamp(+i.speed, 0.25, 4),
       loopA: num(i.loopA) === undefined || +i.loopA < 0 ? null : +i.loopA,
-      loopB: num(i.loopB) === undefined || +i.loopB <= (+i.loopA || 0) ? null : +i.loopB
+      loopB: num(i.loopB) === undefined || +i.loopB <= (+i.loopA || 0) ? null : +i.loopB,
+      // the last session only: where its video was (seconds), to carry on from there
+      at: num(i.at) === undefined || !(+i.at > 0) ? null : +i.at
     };
   }
   function goodItem(i) {

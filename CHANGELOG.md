@@ -2,6 +2,7 @@
 
 ## Unreleased (1.7.0)
 
+- **The last wall carries on where it was:** after a restart its videos continue from where they were, not from the start (a folder's tile on its file, from where it was). Saved as Wallpane closes and every 20 seconds while videos play, so a crash or a power cut loses little. Saved walls you name start their videos as usual.
 - **10 s back and on:** two buttons in the video bar of a big tile, or one full screen (a curved arrow and "10"). Smaller tiles keep the bar as it was; J and L still skip 5 s.
 - **Stars, hearts and tags for library files:** 1 to 5 stars, a favourite heart and any tags, for one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart and the stars. Filters for rating and favourites, a Rating sort, a search that finds tags, and a Tags section in the folder row's list (right-click a tag to rename or delete it). On the wall, a tile whose file is in the library has a Library group in its menu and a Library part in Properties. `library.json` becomes version 2, which an older Wallpane opens read-only, so it never drops them.
 

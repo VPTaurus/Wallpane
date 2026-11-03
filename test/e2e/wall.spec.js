@@ -490,6 +490,31 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
   } finally { await app.close(); }
 });
 
+test('the last wall comes back with each video where it was', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'film.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=40', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const apps = [];
+  const open = async () => { const s = await start(dir); apps.push(s.app); return s; };
+  const at = (page) => page.locator('#wall .tile[aria-label^="film.mp4"] video').evaluate((v) => (v.readyState >= 1 ? v.currentTime : -1));
+  try {
+    let s = await open();
+    await s.answer(clip);
+    await s.page.click('#addBtn');
+    await s.page.click('#addFiles');
+    await expect.poll(() => at(s.page)).toBeGreaterThanOrEqual(0);
+    await s.page.locator('#wall .tile[aria-label^="film.mp4"] video').evaluate((v) => { v.currentTime = 23; });
+    await expect.poll(() => at(s.page)).toBeGreaterThan(23);
+    expect(s.errors).toEqual([]);
+    await s.app.close();   // saved as it closes
+    s = await open();
+    await s.page.click('#lastWallRestore');
+    await expect.poll(() => at(s.page)).toBeGreaterThan(22.5);
+    expect(await at(s.page)).toBeLessThan(30);
+    expect(s.errors).toEqual([]);
+  } finally { for (const a of apps) await a.close().catch(() => {}); }
+});
+
 test('10 s back and on: buttons in the video bar of a big tile or one full screen, not of a small one', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'long.mp4');

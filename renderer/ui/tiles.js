@@ -329,14 +329,29 @@
         var back = function () {
           if (!isFinite(media.duration)) return;
           media.removeEventListener('durationchange', back);
-          media.currentTime = it.pl ? 0 : (it.loopA || 0);
+          var r = it.pl ? null : A.takeResume(it, media);
+          media.currentTime = it.pl ? 0 : r != null ? r : (it.loopA || 0);
         };
         media.addEventListener('durationchange', back);
         media.currentTime = 1e101;
-      } else if (!it.pl && it.loopA) media.currentTime = it.loopA;
-      else if (!it.pl) { var s = A.openingOf(it, media); if (s) media.currentTime = s; }   // after a black or silent opening
+        return;
+      }
+      if (it.pl) return;   // a playlist's video starts in A.applyClipStart
+      var r = A.takeResume(it, media);
+      if (r != null) media.currentTime = r;   // where it was in the last session
+      else if (it.loopA) media.currentTime = it.loopA;
+      else { var s = A.openingOf(it, media); if (s) media.currentTime = s; }   // after a black or silent opening
     });
   }
+  // A restored last session: where the tile's video was, once, as it first loads (it._resume, from ui/presets.js).
+  // Returns that time, or null to start as usual: none saved, the last second or so of the video, or outside the
+  // looped part.
+  A.takeResume = function (it, media) {
+    var r = it._resume;
+    it._resume = null;
+    if (!(r > 0) || !isFinite(media.duration) || r > media.duration - 1) return null;
+    return P.hasLoop(it) && P.loopTarget(r, it.loopA, it.loopB) != null ? null : r;
+  };
   // A video tile's video element (not a GIF's video copy).
   A.videoOf = function (it) {
     var el = A.tileEls.get(it.id), m = el && el._media;
