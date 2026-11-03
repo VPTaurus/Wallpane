@@ -1,6 +1,7 @@
 // Save the wall as a video: the choices the dialog offers (size and length), the video's size for the wall's shape, and
 // checking what the page asks for. The page gathers each tile's place and state (ui/wallvideo.js); the main process
-// plans each tile's run of pieces and makes the video with FFmpeg (lib/wallexport.js).
+// plans each tile's run of pieces and makes the video with FFmpeg (lib/wallexport.js). Also Settings › Recording for
+// recording the wall live (ui/recorder.js): its choices, checked, and the size and bit rate they give.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else (root.MW = root.MW || {}).wallvideo = factory();
@@ -76,5 +77,32 @@
     };
   }
 
-  return { SIZES: SIZES, LENGTHS: LENGTHS, FPS: FPS, LONG: LONG, outSize: outSize, clean: clean };
+  /* ---------- recording the wall live ---------- */
+  // Quality: bits per pixel of each frame (H.264 from the browser's recorder): 1080p at 30 frames a second is about
+  // 3.7, 7.5 and 15 Mbit/s.
+  var QUALITIES = [['standard', 'Standard (smaller files)', 0.06], ['high', 'High', 0.12], ['best', 'Best (bigger files)', 0.24]];
+  var RATES = [30, 60];
+  // Settings › Recording, checked: size (0: as on screen, else a short side from SIZES), fps, quality, sound, and the
+  // folder recordings go to (null: Videos).
+  function cleanRec(r) {
+    r = r && typeof r === 'object' ? r : {};
+    return {
+      size: r.size === 0 || has(SIZES, r.size) ? r.size : 1080, fps: RATES.indexOf(r.fps) > -1 ? r.fps : 30,
+      quality: has(QUALITIES, r.quality) ? r.quality : 'high', sound: r.sound !== false, dir: typeof r.dir === 'string' && r.dir ? r.dir : null
+    };
+  }
+  // The recording's size for a W x H wall (CSS pixels), each `ratio` screen pixels: as on screen (size 0, at most LONG
+  // on the long side), or as outSize.
+  function recSize(W, H, ratio, size) {
+    if (size) return outSize(W, H, size);
+    var k = ratio > 0 ? ratio : 1, w = W * k, h = H * k, f = Math.min(1, LONG / Math.max(w, h, 1));
+    return { w: even(w * f), h: even(h * f) };
+  }
+  // Bits a second for that size, rate and quality: between 1 and 80 million.
+  function recBitrate(w, h, fps, quality) {
+    var q = QUALITIES.filter(function (o) { return o[0] === quality; })[0] || QUALITIES[1];
+    return Math.round(clamp(w * h * fps * q[2], 1e6, 8e7));
+  }
+
+  return { SIZES: SIZES, LENGTHS: LENGTHS, FPS: FPS, LONG: LONG, outSize: outSize, clean: clean, QUALITIES: QUALITIES, RATES: RATES, cleanRec: cleanRec, recSize: recSize, recBitrate: recBitrate };
 });

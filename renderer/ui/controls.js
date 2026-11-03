@@ -368,6 +368,7 @@
     A.refreshStorage();
     A.refreshLibrary();
     A.refreshPace();
+    A.refreshRecording();
     fillAbout();
     $('#setStartWall').checked = S.startWall;
     $('#setAwake').checked = S.awake;

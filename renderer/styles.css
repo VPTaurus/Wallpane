@@ -74,6 +74,12 @@ select { padding-right: 8px; max-width: 220px; }
 .btn [data-icon="chev"] svg { width: 13px; height: 13px; }
 .btn.ib { width: 34px; padding: 0; justify-content: center; }
 .btn.on { color: var(--accent); }
+/* Record while recording: red, with the time so far (ui/recorder.js). */
+#recordBtn.rec { width: auto; gap: 5px; padding: 0 9px; color: #fff; background: #d93636; border-color: #d93636; }
+#recordBtn.rec .ic svg { animation: recblink 1.2s steps(2, jump-none) infinite; }
+#recordBtn .rectime { font: 600 12px var(--mono); }
+@keyframes recblink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { #recordBtn.rec .ic svg { animation: none; } }
 input[type="range"] { width: 120px; accent-color: var(--accent); height: 34px; margin: 0; }
 .gapval { font: 400 12px var(--mono); color: var(--muted); min-width: 34px; }
 .step { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); overflow: hidden; height: 34px; }

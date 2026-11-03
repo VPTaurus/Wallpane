@@ -685,6 +685,79 @@ test('a screenshot of the wall from the bar: the wall as it shows, at the screen
   } finally { await app.close(); }
 });
 
+test('Record: starts and stops in the bar, saved in the folder of Settings › Recording at its size, the sound heard in step', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), saved = path.join(dir, 'Recordings');
+  fs.mkdirSync(saved);
+  // A white flash and a beep together at the start of every second.
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "color=c=black:s=320x180:r=25:d=20,drawbox=x=0:y=0:w=320:h=180:color=white:t=fill:enable='lt(mod(t,1),0.12)'",
+    '-f', 'lavfi', '-i', "sine=frequency=1000:duration=20,volume=volume=0:enable='gte(mod(t,1),0.12)'",
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 80, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.locator('#wall .tile[aria-label^="clip.mp4"] video').evaluate((v) => v.currentTime)).toBeGreaterThan(0.5);
+    await page.evaluate(() => { const it = window.MW.app.S.items.find((i) => i.kind === 'video'); it.muted = false; window.MW.app.render(); });
+    // Settings › Recording: 720p, standard quality, into a folder of the test's own.
+    await page.click('#settingsBtn');
+    await page.click('#tabRec');
+    await expect(page.locator('#recDir')).not.toBeEmpty();
+    await page.selectOption('#setRecSize', '720');
+    await page.selectOption('#setRecQuality', 'standard');
+    await expect(page.locator('#recNote')).toContainText('× 720 px');
+    await page.keyboard.press('Escape');
+    await page.evaluate((d) => { window.MW.app.S.rec.dir = d; }, saved);
+
+    const rec = page.locator('#recordBtn');
+    await rec.click();
+    await expect(rec).toHaveClass(/\brec\b/);
+    await expect(rec).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#recTime')).toHaveText(/^0:0[3-9]$/, { timeout: 8000 });
+    await rec.click();
+    await expect(rec).not.toHaveClass(/\brec\b/);
+    await expect(toast(page)).toContainText('Saved Wallpane ', { timeout: 30000 });
+    const files = fs.readdirSync(saved);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/^Wallpane \d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d\.mp4$/);
+    const out = path.join(saved, files[0]);
+    const probe = await ff.probeRaw(out);
+    const v = probe.streams.find((s) => s.codec_type === 'video');
+    expect(v.codec_name).toBe('h264');
+    expect(Math.min(v.width, v.height)).toBe(720);
+    expect(probe.streams.some((s) => s.codec_type === 'audio')).toBe(true);
+    const secs = parseFloat(probe.format.duration);
+    expect(secs).toBeGreaterThan(1.5);
+    expect(secs).toBeLessThan(6);
+    // A frame of it: the picture's tile in its place, in its colour.
+    const w = await page.locator('#wall').boundingBox(), t = await page.locator('#wall .tile[aria-label^="pic.png"]').boundingBox();
+    const fx = Math.round((t.x + t.width / 2 - w.x) / w.width * v.width), fy = Math.round((t.y + t.height / 2 - w.y) / w.height * v.height);
+    const raw = path.join(dir, 'px.rgb');   // 2 x 2 at even places: the picture is 4:2:0
+    await ff.run('ffmpeg', ['-y', '-v', 'error', '-ss', '1', '-i', out, '-frames:v', '1', '-vf', 'crop=2:2:' + (fx & ~1) + ':' + (fy & ~1), '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw], { timeoutMs: 60000 });
+    const px = [...fs.readFileSync(raw)].slice(0, 3);
+    expect(px.every((c, i) => Math.abs(c - [200, 80, 40][i]) < 24)).toBe(true);
+    // In step: each flash in the video's tile comes with its beep (they start within a tenth of a second).
+    const vt = await page.locator('#wall .tile[aria-label^="clip.mp4"]').boundingBox();
+    const cx = Math.round((vt.x + vt.width / 2 - w.x) / w.width * v.width) & ~1, cy = Math.round((vt.y + vt.height / 2 - w.y) / w.height * v.height) & ~1;
+    const stats = await ff.run('ffmpeg', ['-v', 'error', '-i', out, '-an', '-vf', 'crop=8:8:' + cx + ':' + cy + ',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-'], { timeoutMs: 60000, keepOutput: true });
+    const flashes = [];
+    let at = 0, was = 0;
+    stats.stdout.split(/\r?\n/).forEach((l) => {
+      const t = /pts_time:([\d.]+)/.exec(l), y = /YAVG=([\d.]+)/.exec(l);
+      if (t) at = parseFloat(t[1]);
+      if (y) { if (+y[1] > 120 && was <= 120) flashes.push(at); was = +y[1]; }
+    });
+    const quiet = await ff.run('ffmpeg', ['-v', 'info', '-i', out, '-vn', '-af', 'silencedetect=noise=-30dB:d=0.05', '-f', 'null', '-'], { timeoutMs: 60000 });
+    const beeps = [...quiet.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+    const first = flashes.find((f) => f > 0.05);
+    expect(first).toBeDefined();
+    expect(Math.min(...beeps.map((b) => Math.abs(b - first)))).toBeLessThan(0.1);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('save the wall as a video: the wall\'s shape at the size chosen, as long as chosen, with the heard tile\'s sound', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.mp4');
@@ -699,13 +772,9 @@ test('save the wall as a video: the wall\'s shape at the size chosen, as long as
     const video = page.locator('#wall .tile[aria-label^="clip.mp4"] video');
     await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(3);
     await page.evaluate(() => { const it = window.MW.app.S.items.find((i) => i.kind === 'video'); it.muted = false; window.MW.app.render(); });
-    // Saved walls has it too; the bar's Record button opens it. The dialog says what the video holds.
+    // From Saved walls: the dialog says what the video holds.
     await page.click('#presetBtn');
     await page.click('#wallVideoBtn');
-    await expect(page.locator('#popWv')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#popWv')).toBeHidden();
-    await page.click('#recordBtn');
     await expect(page.locator('#popWv')).toBeVisible();
     await page.selectOption('#wvSize', '720');
     await page.selectOption('#wvSecs', '10');

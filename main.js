@@ -36,6 +36,7 @@ const { makeGifKind } = require('./lib/makegif');
 const cutpart = require('./lib/cutpart');
 const snapshot = require('./lib/snapshot');
 const wallexport = require('./lib/wallexport');
+const { createRecordings } = require('./lib/recfile');
 const wallvideo = require('./renderer/lib/wallvideo');
 const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
@@ -303,12 +304,14 @@ handle('media:snapshot', async (e, o) => {
 // answers as media:makeGif.
 // "Wallpane 2026-11-03 14.05.12.png": a name for the wall saved now, in Windows' folder of that kind (Videos,
 // Pictures), else Documents.
-function wallFile(kind, ext) {
+function wallName(ext) {
   const d = new Date(), two = (n) => String(n).padStart(2, '0');
-  let dir;
-  try { dir = app.getPath(kind); } catch { dir = app.getPath('documents'); }
-  return path.join(dir, 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.' + two(d.getSeconds()) + '.' + ext);
+  return 'Wallpane ' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + '.' + two(d.getMinutes()) + '.' + two(d.getSeconds()) + '.' + ext;
 }
+function windowsFolder(kind) {
+  try { return app.getPath(kind); } catch { return app.getPath('documents'); }
+}
+function wallFile(kind, ext) { return path.join(windowsFolder(kind), wallName(ext)); }
 handle('wall:video', async (e, r) => {
   const req = wallvideo.clean(r);
   if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
@@ -344,6 +347,27 @@ handle('wall:saveShot', async (e) => {
   try { await fsp.writeFile(out, data); } catch { return { status: 'no' }; }
   return { status: 'saved', path: out, bytes: data.length };
 });
+// Recording the wall live (renderer/ui/recorder.js, lib/recfile.js): the folder Settings › Recording chose while it is
+// there, else Videos. rec:start names the file there ({ path } or { error }), rec:data writes each piece as it comes,
+// rec:stop finishes it; a window that closes while recording keeps what it recorded (createWindow).
+const recordings = createRecordings({ ffmpeg });
+function recFolder(d) {
+  try { if (typeof d === 'string' && d && fs.statSync(d).isDirectory()) return d; } catch { /* gone: Videos */ }
+  return windowsFolder('videos');
+}
+handle('rec:folder', (_e, d) => recFolder(d));
+handle('rec:chooseFolder', async (e, d) => {
+  const r = await dialog.showOpenDialog(winOf(e), { title: 'Where recordings are saved', defaultPath: recFolder(d), properties: ['openDirectory', 'createDirectory'] });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+handle('rec:openFolder', (_e, d) => shell.openPath(recFolder(d)));
+handle('rec:start', async (e, o) => {
+  const out = path.join(recFolder(o && o.dir), wallName(o && o.ext === 'webm' ? 'webm' : 'mp4'));
+  try { await recordings.start(e.sender.id, out); } catch (err) { return { error: err.message }; }
+  return { path: out };
+});
+handle('rec:data', (e, bytes) => recordings.write(e.sender.id, Buffer.from(bytes)));
+handle('rec:stop', (e) => recordings.stop(e.sender.id));
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.
 handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
@@ -916,6 +940,7 @@ function createWindow(id, given) {
     opts.x = 60 * id; opts.y = 60 * id;
   }
   const win = new BrowserWindow(opts);
+  const page = win.webContents.id;   // still known once the window is gone
   wins.set(id, win);
   let lastBounds = win.getBounds();
   const remember = () => { if (!win.isDestroyed() && !win.isMaximized() && !win.isFullScreen()) lastBounds = win.getBounds(); };
@@ -932,6 +957,7 @@ function createWindow(id, given) {
   win.on('minimize', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', true); });
   win.on('restore', () => { if (!win.isDestroyed()) win.webContents.send('win:minimized', false); });
   win.on('closed', () => {
+    if (recordings.recording(page)) recordings.stop(page).catch(() => { /* what was written stays as .part */ });   // keeps what it recorded
     wins.delete(id);
     if (!wins.size && libWin && !libWin.isDestroyed()) libWin.destroy();   // the library window goes with the last wall
     watchers.dropOwner(id);

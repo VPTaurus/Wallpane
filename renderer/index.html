@@ -124,7 +124,7 @@
     <!-- The wall as a picture, or as a video (ui/wallvideo.js). -->
     <div class="grp">
       <button class="btn ib" id="shotBtn" type="button" aria-label="Screenshot of the wall" title="Screenshot: save the wall as it shows now as a picture"><span data-icon="camera"></span></button>
-      <button class="btn ib" id="recordBtn" type="button" aria-label="Record the wall" title="Record: save the wall as it plays as a video, every tile in its place"><span data-icon="record"></span></button>
+      <button class="btn ib" id="recordBtn" type="button" aria-label="Record the wall" aria-pressed="false" title="Record: start recording the wall as it plays; click again to stop"><span data-icon="record"></span><span class="rectime" id="recTime" hidden></span></button>
     </div>
 
     <span class="sp"></span>
@@ -214,7 +214,7 @@
             <button class="btn" id="importBtn" type="button">Import…</button>
             <button class="btn" id="revealBtn" type="button">Show file</button>
           </div>
-          <button class="btn full" id="wallVideoBtn" type="button" title="Save the wall as it plays as one MP4 video, every tile in its place"><span data-icon="film"></span>Save as a video…</button>
+          <button class="btn full" id="wallVideoBtn" type="button" title="A video of the wall of a length you choose, made in the background (to record as it plays, use Record in the bar)"><span data-icon="film"></span>Save as a video…</button>
           <p class="note" id="storeNote"></p>
         </div>
       </div>
@@ -282,6 +282,7 @@
             <button type="button" role="tab" id="tabGeneral" data-sec="general" aria-controls="secGeneral"><span data-icon="gear"></span>General</button>
             <button type="button" role="tab" id="tabTiles" data-sec="tiles" aria-controls="secTiles"><span data-icon="grid"></span>Tiles</button>
             <button type="button" role="tab" id="tabVideo" data-sec="video" aria-controls="secVideo"><span data-icon="play"></span>Video</button>
+            <button type="button" role="tab" id="tabRec" data-sec="rec" aria-controls="secRec"><span data-icon="record"></span>Recording</button>
             <button type="button" role="tab" id="tabWall" data-sec="wall" aria-controls="secWall"><span data-icon="tv"></span>Wall mode</button>
             <button type="button" role="tab" id="tabHide" data-sec="hide" aria-controls="secHide"><span data-icon="eyeoff"></span>Emergency hide</button>
             <button type="button" role="tab" id="tabLibrary" data-sec="library" aria-controls="secLibrary"><span data-icon="library"></span>Library</button>
@@ -338,6 +339,19 @@
               </div>
               <p class="note" id="paceNote"></p>
               <div class="row" id="paceRow" hidden><button class="btn" id="paceRestart" type="button"><span data-icon="reset"></span>Restart Wallpane</button></div>
+            </section>
+
+            <section class="ssec" id="secRec" data-sec="rec" role="tabpanel" aria-labelledby="tabRec" hidden>
+              <h2>Recording</h2>
+              <p class="note">Record in the top bar starts recording the wall as it plays; click it again to stop, and the video is saved. Only the media is recorded, each tile in its place: no controls or pointer.</p>
+              <div class="frow"><label for="setRecSize">Size</label><select id="setRecSize"></select></div>
+              <div class="frow"><label for="setRecFps">Frames a second</label><select id="setRecFps"></select></div>
+              <div class="frow"><label for="setRecQuality">Quality</label><select id="setRecQuality"></select></div>
+              <div class="srow"><label class="check"><input type="checkbox" id="setRecSound"> Record the sound</label><button class="tip" type="button" aria-label="About Record the sound" data-tip="What you hear from the wall: each tile whose sound is on, at its volume, and the background music. Other programs are not recorded.">?</button></div>
+              <span class="lab">Saved in</span>
+              <p class="note" id="recDir"></p>
+              <div class="row"><button class="btn" id="recDirBtn" type="button"><span data-icon="folder"></span>Change folder…</button><button class="btn" id="recDirShow" type="button">Show folder</button></div>
+              <p class="note" id="recNote"></p>
             </section>
 
             <section class="ssec" id="secWall" data-sec="wall" role="tabpanel" aria-labelledby="tabWall" hidden>
@@ -525,6 +539,7 @@
 <script src="ui/jobs.js"></script>
 <script src="ui/gif.js"></script>
 <script src="ui/wallvideo.js"></script>
+<script src="ui/recorder.js"></script>
 <script src="ui/library.js"></script>
 <script src="ui/libview.js"></script>
 <script src="ui/boot.js"></script>

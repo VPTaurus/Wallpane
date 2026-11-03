@@ -1,8 +1,8 @@
 // Save the wall as a video: a small dialog (size and length) that says what the video will hold, then the main process
 // asks where to save it and makes it as a job (renderer/lib/wallvideo.js, lib/wallexport.js). In the video the wall
 // goes on as it would here: each tile from where it is now, with its looped part, speed, zoom, playlist and sound,
-// and the music if it plays. From the bar's Record button, Saved walls (Save as a video…) and the wall's right-click
-// menu. Beside Record, Screenshot saves the wall as it shows now as a picture.
+// and the music if it plays. From Saved walls (Save as a video…); the bar's Record button records the wall live
+// instead (ui/recorder.js). Beside Record, Screenshot saves the wall as it shows now as a picture.
 (function (A) {
   'use strict';
   if (!A) return;
@@ -17,11 +17,11 @@
   fill($('#wvSize'), WV.SIZES, '1080');
   fill($('#wvSecs'), WV.LENGTHS, '30');
 
-  // The wall's colour as #rrggbb, from its style.
-  function hex(c) {
-    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
+  // The wall's colour as #rrggbb, from its style (also for ui/recorder.js).
+  A.wallColour = function () {
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(wall).backgroundColor || '');
     return m ? '#' + [m[1], m[2], m[3]].map(function (v) { return ('0' + (+v).toString(16)).slice(-2); }).join('') : '#000000';
-  }
+  };
   // The wall as it plays now: each tile with media, its box on the wall (as drawn, so Free and grid alike, and only
   // the full-screen tile while one is), how the media sits in it and how it plays; the playlists the tiles play, the
   // music, and what is known of the files' loudness and openings.
@@ -44,7 +44,7 @@
       if (p && !lists[it.pl]) { lists[it.pl] = PL.fields(p); p.files.forEach(function (f) { paths[f.path] = true; }); }
     });
     return {
-      wall: { w: wr.width, h: wr.height, bg: hex(getComputedStyle(wall).backgroundColor) },
+      wall: { w: wr.width, h: wr.height, bg: A.wallColour() },
       tiles: tiles, playlists: lists, music: A.musicNow(), hints: A.heardHints(Object.keys(paths))
     };
   }
@@ -76,7 +76,6 @@
     if (!box.hidden && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
   }, true);
   $('#wallVideoBtn').addEventListener('click', A.openWallVideo);
-  $('#recordBtn').addEventListener('click', A.openWallVideo);
 
   // A screenshot of the wall as it shows now, at the screen's resolution. For the moment it is taken only the media
   // shows (body.shot: no selection, tile controls, empty cells, nor anything over the wall); then where to save it.

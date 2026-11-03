@@ -235,7 +235,7 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await page.mouse.move(5, 5);
   await expect(page.locator('#tipBox')).toBeHidden();
   // Arrow keys move between the sections: Tiles (growing a tile shrinks the ones beside it evenly), Video (full
-  // screen plays its sound), then Wall mode.
+  // screen plays its sound), Recording (1080p by default, saved in Videos), then Wall mode.
   await page.focus('#tabGeneral');
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('#secTiles')).toBeVisible();
@@ -243,6 +243,9 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect(page.locator('#setResize')).toHaveValue('even');
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('#setSoloSound')).toBeChecked();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#setRecSize')).toHaveValue('1080');
+  await expect(page.locator('#recDir')).toContainText('Videos');
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('#secWall')).toBeVisible();
   await page.click('#setStartWall');

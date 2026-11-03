@@ -174,13 +174,15 @@
       { label: 'Add media here…', icon: 'file', act: function () { A.api.openFiles(true).then(function (res) { if (A.picked(res)) A.addFiles(res, target); }); } },
       { label: 'Add a folder here…', hint: 'A tile for each file', icon: 'folder', act: function () { A.api.openFolder().then(function (res) { if (A.picked(res)) A.addFiles(res, target); }); } },
       { label: 'New empty tile', hint: 'Size it first, add media later', icon: 'tile', act: function () { A.newEmptyTile(target); } }
-    ].concat(A.hasFfmpeg ? ['-', { label: 'Save the wall as a video…', hint: 'One MP4, every tile in its place', icon: 'film', act: A.openWallVideo }] : []));
+    ]);
   }
 
   wall.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (document.body.classList.contains('clean')) {
-      A.showMenu(e.clientX, e.clientY, [{ label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }]);
+      // While recording, it can stop here too (the bar is hidden).
+      A.showMenu(e.clientX, e.clientY, [{ label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }]
+        .concat(A.recording() ? [{ label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }] : []));
       return;
     }
     var t = e.target.closest('.tile');
