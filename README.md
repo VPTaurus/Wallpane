@@ -5,7 +5,7 @@
 <p align="center"><b>Your own videos, pictures and GIFs, many at once, on a wall that fills the screen.</b><br>
 Free for Windows. Everything stays on your PC: Wallpane never goes online.</p>
 
-<p align="center"><a href="https://github.com/VPTaurus/Wallpane/releases/latest"><b>Download for Windows</b></a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a></p>
+<p align="center"><a href="https://github.com/VPTaurus/Wallpane/releases/latest"><b>Download for Windows</b></a> &nbsp;·&nbsp; <a href="https://vptaurus.github.io/Wallpane/">Website</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a></p>
 
 ![A wall of eight videos in Wallpane's wall mode](docs/images/wall.jpg)
 
