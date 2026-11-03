@@ -72,7 +72,7 @@
         '<button class="btn" id="insLoopBNow" type="button" title="End the part where the video is now ( ] )">Now</button></div>' +
         (!loop ? '<p class="note">Type times like 1:23.5, or play to a spot and press Now.</p>' : A.hasFfmpeg && it.path
           ? '<div class="acts"><button class="btn" id="insLoopClear" type="button">Stop looping</button><button class="btn" id="insGif" type="button" title="Save the looped part as a GIF file">Make a GIF…</button>' +
-            '<button class="btn" id="insCut" type="button" title="Save the looped part as a video, without re-encoding: it starts on the keyframe before the part">Save as MP4…</button></div>'
+            '<button class="btn" id="insCut" type="button" title="Save the looped part as a video: copied as it is when a keyframe is near its start, else re-encoded to start exactly on it">Save as MP4…</button></div>'
           : '<button class="btn" id="insLoopClear" type="button">Stop looping the part</button>')));
   }
 

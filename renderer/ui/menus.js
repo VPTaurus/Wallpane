@@ -113,7 +113,7 @@
         items.push({ label: 'Stop looping the part', hint: MW.play.fmtTime(it.loopA || 0, true) + ' to ' + (it.loopB == null ? 'the end' : MW.play.fmtTime(it.loopB, true)), icon: 'loop', act: function () { A.setLoop(it, null, null); } });
         if (A.hasFfmpeg && it.path) {
           items.push({ label: 'Make a GIF of the part…', hint: 'Saved as a file where you choose', icon: 'film', act: function () { A.makeGif(it); } },
-            { label: 'Save the part as MP4…', hint: 'No re-encoding: starts on the keyframe before it', icon: 'cut', act: function () { A.cutPart(it); } });
+            { label: 'Save the part as MP4…', hint: 'Copied as it is, or re-encoded to start on the part', icon: 'cut', act: function () { A.cutPart(it); } });
         }
       } else if (!it.pl) items.push({ label: 'Loop a part…', hint: 'Speed, volume and loop in Properties', icon: 'loop', act: function () { A.openProps(it, '#pbSec'); } });
     }

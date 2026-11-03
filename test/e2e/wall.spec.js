@@ -489,7 +489,7 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
   } finally { await app.close(); }
 });
 
-test('save the looped part as MP4: copied without re-encoding, from the keyframe before the part', async () => {
+test('save the looped part as MP4: re-encoded when the keyframe before it is far, copied when it is near', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), out = path.join(dir, 'cut.mp4');
   await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6',
@@ -507,16 +507,27 @@ test('save the looped part as MP4: copied without re-encoding, from the keyframe
     await page.keyboard.press('Alt+Enter');
     await expect(page.locator('#insCut')).toBeVisible();
     await page.keyboard.press('Escape');
-    // From the tile's menu, straight to where to save it.
-    await app.evaluate(({ dialog }, p) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: p }); }, out);
-    await tile.click({ button: 'right' });
-    await page.locator('#ctxMenu .mi', { hasText: 'Save the part as MP4' }).click();
+    // From the tile's menu, straight to where to save it. The keyframe before 3.3 s is at 2 s: re-encoded, exactly.
+    const save = async (p) => {
+      await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, p);
+      await tile.click({ button: 'right' });
+      await page.locator('#ctxMenu .mi', { hasText: 'Save the part as MP4' }).click();
+    };
+    const secs = async (p) => parseFloat((await ff.probeRaw(p)).format.duration);
+    await save(out);
     await expect(toast(page)).toContainText('Saved cut.mp4');
-    await expect(toast(page)).toContainText('starts 1.3 s before the part');
+    await expect(toast(page)).toContainText('the nearest keyframe was 1.3 s before it');
     const info = await ff.probeRaw(out);
     expect(info.streams.map((s) => s.codec_name).sort()).toEqual(['aac', 'h264']);
-    expect(Math.abs(parseFloat(info.format.duration) - 3)).toBeLessThan(0.1);
+    expect(Math.abs(await secs(out) - 1.7)).toBeLessThan(0.1);
     expect(fs.existsSync(path.join(dir, 'cut.part.mp4'))).toBe(false);
+    // From 4.2 s the keyframe at 4 s is near: copied as it is, starting 0.2 s early.
+    const near = path.join(dir, 'near.mp4');
+    await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 4.2, 5); });
+    await save(near);
+    await expect(toast(page)).toContainText('Saved near.mp4');
+    await expect(toast(page)).toContainText('starts 0.2 s before the part');
+    expect(Math.abs(await secs(near) - 1)).toBeLessThan(0.1);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });

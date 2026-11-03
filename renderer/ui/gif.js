@@ -1,7 +1,8 @@
 // Make a GIF of a video tile's looped part: a small dialog (width, frames a second, the whole frame or what the tile
 // shows, speed) with the GIF's size and roughly how big a file it makes. The main process then asks where to save it
 // and makes it as a job (renderer/lib/gifmake.js, lib/makegif.js); when it is done, Show in Explorer or put it on
-// the wall. Save the part as MP4 goes the same way without a dialog: the part is copied, not re-encoded (lib/cutpart.js).
+// the wall. Save the part as MP4 goes the same way without a dialog: the part is copied, or re-encoded when the
+// keyframe before it is far (lib/cutpart.js).
 (function (A) {
   'use strict';
   if (!A) return;
@@ -99,8 +100,9 @@
     });
   });
 
-  // Save the looped part as a video of its own, straight to where to save it. A copy can only start on a keyframe, so
-  // the message says when it starts before the part, and when the video's picture or sound kept it from being an MP4.
+  // Save the looped part as a video of its own, straight to where to save it. The message says when it was re-encoded
+  // (the keyframe before the part was far), when a copy starts a little before the part, and when the video's picture
+  // or sound kept a copy from being an MP4.
   A.cutPart = function (it) {
     if (!it || it.kind !== 'video' || !it.path || it.pl || it.missing) return;
     if (!P.hasLoop(it)) { A.toast('Loop a part of the video first: Properties › Playback, or [ and ] while it plays.'); return; }
@@ -114,8 +116,9 @@
         if (j.state === 'failed') { A.toast('The part could not be saved: ' + j.error); return; }
         if (j.state !== 'done' || !j.result) return;
         var r = j.result, notes = [], ext = (/\.([^.\\/]+)$/.exec(r.path) || ['', ''])[1];
+        if (r.encoded) notes.push('Re-encoded to start exactly on the part' + (r.keyGap != null ? ': the nearest keyframe was ' + r.keyGap + ' s before it.' : '.'));
+        else if (r.early >= 0.1) notes.push('Copied as it is, so it starts ' + r.early + ' s before the part, on a keyframe.');
         if (ext.toLowerCase() !== 'mp4') notes.push('Its picture or sound cannot go into an MP4 without re-encoding, so it is ' + ext.toUpperCase() + ', like the video.');
-        if (r.early >= 0.1) notes.push('It starts ' + r.early + ' s before the part, on the keyframe there: a copy without re-encoding starts on one.');
         saved(j, notes.join(' '));
       });
     });

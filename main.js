@@ -254,14 +254,16 @@ handle('media:makeGif', async (e, o) => {
   const job = jobs.add({ kind: 'makegif', key: 'makegif:' + out, label: path.basename(out), input: Object.assign({ out }, g), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
-// Save a looped part as a video of its own, without re-encoding (lib/cutpart.js): an MP4 when the video's picture and
-// sound go into one, else the video's own kind of file. Asks where to save it, then a job copies it. The same answers
-// as media:makeGif.
+// Save a looped part as a video of its own (lib/cutpart.js): copied without re-encoding when the keyframe before it is
+// near (an MP4 when the video's picture and sound go into one, else the video's own kind of file), else re-encoded
+// into an MP4 to start exactly on it. Asks where to save it, then a job makes it. The same answers as media:makeGif.
 handle('media:cutPart', async (e, o) => {
   const c = cutpart.clean(o);
   if (!c || !ffmpeg.available() || !jobs || !fs.existsSync(c.file)) return { status: 'no' };
-  let ext = 'mp4';
-  try { ext = cutpart.extFor(mediainfo.describe(await ffmpeg.probeRaw(c.file)), c.file); } catch { /* not readable: try an MP4 */ }
+  let info = null, kf = null;
+  try { info = mediainfo.describe(await ffmpeg.probeRaw(c.file)); } catch { /* not readable: try an MP4 */ }
+  try { kf = await cutpart.keyframeBefore(ffmpeg, c.file, c.start); } catch { /* not known: copy */ }
+  const p = cutpart.plan(info, c.file, kf, c.start), ext = p.ext;
   const r = await dialog.showSaveDialog(winOf(e), {
     title: 'Save the part',
     defaultPath: path.join(path.dirname(c.file), gifmake.fileName(path.basename(c.file), c.start, c.end, ext)),
@@ -270,7 +272,7 @@ handle('media:cutPart', async (e, o) => {
   if (r.canceled || !r.filePath) return { status: 'cancelled' };
   const out = path.extname(r.filePath).toLowerCase() === '.' + ext ? r.filePath : r.filePath + '.' + ext;
   if (path.resolve(out).toLowerCase() === path.resolve(c.file).toLowerCase()) return { status: 'no' };
-  const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out }, c), priority: 'user' });
+  const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out, mode: p.mode, keyGap: p.keyGap }, c), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
