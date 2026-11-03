@@ -9,19 +9,22 @@
   var ALIAS = { control: 'Ctrl', ctrl: 'Ctrl', commandorcontrol: 'Ctrl', cmdorctrl: 'Ctrl', alt: 'Alt', option: 'Alt', shift: 'Shift', super: 'Super', meta: 'Super', win: 'Super', cmd: 'Super', command: 'Super' };
   // KeyboardEvent.code -> the key's name in an accelerator. Codes, not characters, so the keyboard layout doesn't matter.
   var NAMED = {
-    Space: 'Space', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+    Space: 'Space', Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Backspace: 'Backspace', Insert: 'Insert', Delete: 'Delete',
+    Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
     ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Backquote: '`', Minus: '-', Equal: '=',
     BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',
     NumpadAdd: 'numadd', NumpadSubtract: 'numsub', NumpadMultiply: 'nummult', NumpadDivide: 'numdiv', NumpadDecimal: 'numdec',
-    ScrollLock: 'Scrolllock', AudioVolumeMute: 'VolumeMute', MediaPlayPause: 'MediaPlayPause', MediaTrackNext: 'MediaNextTrack',
-    MediaTrackPrevious: 'MediaPreviousTrack', MediaStop: 'MediaStop'
+    CapsLock: 'Capslock', NumLock: 'Numlock', ScrollLock: 'Scrolllock', PrintScreen: 'PrintScreen',
+    AudioVolumeMute: 'VolumeMute', AudioVolumeDown: 'VolumeDown', AudioVolumeUp: 'VolumeUp', MediaPlayPause: 'MediaPlayPause',
+    MediaTrackNext: 'MediaNextTrack', MediaTrackPrevious: 'MediaPreviousTrack', MediaStop: 'MediaStop'
   };
-  // Keys that may be pressed alone: hardly any program needs them for typing. F-keys too (see problem()).
-  var SOLO = ['Scrolllock', 'VolumeMute', 'MediaPlayPause', 'MediaNextTrack', 'MediaPreviousTrack', 'MediaStop'];
-  var WORDS = ['Space', 'Insert', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right'].concat(SOLO);
-  var CANON = {};   // lower case -> the way Electron writes it
+  var WORDS = ['Space', 'Tab', 'Enter', 'Backspace', 'Insert', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right',
+    'Capslock', 'Numlock', 'Scrolllock', 'PrintScreen', 'VolumeMute', 'VolumeDown', 'VolumeUp', 'MediaPlayPause', 'MediaNextTrack', 'MediaPreviousTrack', 'MediaStop'];
+  var CANON = { 'return': 'Enter' };   // lower case -> the way Electron writes it
   WORDS.forEach(function (w) { CANON[w.toLowerCase()] = w; });
-  var LABELS = { Super: 'Win', Scrolllock: 'Scroll Lock', VolumeMute: 'Mute key', MediaPlayPause: 'Play/Pause key', MediaNextTrack: 'Next track key', MediaPreviousTrack: 'Previous track key', MediaStop: 'Stop key' };
+  // Keys that type something (or move the cursor while typing): alone, the emergency key takes them from every program.
+  var TYPING = /^(?:[A-Z0-9]|num[0-9]|numadd|numsub|nummult|numdiv|numdec|[`\-=[\]\\;',./]|Space|Tab|Enter|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right)$/;
+  var LABELS = { Super: 'Win', numadd: 'Num +', numsub: 'Num -', nummult: 'Num *', numdiv: 'Num /', numdec: 'Num .', Capslock: 'Caps Lock', Numlock: 'Num Lock', Scrolllock: 'Scroll Lock', PrintScreen: 'Print Screen', VolumeMute: 'Mute key', VolumeDown: 'Volume down key', VolumeUp: 'Volume up key', MediaPlayPause: 'Play/Pause key', MediaNextTrack: 'Next track key', MediaPreviousTrack: 'Previous track key', MediaStop: 'Stop key' };
   var KEYS = /^(?:[A-Z0-9]|F(?:[1-9]|1\d|2[0-4])|num[0-9]|numadd|numsub|nummult|numdiv|numdec|[`\-=[\]\\;',./])$/;
 
   function keyOfCode(code) {
@@ -45,17 +48,20 @@
     if (!KEYS.test(key) && WORDS.indexOf(key) < 0) return null;
     return MODS.filter(function (n) { return mods[n]; }).concat(key).join('+');
   }
-  // Why a shortcut can't be the emergency key, or '' when it can. A global shortcut takes the keys from every other
-  // program, so plain letters need two modifiers (Ctrl+H alone would take Replace from every editor).
+  // Why a shortcut can't be the emergency key, or '' when it can. Any key may be it, alone or with modifiers, except
+  // the wall mode key and the one that closes windows.
   function problem(accel) {
     var n = normalize(accel);
     if (!n) return 'That key can\'t be a shortcut.';
-    var parts = n.split('+'), key = parts.pop(), fkey = /^F\d+$/.test(key);
-    if (fkey && !parts.length && key === 'F11') return 'F11 is the wall mode key. Pick another.';
+    if (n === 'F11') return 'F11 is the wall mode key. Pick another.';
     if (n === 'Alt+F4') return 'Alt+F4 closes windows. Pick another.';
-    if (fkey || SOLO.indexOf(key) > -1) return '';
-    if (!parts.some(function (p) { return p !== 'Shift'; }) || parts.length < 2) return 'Use two modifier keys with it, like Ctrl+Shift.';
     return '';
+  }
+  // Whether the shortcut is a key that types something, with no Ctrl, Alt or Win: as the emergency key, other programs
+  // no longer get it, so typing it anywhere hides the wall.
+  function types(accel) {
+    var n = normalize(accel), parts = n ? n.split('+') : [], key = parts.pop();
+    return !!n && TYPING.test(key) && parts.every(function (p) { return p === 'Shift'; });
   }
   // A key press -> { accel } or { error }; null while only modifier keys are held.
   function fromEvent(e) {
@@ -71,11 +77,11 @@
     var n = normalize(accel), r = n && fromEvent(e);
     return !!(r && r.accel === n);
   }
-  // "Ctrl+Shift+H" -> "Ctrl + Shift + H"; Super is the Windows key, media keys get their names.
+  // "Ctrl+Shift+H" -> "Ctrl + Shift + H"; Super is the Windows key, numpad and media keys get their names.
   function label(accel) {
     var n = normalize(accel);
-    return n ? n.split('+').map(function (p) { return LABELS[p] || p; }).join(' + ') : '';
+    return n ? n.split('+').map(function (p) { return LABELS[p] || p.replace(/^num(\d)$/, 'Num $1'); }).join(' + ') : '';
   }
 
-  return { normalize: normalize, problem: problem, fromEvent: fromEvent, matches: matches, label: label };
+  return { normalize: normalize, problem: problem, types: types, fromEvent: fromEvent, matches: matches, label: label };
 });

@@ -90,12 +90,12 @@ contextBridge.exposeInMainWorld('wall', {
   loginItem: () => ipcRenderer.invoke('app:loginItem'),
   setLoginItem: (on) => ipcRenderer.invoke('app:setLoginItem', !!on),
 
-  // emergency hide: the key works from any program; the page shows the cover and blocks input while hidden
+  // emergency hide: the key and mouse button work from any program; the page shows the cover and blocks input while hidden
   hideState: () => ipcRenderer.invoke('hide:get'),
   setHide: (change) => ipcRenderer.invoke('hide:set', change),
   pickHideImage: () => ipcRenderer.invoke('hide:pickImage'),
   toggleHide: () => ipcRenderer.invoke('hide:toggle'),
-  suspendHideKey: (on) => ipcRenderer.invoke('hide:suspend', !!on),
+  suspendHide: (on) => ipcRenderer.invoke('hide:suspend', !!on),
   onHide: (cb) => { ipcRenderer.on('hide:changed', (_e, s) => cb(s)); },
 
   // about: name, version, licence, and the app's own links (opened in the browser)

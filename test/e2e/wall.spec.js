@@ -8,6 +8,7 @@ const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const { png } = require('./media');
 const { start, root } = require('./launch');
+const { pressSide } = require('../mouseinput');
 
 const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
 
@@ -485,6 +486,24 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
     const after = await state('big.mp4');
     expect(after.paused).toBe(true);
     expect(Math.abs(after.t - t)).toBeLessThan(0.5);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('emergency hide: the mouse button works from any program, so it brings back windows that went away', async () => {
+  test.skip(process.platform !== 'win32' || (!process.env.WALLPANE_EXE && !fs.existsSync(path.join(root, 'vendor', 'mousehook', 'wallpane-mouse.exe'))),
+    'The mouse helper is not built (npm run build-mousehook)');
+  const { app, page, errors } = await start(dir);
+  try {
+    await page.evaluate(() => window.wall.setHide({ mouse: 'forward', cover: 'away' }));
+    await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
+    const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
+    // A real press, through Windows, wherever the pointer is: the windows go away, and the next press brings them back.
+    const sent = await pressSide(2);
+    test.skip(sent !== 2, 'Windows took no input here');
+    await expect.poll(visible).toBe(false);
+    expect(await pressSide(2)).toBe(2);
+    await expect.poll(visible).toBe(true);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });

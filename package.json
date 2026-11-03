@@ -17,14 +17,18 @@
     "node": ">=22"
   },
   "scripts": {
+    "prestart": "node scripts/build-mousehook.js",
     "start": "electron .",
+    "predev": "node scripts/build-mousehook.js",
     "dev": "electron . --dev",
     "lint": "eslint .",
     "test": "node --test \"test/unit/*.test.js\"",
+    "pretest:e2e": "node scripts/build-mousehook.js",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run test:e2e",
     "fetch-ffmpeg": "node scripts/fetch-ffmpeg.js",
-    "predist": "node scripts/fetch-ffmpeg.js",
+    "build-mousehook": "node scripts/build-mousehook.js",
+    "predist": "node scripts/fetch-ffmpeg.js && node scripts/build-mousehook.js",
     "dist": "electron-builder --win --publish never"
   },
   "devDependencies": {
@@ -54,6 +58,10 @@
       {
         "from": "vendor/ffmpeg",
         "to": "ffmpeg"
+      },
+      {
+        "from": "vendor/mousehook",
+        "to": "mousehook"
       }
     ],
     "win": {

@@ -5,6 +5,8 @@
 - **Save the looped part as MP4:** beside Make a GIF (Properties › Playback and the tile's menu). When a keyframe lies within half a second before the part, it is copied without re-encoding: saved at once, nothing lost, starting on that keyframe. Otherwise it is re-encoded so it starts and ends exactly on the part, since a copy of a short part from a video with keyframes seconds apart would be mostly what comes before it. The message says which.
 - **Empty tiles in Free (pixels) look like empty cells on the grid:** only the faint +, with "Drop or click" under the pointer, instead of the Empty tile card with File… and Folder…. A click chooses the tile's media; its right-click menu still offers a folder.
 - **Fixed: the message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
+- **Emergency hide, any one key:** the hide key no longer needs Ctrl+Shift or another pair of modifiers. Any key will do, alone or with modifiers (not F11, the wall mode key, or Alt+F4). For a key that types something, Settings says that typing it anywhere now hides the wall.
+- **Emergency hide, the mouse button from any program:** it worked only with the pointer over a Wallpane window, so once the windows had gone away ("Nothing" shown) the button could not bring them back. Now a small helper catches that one button in every program, like the key, and other programs no longer get it while Wallpane runs.
 
 ## 1.6.5: GIFs and a tidier wall
 

@@ -18,6 +18,8 @@ else try { files.migrateData(path.join(app.getPath('appData'), 'Media Wall'), ap
 // FFmpeg comes with the app (resources/ffmpeg), or for development from vendor/ffmpeg (npm run fetch-ffmpeg).
 // build.json says which build it is and where its source is.
 const FFMPEG_DIR = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg') : path.join(__dirname, 'vendor', 'ffmpeg');
+// The emergency hide's mouse helper, likewise (npm run build-mousehook).
+const MOUSEHOOK_EXE = path.join(app.isPackaged ? path.join(process.resourcesPath, 'mousehook') : path.join(__dirname, 'vendor', 'mousehook'), 'wallpane-mouse.exe');
 const ffmpegBuild = (() => {
   try {
     const b = JSON.parse(fs.readFileSync(path.join(FFMPEG_DIR, 'build.json'), 'utf8'));
@@ -32,6 +34,7 @@ const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
 const cutpart = require('./lib/cutpart');
+const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
@@ -640,12 +643,16 @@ handle('win:keepAwake', (e, on) => {
 /* ---------- emergency hide: one key, from any program, covers or hides every wall window and silences it ---------- */
 // The same key brings everything back. Settings are app-wide (hide.json), not per window.
 const COVERS = ['sheet', 'black', 'image', 'away'];
-const MOUSE = ['', 'middle', 'back', 'forward'];   // a mouse button that also hides, over a Wallpane window ('' none)
+const MOUSE = ['', 'middle', 'back', 'forward'];   // a mouse button that also hides, from any program ('' none)
 const HIDE_DEFAULT = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '' };
 let hideCfg = Object.assign({}, HIDE_DEFAULT);
 let hideOk = false;        // Windows gave us the key (another program may hold it)
 let hideKeyOn = null;      // the key registered right now (none while Settings records a new one)
+let hideSuspended = false; // Settings is recording a new key or mouse button: the current ones let go
 let hidden = false, hiddenAway = false, hideAt = 0, hideFrom = '';
+// The mouse button in every program (lib/mousehook.js); without its helper the page catches it over its own windows.
+const mouseHook = createMouseHook({ exe: MOUSEHOOK_EXE, onPress: () => toggleHide('mouse'), onChange: () => tellHide() });
+function claimMouse() { mouseHook.start(hideSuspended ? '' : hideCfg.mouse); }
 function hideFile() { return path.join(dataDir(), 'hide.json'); }
 function cleanHide(j) {
   const c = Object.assign({}, HIDE_DEFAULT);
@@ -669,7 +676,7 @@ function claimKey(key) {
   try { if (globalShortcut.register(key, () => toggleHide('key'))) { hideKeyOn = key; return true; } } catch { /* refused */ }
   return false;
 }
-function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, mouse: hideCfg.mouse, ok: hideOk, on: hidden }; }
+function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, mouse: hideCfg.mouse, ok: hideOk, mouseOk: mouseHook.ok(), on: hidden }; }
 function tellHide() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
 }
@@ -691,10 +698,12 @@ function toggleHide(from) {
 }
 handle('hide:get', () => hideState());
 handle('hide:toggle', () => { toggleHide('page'); return hidden; });
-// While Settings records a new key, the old one must not hide the windows.
+// While Settings records a new key or mouse button, the old ones must not hide the windows.
 handle('hide:suspend', (_e, on) => {
+  hideSuspended = !!on;
   if (on) releaseKey();
   else if (!hideKeyOn) hideOk = claimKey(hideCfg.key);
+  claimMouse();
   return hideState();
 });
 handle('hide:set', (_e, change) => {
@@ -711,7 +720,7 @@ handle('hide:set', (_e, change) => {
     }
   }
   if (COVERS.includes(c.cover) && (c.cover !== 'image' || hideCfg.image)) hideCfg.cover = c.cover;
-  if (MOUSE.includes(c.mouse)) hideCfg.mouse = c.mouse;
+  if (MOUSE.includes(c.mouse)) { hideCfg.mouse = c.mouse; claimMouse(); }
   saveHide(); tellHide();
   return hideState();
 });
@@ -873,6 +882,7 @@ if (!app.requestSingleInstanceLock()) {
     state = loadState();
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
+    claimMouse();
     startBackground();
     // The picture under the pointer while files are dragged out of the library window: Wallpane's own icon.
     app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
@@ -890,6 +900,6 @@ if (!app.requestSingleInstanceLock()) {
     watchers.closeAll();
     if (library) library.flush();
   });
-  app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); mouseHook.stop(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

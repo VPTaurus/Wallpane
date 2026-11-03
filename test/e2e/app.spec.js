@@ -754,18 +754,20 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await settingsAt('Hide');
   const key = page.locator('#hideKey');
   await expect(key).toHaveText('Ctrl + Shift + H');
-  // A key other programs need is refused; Esc stops recording.
+  // F11 (wall mode) is refused; Esc stops recording.
   await key.click();
-  await expect(key).toHaveText('Press the new keys…');
-  await page.keyboard.press('Control+H');
-  await expect(page.locator('#hideNote')).toContainText('two modifier');
+  await expect(key).toHaveText('Press the new key…');
+  await page.keyboard.press('F11');
+  await expect(page.locator('#hideNote')).toContainText('wall mode key');
   await page.keyboard.press('Escape');
   await expect(key).toHaveText('Ctrl + Shift + H');
+  // Any one key will do, with no modifiers; one that types something comes with a word of warning.
   await key.click();
-  await page.keyboard.press('Control+Shift+J');
-  await expect(key).toHaveText('Ctrl + Shift + J');
-  await expect.poll(() => saved('hide').key).toBe('Ctrl+Shift+J');
-  await expect(page.locator('#keysHideKey')).toHaveText('Ctrl Shift J');   // Settings > Keys shows the new key
+  await page.keyboard.press('Numpad5');
+  await expect(key).toHaveText('Num 5');
+  await expect.poll(() => saved('hide').key).toBe('num5');
+  await expect(page.locator('#hideNote')).toContainText('typing it anywhere hides the wall');
+  await expect(page.locator('#keysHideKey')).toHaveText('Num 5');   // Settings > Keys shows the new key
   // Black screen, from Hide now.
   await page.locator('#hideCover').selectOption('black');
   await page.click('#hideTry');
@@ -773,7 +775,7 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   await expect(page.locator('#cover')).toBeVisible();
   await page.keyboard.press('Control+Shift+H');                 // the old key does nothing now
   await expect(page.locator('#cover')).toBeVisible();
-  await page.keyboard.press('Control+Shift+J');
+  await page.keyboard.press('Numpad5');
   await expect(page.locator('#cover')).toBeHidden();
   // The windows go away and come back.
   await settingsAt('Hide');
@@ -801,8 +803,10 @@ test('emergency hide settings: a new key, a black screen, windows that go away, 
   const mb = await page.locator('#hideMouse').boundingBox();
   await page.mouse.click(mb.x + mb.width / 2, mb.y + mb.height / 2, { button: 'middle' });
   await expect(page.locator('#hideMouse')).toHaveText('Middle (wheel)');
-  await expect(page.locator('#hideMouseNote')).toBeVisible();
   await expect.poll(() => saved('hide').mouse).toBe('middle');
+  // Its helper catches it in every program (lib/mousehook.js), so no "only over a Wallpane window" note.
+  await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
+  await expect(page.locator('#hideMouseNote')).toBeHidden();
   await expect(page.locator('#cover')).toBeHidden();   // setting it did not hide anything
   await page.keyboard.press('Escape');
   const w = await page.locator('#wall').boundingBox();
