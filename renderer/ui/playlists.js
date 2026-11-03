@@ -70,12 +70,14 @@
       if (best && S.playlists[it.pl] === p) PL.bringForward(p, best.path);
     }, function () { /* in line as it is */ });
   }
-  // Where a playlist's video starts: at random, or after a black or silent opening (ui/playable.js). Not again when
-  // the same video comes from another file (a lighter copy): it carries on where it was.
+  // Where a playlist's video starts: where it was in a restored last session (A.takeResume), at random, or after a
+  // black or silent opening (ui/playable.js). Not again when the same video comes from another file (a lighter copy):
+  // it carries on where it was.
   A.applyClipStart = function (it, media) {
     if (media._swap) return;
-    var p = it.pl && S.playlists[it.pl], t0 = 0;
+    var p = it.pl && S.playlists[it.pl], t0 = 0, r = A.takeResume(it, media);
     it._t0 = 0;
+    if (r != null) { it._t0 = r; try { media.currentTime = r; } catch (e) { it._t0 = 0; } return; }
     if (!p || it.pinned || !isFinite(media.duration)) return;
     if (p.randomStart) { var room = media.duration - (p.maxClip || 10); if (room > 1) t0 = Math.random() * room; }
     else t0 = A.openingOf(it, media);

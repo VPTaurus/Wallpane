@@ -208,3 +208,82 @@ test('hover previews: a resting pointer plays a few seconds of a video, or the G
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('your marks: stars, the heart and tags by key, menu and Tags…; filters, the Rating sort, a tag in the list, a tile on the wall', async () => {
+  const media = path.join(dir, 'Marks');
+  fs.mkdirSync(media);
+  ['a', 'b', 'c'].forEach((n, i) => fs.writeFileSync(path.join(media, n + '.png'), png(160, 90, [80 * i, 120, 200])));
+  const { app, page, errors } = await start();
+  const ctx = (label) => page.locator('#ctxMenu .mi, #ctxSub .mi', { hasText: label });
+  const shownNames = () => thumbs(page).evaluateAll((els) => els.sort((a, b) => (parseFloat(a.style.top) - parseFloat(b.style.top)) || (parseFloat(a.style.left) - parseFloat(b.style.left))).map((e) => e.title.split('\n')[0]));
+  try {
+    await page.evaluate((p) => window.wall.addLibraryFolder(p), media);
+    await detailsRead(page);
+    await page.keyboard.press('Control+l');
+    await expect(thumbs(page)).toHaveCount(3);
+    // Keys on the selected file: 4 stars, then the heart.
+    await thumb(page, 'a.png').click();
+    await page.keyboard.press('4');
+    await expect(thumb(page, 'a.png').locator('.lstars')).toHaveText('★★★★');
+    await page.keyboard.press('f');
+    await expect(thumb(page, 'a.png').locator('.lfav')).toBeVisible();
+    // The menu: five stars for b.png.
+    await thumb(page, 'b.png').click({ button: 'right' });
+    await ctx('Rating').click();
+    await ctx('★★★★★').click();
+    await expect(thumb(page, 'b.png').locator('.lstars')).toHaveText('★★★★★');
+    // Tags…: a tag typed for two files at once, then an existing one given to the third with a click.
+    await thumb(page, 'a.png').click();
+    await thumb(page, 'b.png').click({ modifiers: ['Control'] });
+    await page.keyboard.press('t');
+    await expect(page.locator('#libTagTitle')).toHaveText('Tags of 2 files');
+    await page.locator('#libTagInput').fill('Beach');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#libTagHave .chip')).toHaveText(['Beach×']);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#libTagBox')).toBeHidden();
+    await thumb(page, 'c.png').click();
+    await page.keyboard.press('t');
+    await page.locator('#libTagOther .chip', { hasText: 'Beach' }).click();
+    await expect(page.locator('#libTagHave .chip')).toHaveText(['Beach×']);
+    await page.click('#libTagClose');
+    // Found by its tag, filtered, and sorted by rating (the heart counts between equal stars).
+    await page.fill('#libSearch', 'beach');
+    await expect(thumbs(page)).toHaveCount(3);
+    await page.fill('#libSearch', '');
+    await page.click('#libFiltBtn');
+    await page.locator('#libFav').check();
+    await expect(thumbs(page)).toHaveCount(1);
+    await page.locator('#libFav').uncheck();
+    await page.selectOption('#libStars', '5');
+    await expect(thumbs(page)).toHaveCount(1);
+    await page.click('#libFiltClear');
+    await page.selectOption('#libSort', 'rating');
+    await expect.poll(shownNames).toEqual(['b.png', 'a.png', 'c.png']);
+    // The tag in the folder row's list shows its files.
+    await page.click('#libFolderBtn');
+    await page.locator('#libFolderList .lfolder.tag', { hasText: 'Beach' }).click();
+    await expect(page.locator('#libFolderName')).toHaveText('Beach');
+    await expect(thumbs(page)).toHaveCount(3);
+    // On the wall: the tile's Properties show its file's marks, and change them.
+    await thumb(page, 'a.png').dblclick();
+    const tile = page.locator('#wall .tile[aria-label^="a.png"]');
+    await expect(tile).toHaveCount(1);
+    await page.keyboard.press('Control+l');
+    await tile.click({ button: 'right' });
+    await expect(ctx('Library')).toContainText('★★★★☆ · ♥ · Beach');
+    await page.keyboard.press('Escape');
+    await tile.click();
+    await page.keyboard.press('Alt+Enter');
+    await expect(page.locator('#libSec .star.on')).toHaveCount(4);
+    await expect(page.locator('#insFav')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#libSec .star[data-n="2"]').click();
+    await expect(page.locator('#libSec .star.on')).toHaveCount(2);
+    await page.locator('#insTagInput').fill('sunset');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#insTags .chip')).toHaveText(['Beach×', 'sunset×']);
+    const a = await page.evaluate(async () => (await window.wall.queryLibrary({ text: 'a.png' })).items[0]);
+    expect([a.stars, a.fav]).toEqual([2, true]);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

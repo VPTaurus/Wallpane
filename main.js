@@ -18,6 +18,8 @@ else try { files.migrateData(path.join(app.getPath('appData'), 'Media Wall'), ap
 // FFmpeg comes with the app (resources/ffmpeg), or for development from vendor/ffmpeg (npm run fetch-ffmpeg).
 // build.json says which build it is and where its source is.
 const FFMPEG_DIR = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg') : path.join(__dirname, 'vendor', 'ffmpeg');
+// The emergency hide's mouse helper, likewise (npm run build-mousehook).
+const MOUSEHOOK_EXE = path.join(app.isPackaged ? path.join(process.resourcesPath, 'mousehook') : path.join(__dirname, 'vendor', 'mousehook'), 'wallpane-mouse.exe');
 const ffmpegBuild = (() => {
   try {
     const b = JSON.parse(fs.readFileSync(path.join(FFMPEG_DIR, 'build.json'), 'utf8'));
@@ -31,6 +33,8 @@ const { createJobs } = require('./lib/jobs');
 const { createCache } = require('./lib/cache');
 const { playableKind, gifVideoKind, proxyKind } = require('./lib/playable');
 const { makeGifKind } = require('./lib/makegif');
+const cutpart = require('./lib/cutpart');
+const { createMouseHook } = require('./lib/mousehook');
 const gifmake = require('./renderer/lib/gifmake');
 const { createLibrary } = require('./lib/library');
 const { createLibraryFolders, OWNER: LIBRARY } = require('./lib/libraryfolders');
@@ -178,6 +182,7 @@ function startBackground() {
   JOB_KINDS.gifvideo = gifVideoKind({ ffmpeg, cache });
   JOB_KINDS.proxy = proxyKind({ ffmpeg, cache });
   JOB_KINDS.makegif = makeGifKind({ ffmpeg });
+  JOB_KINDS.cutpart = cutpart.cutPartKind({ ffmpeg });
   JOB_KINDS.libinfo = libFolders.infoKind;
   JOB_KINDS.libthumbs = thumbs.kind;
   jobs = createJobs({
@@ -252,6 +257,27 @@ handle('media:makeGif', async (e, o) => {
   const job = jobs.add({ kind: 'makegif', key: 'makegif:' + out, label: path.basename(out), input: Object.assign({ out }, g), priority: 'user' });
   return { status: 'working', key: job.key, path: out };
 });
+// Save a looped part as a video of its own (lib/cutpart.js): copied without re-encoding when the keyframe before it is
+// near (an MP4 when the video's picture and sound go into one, else the video's own kind of file), else re-encoded
+// into an MP4 to start exactly on it. Asks where to save it, then a job makes it. The same answers as media:makeGif.
+handle('media:cutPart', async (e, o) => {
+  const c = cutpart.clean(o);
+  if (!c || !ffmpeg.available() || !jobs || !fs.existsSync(c.file)) return { status: 'no' };
+  let info = null, kf = null;
+  try { info = mediainfo.describe(await ffmpeg.probeRaw(c.file)); } catch { /* not readable: try an MP4 */ }
+  try { kf = await cutpart.keyframeBefore(ffmpeg, c.file, c.start); } catch { /* not known: copy */ }
+  const p = cutpart.plan(info, c.file, kf, c.start), ext = p.ext;
+  const r = await dialog.showSaveDialog(winOf(e), {
+    title: 'Save the part',
+    defaultPath: path.join(path.dirname(c.file), gifmake.fileName(path.basename(c.file), c.start, c.end, ext)),
+    filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
+  });
+  if (r.canceled || !r.filePath) return { status: 'cancelled' };
+  const out = path.extname(r.filePath).toLowerCase() === '.' + ext ? r.filePath : r.filePath + '.' + ext;
+  if (path.resolve(out).toLowerCase() === path.resolve(c.file).toLowerCase()) return { status: 'no' };
+  const job = jobs.add({ kind: 'cutpart', key: 'cutpart:' + out, label: path.basename(out), input: Object.assign({ out, mode: p.mode, keyGap: p.keyGap }, c), priority: 'user' });
+  return { status: 'working', key: job.key, path: out };
+});
 // Timeline pictures (lib/strips.js): small frames from across a video `secs` long, for its tile's timeline.
 // { path, count, every, cols, rows } once made (now, if needed), or null.
 handle('media:strip', (_e, p, secs) => (strips ? strips.get(p, secs) : null));
@@ -313,6 +339,32 @@ handle('library:editCollection', (_e, op, a, b, c) => {
     case 'move': return library.moveInCollection(s(a), ids(b), s(c) || null);
     default: return null;
   }
+});
+// Your marks on library files: stars, the favourite heart and tags, for one file or many at once (lib/library.js
+// mark: { stars, fav, addTags, dropTags }). Returns how many files changed.
+handle('library:mark', (_e, ids, change) => {
+  libFolders.ready();
+  return library.mark(Array.isArray(ids) ? ids.filter((v) => typeof v === 'string') : [], change && typeof change === 'object' ? change : {});
+});
+// Every tag in use, with how many files have it: [{ name, files }].
+handle('library:tags', () => { libFolders.ready(); return library.tags(); });
+// rename (tag, new name) · drop (tag). Returns how many files changed.
+handle('library:editTag', (_e, op, a, b) => {
+  libFolders.ready();
+  const s = (x) => (typeof x === 'string' ? x : '');
+  if (op === 'rename') return library.renameTag(s(a), s(b));
+  if (op === 'drop') return library.dropTag(s(a));
+  return null;
+});
+// What the library knows of files on the wall: { path: { id, stars, fav, tags } } for those in it.
+handle('library:about', (_e, paths) => {
+  libFolders.ready();
+  const out = {};
+  (Array.isArray(paths) ? paths : []).forEach((p) => {
+    const e = typeof p === 'string' ? library.find(p) : null;
+    if (e) out[p] = { id: e.id, stars: e.stars || 0, fav: !!e.fav, tags: e.tags || [] };
+  });
+  return out;
 });
 // The thumbnails of these library files that are made ({ id: path }); the rest are made first and arrive as
 // 'library:thumbsMade'.
@@ -617,12 +669,16 @@ handle('win:keepAwake', (e, on) => {
 /* ---------- emergency hide: one key, from any program, covers or hides every wall window and silences it ---------- */
 // The same key brings everything back. Settings are app-wide (hide.json), not per window.
 const COVERS = ['sheet', 'black', 'image', 'away'];
-const MOUSE = ['', 'middle', 'back', 'forward'];   // a mouse button that also hides, over a Wallpane window ('' none)
+const MOUSE = ['', 'middle', 'back', 'forward'];   // a mouse button that also hides, from any program ('' none)
 const HIDE_DEFAULT = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '' };
 let hideCfg = Object.assign({}, HIDE_DEFAULT);
 let hideOk = false;        // Windows gave us the key (another program may hold it)
 let hideKeyOn = null;      // the key registered right now (none while Settings records a new one)
+let hideSuspended = false; // Settings is recording a new key or mouse button: the current ones let go
 let hidden = false, hiddenAway = false, hideAt = 0, hideFrom = '';
+// The mouse button in every program (lib/mousehook.js); without its helper the page catches it over its own windows.
+const mouseHook = createMouseHook({ exe: MOUSEHOOK_EXE, onPress: () => toggleHide('mouse'), onChange: () => tellHide() });
+function claimMouse() { mouseHook.start(hideSuspended ? '' : hideCfg.mouse); }
 function hideFile() { return path.join(dataDir(), 'hide.json'); }
 function cleanHide(j) {
   const c = Object.assign({}, HIDE_DEFAULT);
@@ -646,7 +702,7 @@ function claimKey(key) {
   try { if (globalShortcut.register(key, () => toggleHide('key'))) { hideKeyOn = key; return true; } } catch { /* refused */ }
   return false;
 }
-function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, mouse: hideCfg.mouse, ok: hideOk, on: hidden }; }
+function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: hideCfg.image, mouse: hideCfg.mouse, ok: hideOk, mouseOk: mouseHook.ok(), on: hidden }; }
 function tellHide() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
 }
@@ -668,10 +724,12 @@ function toggleHide(from) {
 }
 handle('hide:get', () => hideState());
 handle('hide:toggle', () => { toggleHide('page'); return hidden; });
-// While Settings records a new key, the old one must not hide the windows.
+// While Settings records a new key or mouse button, the old ones must not hide the windows.
 handle('hide:suspend', (_e, on) => {
+  hideSuspended = !!on;
   if (on) releaseKey();
   else if (!hideKeyOn) hideOk = claimKey(hideCfg.key);
+  claimMouse();
   return hideState();
 });
 handle('hide:set', (_e, change) => {
@@ -688,7 +746,7 @@ handle('hide:set', (_e, change) => {
     }
   }
   if (COVERS.includes(c.cover) && (c.cover !== 'image' || hideCfg.image)) hideCfg.cover = c.cover;
-  if (MOUSE.includes(c.mouse)) hideCfg.mouse = c.mouse;
+  if (MOUSE.includes(c.mouse)) { hideCfg.mouse = c.mouse; claimMouse(); }
   saveHide(); tellHide();
   return hideState();
 });
@@ -850,6 +908,7 @@ if (!app.requestSingleInstanceLock()) {
     state = loadState();
     try { hideCfg = cleanHide(JSON.parse(fs.readFileSync(hideFile(), 'utf8'))); } catch { /* defaults */ }
     hideOk = claimKey(hideCfg.key);
+    claimMouse();
     startBackground();
     // The picture under the pointer while files are dragged out of the library window: Wallpane's own icon.
     app.getFileIcon(process.execPath, { size: 'normal' }).then((i) => { dragIcon = i; }, () => { /* an empty one */ });
@@ -867,6 +926,6 @@ if (!app.requestSingleInstanceLock()) {
     watchers.closeAll();
     if (library) library.flush();
   });
-  app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); mouseHook.stop(); });
   app.on('window-all-closed', () => { app.quit(); });
 }

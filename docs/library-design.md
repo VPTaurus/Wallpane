@@ -46,13 +46,14 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "folders": [{ "path": "D:\\Clips", "added": 1793400000000 }],
   "files": {
     "f3c9a1e07b2d4": {
       "path": "D:\\Clips\\beach\\sunset.mp4",
       "size": 48213012, "mtime": 1790000000000, "kind": "video", "added": 1793400000000,
-      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "none"
+      "w": 1920, "h": 1080, "dur": 31.4, "fps": 30, "v": "h264", "a": "aac", "rot": 0, "play": "none",
+      "stars": 4, "fav": true, "tags": ["Beach", "Evening"]
     }
   },
   "lost": [{ "id": "f81d0c55e9a20", "at": 1793500000000, "e": { "path": "D:\\Clips\\old name.mp4", "size": 1200, "mtime": 1790000000000, "kind": "video", "added": 1793400000000 } }],
@@ -61,9 +62,10 @@ It lives in the data folder next to `app.json`. Only the main process reads and 
 ```
 
 - **Per file:** where it is, its size and time, its kind (video, GIF or image) and when it was added. Its library folder is not stored, because loading finds it from the path. Probing fills in its size in pixels, length, frame rate, codecs and rotation, and whether it plays as it is (`play`: none, maybe, remux, audio or convert). For a file that cannot be read, it fills in why (`err`), so it is not tried again and again.
+- **Your marks (E1, version 2):** 1 to 5 `stars`, the favourite heart (`fav`) and `tags`, each kept only when set. Probing again never touches them, and a moved, renamed or returning file keeps them with its id (a copy that takes over from a file that left takes them on). Version 2 exists for them: an older Wallpane, which knows version 1, opens such a file read-only and so never saves it without them.
 - **Lost files:** files that left the library in the last 30 days, so that one that comes back keeps its id.
 - **Not stored here:** thumbnails (they are files in the cache) and anything from the internet (Wallpane never goes online).
-- **Moved or renamed files keep their place.** A file can disappear while one with the same size, time and name appears elsewhere in the library. That is taken as the same file, so it stays in its collections (and keeps its tags, later on).
+- **Moved or renamed files keep their place.** A file can disappear while one with the same size, time and name appears elsewhere in the library. That is taken as the same file, so it stays in its collections and keeps its stars, heart and tags.
 - **Saving** waits two seconds after the last change. While changes keep coming (probing a big folder), it still saves at least every 30 seconds. It writes through a temporary file, so a crash never leaves half a file, and once more when Wallpane closes.
 - **Size (Decision 4: up to 50,000 files):** about 300 bytes a file. Measured with 50,000 fully probed files:
 

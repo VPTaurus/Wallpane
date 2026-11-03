@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.8: Stars, hearts and tags; the looped part as MP4; a wall that carries on where it was
+
+Download **Wallpane Setup 1.6.8.exe** (installer) or **Wallpane 1.6.8.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
+
+Give library files stars, a favourite heart and tags. Save a video's looped part as an MP4, beside Make a GIF. After a restart the last wall's videos carry on where they were, and a big tile has 10 s back and on. The emergency hide takes any one key, and its mouse button now works from any program. (1.6.6 was never published: everything since 1.6.5 is here.)
+
+New:
+- **Stars, hearts and tags for library files:** 1 to 5 stars, a favourite heart and any tags, for one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart and the stars. Filters for rating and favourites, a Rating sort, a search that finds tags, and a Tags section in the folder row's list (right-click a tag to rename or delete it). On the wall, a tile whose file is in the library has a Library group in its menu and a Library part in Properties. `library.json` becomes version 2, which an older Wallpane opens read-only, so it never drops them.
+- **The last wall carries on where it was:** after a restart its videos continue from where they were, not from the start (a folder's tile on its file, from where it was). Saved as Wallpane closes and every 20 seconds while videos play, so a crash or a power cut loses little. Saved walls you name start their videos as usual.
+- **10 s back and on:** two buttons in the video bar of a big tile, or one full screen (a curved arrow and "10"). Smaller tiles keep the bar as it was; J and L still skip 5 s.
+- **Save the looped part as MP4:** beside Make a GIF (Properties › Playback and the tile's menu). When a keyframe lies within half a second before the part, it is copied without re-encoding: saved at once, nothing lost, starting on that keyframe. Otherwise it is re-encoded so it starts and ends exactly on the part, since a copy of a short part from a video with keyframes seconds apart would be mostly what comes before it. The message says which.
+- **Emergency hide, any one key:** the hide key no longer needs Ctrl+Shift or another pair of modifiers. Any key will do, alone or with modifiers (not F11, the wall mode key, or Alt+F4). For a key that types something, Settings says that typing it anywhere now hides the wall.
+
+Tidier:
+- **Empty tiles in Free (pixels) look like empty cells on the grid:** only the faint +, with "Drop or click" under the pointer, instead of the Empty tile card with File… and Folder…. A click chooses the tile's media; its right-click menu still offers a folder.
+
+Fixed:
+- **The emergency hide's mouse button works from any program:** it worked only with the pointer over a Wallpane window, so once the windows had gone away ("Nothing" shown) the button could not bring them back. Now a small helper catches that one button in every program, like the key, and other programs no longer get it while Wallpane runs.
+- **The message after making a GIF** had its text and buttons out of line, and a long file name pushed it wide. Its buttons now sit in a row under the message, and the name wraps.
+
 ## 1.6.5: GIFs and a tidier wall
 
 Download **Wallpane Setup 1.6.5.exe** (installer) or **Wallpane 1.6.5.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.

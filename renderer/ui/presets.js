@@ -6,6 +6,14 @@
   var S = A.S, $ = A.$, esc = U.esc, api = A.api;
 
   /* ---------- wall records: grid, placement, settings and the path of each file ---------- */
+  // Where a video tile's video is now (seconds), so the last session carries on from there; null near its start. A
+  // tile restored a moment ago whose video has not loaded yet keeps the time it is going to carry on from.
+  function playedTo(i) {
+    var v = A.videoOf(i);
+    if (v && v.readyState >= 1) return v.currentTime >= 1 ? Math.round(v.currentTime * 10) / 10 : null;
+    return i._resume || null;
+  }
+  // The wall as a record: a saved wall (`name`), or the last session ('', with where each video was).
   A.currentRecord = function (name) {
     return {
       name: name, savedAt: Date.now(), cols: S.cols, rows: S.rows, gap: S.gap, aspect: S.aspect, fit: S.fit, presetName: S.presetName, mode: S.mode,
@@ -15,7 +23,8 @@
         return {
           path: i.path, name: i.name, kind: i.kind, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, pl: i.pl || null, pinned: !!i.pinned, fitSet: !!i.fitSet,
           fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: v.mx, my: v.my, zoom: v.zoom,
-          vol: i.vol == null ? 1 : i.vol, speed: i.speed || 1, loopA: i.loopA == null ? null : i.loopA, loopB: i.loopB == null ? null : i.loopB
+          vol: i.vol == null ? 1 : i.vol, speed: i.speed || 1, loopA: i.loopA == null ? null : i.loopA, loopB: i.loopB == null ? null : i.loopB,
+          at: name === '' && i.kind === 'video' ? playedTo(i) : null
         };
       })
     };
@@ -23,7 +32,7 @@
   // Puts a cleaned record on the wall. Resolves with the number of files that were not found.
   A.applyRecord = async function (rec, label) {
     var items = rec.items.map(function (i) {
-      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: i.mx, my: i.my, zoom: i.zoom, vol: i.vol, speed: i.speed, loopA: i.loopA, loopB: i.loopB, shown: 0 };
+      return { id: S.nid++, name: i.name, path: i.path, kind: i.kind, url: null, col: i.col, row: i.row, w: i.w, h: i.h, fit: i.fit, muted: i.muted, loop: i.loop, sample: false, missing: false, pl: (i.pl && rec.playlists && rec.playlists[i.pl]) ? i.pl : null, pinned: !!i.pinned, fitSet: !!i.fitSet, fx: i.fx, fy: i.fy, fw: i.fw, fh: i.fh, mx: i.mx, my: i.my, zoom: i.zoom, vol: i.vol, speed: i.speed, loopA: i.loopA, loopB: i.loopB, shown: 0, _resume: i.at || null };
     });
     var withMedia = items.filter(function (i) { return i.kind !== 'empty'; });
     var ex = withMedia.length ? await api.exists(withMedia.map(function (i) { return i.path; })) : [];
@@ -323,4 +332,9 @@
     clearTimeout(sessionTimer);
     if (sessionWorthSaving()) api.storeSetSync('session', A.currentRecord(''));
   });
+  // While videos play, where they are is saved now and then too, so after a crash or a power cut they carry on near
+  // where they were. Nothing playing, nothing to save.
+  setInterval(function () {
+    if (A.videos().some(function (v) { return !v.paused; }) && sessionWorthSaving()) api.storeSet('session', A.currentRecord(''));
+  }, 20000);
 })(window.MW.app);

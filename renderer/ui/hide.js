@@ -1,13 +1,14 @@
 // Emergency hide: one key (Ctrl+Shift+H unless Settings say otherwise) covers every wall window with a spreadsheet,
 // a black screen or a picture, or makes the windows go away. Sound stops at once (the main process mutes the window)
-// and videos pause; the same key brings everything back as it was. The key works from any program: the main process
-// owns it. While hidden, the page takes no keys, drops or right-clicks, so nothing on the wall can change by accident.
+// and videos pause; the same key brings everything back as it was. The key, and a mouse button if one is set, work
+// from any program: the main process owns them (the mouse button through lib/mousehook.js). While hidden, the page takes
+// no keys, drops or right-clicks, so nothing on the wall can change by accident.
 (function (A) {
   'use strict';
   if (!A) return;
   var MW = window.MW, U = MW.util, K = MW.hotkey;
   var api = A.api, $ = A.$;
-  var cfg = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '', ok: false, on: false };
+  var cfg = { key: 'Ctrl+Shift+H', cover: 'sheet', image: null, mouse: '', ok: false, mouseOk: false, on: false };
   var BUTTON = { middle: 1, back: 3, forward: 4 };   // PointerEvent.button for each mouse setting
   var MOUSE_WORDS = { '': 'None', middle: 'Middle (wheel)', back: 'Back (side)', forward: 'Forward (side)' };
   var mouseRec = false;   // waiting for the mouse button to use (Settings › Emergency hide)
@@ -86,8 +87,8 @@
       if (t !== 'keyup') e.preventDefault();
     }, true);
   });
-  // The mouse button, while the pointer is over this window (hidden or not). Its click goes no further: no middle-click
-  // scrolling, and no back or forward.
+  // The mouse button, while the pointer is over this window (hidden or not), for when the main process's helper that
+  // catches it in every program is not running. Its click goes no further: no middle-click scrolling, no back or forward.
   function isHideButton(e) { return !mouseRec && !!cfg.mouse && e.button === BUTTON[cfg.mouse]; }
   window.addEventListener('pointerdown', function (e) {
     if (!isHideButton(e)) return;
@@ -183,9 +184,9 @@
   function hideNote(text) {
     var k = K.label(cfg.key);
     $('#hideNote').textContent = text || (cfg.ok
-      ? k + ' works in any program; press it again, or start Wallpane again, to come back.'
+      ? k + ' works in any program; press it again, or start Wallpane again, to come back.' + (K.types(cfg.key) ? ' Other programs no longer get it: typing it anywhere hides the wall.' : '')
       : 'Another program already uses ' + k + ', so it works only while Wallpane is active. Click the key to pick another.') +
-      (!text && cfg.mouse && cfg.cover === 'away' ? ' With Nothing shown, only the key brings the windows back.' : '');
+      (!text && cfg.mouse && !cfg.mouseOk && cfg.cover === 'away' ? ' With Nothing shown, only the key brings the windows back.' : '');
   }
   function showSettings() {
     var b = $('#hideKey');
@@ -196,7 +197,7 @@
     });
     if (!mouseRec) { $('#hideMouse').textContent = MOUSE_WORDS[cfg.mouse || '']; $('#hideMouse').classList.remove('rec'); }
     $('#hideMouseOff').hidden = !cfg.mouse;
-    $('#hideMouseNote').hidden = !cfg.mouse;
+    $('#hideMouseNote').hidden = !cfg.mouse || cfg.mouseOk;
     $('#hideCover').value = cfg.cover;
     $('#hideImageBtn').hidden = cfg.cover !== 'image';
     $('#hideImageBtn').textContent = cfg.image ? 'Picture: ' + U.baseName(cfg.image) : 'Choose picture…';
@@ -206,14 +207,14 @@
   function startRecord() {
     recording = true;
     var b = $('#hideKey');
-    b.classList.add('rec'); b.textContent = 'Press the new keys…';
-    hideNote('Hold two of Ctrl, Alt, Shift and Win (one of them not Shift) and press a letter or number. F-keys and Scroll Lock also work alone. Esc cancels.');
-    api.suspendHideKey(true);
+    b.classList.add('rec'); b.textContent = 'Press the new key…';
+    hideNote('Press the key to use, alone or with Ctrl, Alt, Shift or Win. Esc cancels.');
+    api.suspendHide(true);
   }
   function stopRecord() {
     if (!recording) return;
     recording = false;
-    api.suspendHideKey(false).then(function (s) { cfg = s; showSettings(); });
+    api.suspendHide(false).then(function (s) { cfg = s; showSettings(); });
   }
   function record(e) {
     e.preventDefault(); e.stopImmediatePropagation();
@@ -225,7 +226,7 @@
     recording = false;
     api.setHide({ key: r.accel }).then(function (s) {
       cfg = s;
-      return api.suspendHideKey(false);
+      return api.suspendHide(false);
     }).then(function (s) {
       var err = cfg.error;
       cfg = s; showSettings();
@@ -242,16 +243,20 @@
     });
   });
   // The mouse button, set like the key: click the button, then press the mouse button to use (the wheel, or a side
-  // button). A left or right click, or Esc, cancels; Clear takes it off.
-  function setMouse(m) { api.setHide({ mouse: m }).then(function (s) { cfg = s; showSettings(); }); }
+  // button). A left or right click, or Esc, cancels; Clear takes it off. Meanwhile the main process lets go of the
+  // current one, so pressing it reaches this page instead of hiding the wall.
+  function setMouse(m) {
+    api.setHide({ mouse: m }).then(function () { return api.suspendHide(false); }).then(function (s) { cfg = s; showSettings(); });
+  }
   function stopMouseRec() {
     if (!mouseRec) return;
     mouseRec = false;
-    showSettings();
+    api.suspendHide(false).then(function (s) { cfg = s; showSettings(); });
   }
   $('#hideMouse').addEventListener('click', function () {
     if (mouseRec) { stopMouseRec(); return; }
     mouseRec = true;
+    api.suspendHide(true);
     this.classList.add('rec'); this.textContent = 'Press a mouse button…';
     hideNote('Over this window, press the wheel (middle) or a side button (back or forward). A left or right click, or Esc, cancels.');
   });
@@ -261,11 +266,11 @@
       var m = Object.keys(BUTTON).filter(function (k) { return BUTTON[k] === e.button; })[0];
       if (m || e.button === 2) { e.preventDefault(); e.stopImmediatePropagation(); }   // no scrolling, back, forward or menu
       if (t !== 'pointerdown') return;
-      mouseRec = false;
-      if (m) setMouse(m); else showSettings();
+      if (m) { mouseRec = false; setMouse(m); } else stopMouseRec();
     }, true);
   });
   window.addEventListener('keydown', function (e) { if (mouseRec && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopMouseRec(); } }, true);
+  window.addEventListener('blur', stopMouseRec);   // off to another program: the button works there again
   $('#hideMouseOff').addEventListener('click', function () { setMouse(''); });
   $('#hideKey').addEventListener('click', function () { if (recording) stopRecord(); else startRecord(); });
   $('#hideKey').addEventListener('blur', stopRecord);

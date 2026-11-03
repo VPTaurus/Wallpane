@@ -6,15 +6,27 @@ const C = require('../../renderer/lib/clock');
 
 const press = (code, mods = {}) => Object.assign({ key: 'x', code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }, mods);
 
-test('hotkey: a key press becomes an accelerator, checked for keys other programs need', () => {
+test('hotkey: a key press becomes an accelerator; any key, alone or with modifiers, but F11 and Alt+F4', () => {
   assert.deepEqual(K.fromEvent(press('KeyH', { ctrlKey: true, shiftKey: true })), { accel: 'Ctrl+Shift+H' });
   assert.deepEqual(K.fromEvent(press('F9')), { accel: 'F9' });
   assert.equal(K.fromEvent(press('ShiftLeft', { key: 'Shift', shiftKey: true })), null, 'only a modifier so far');
-  assert.ok(K.fromEvent(press('KeyH', { ctrlKey: true })).error, 'Ctrl+H alone would take a key from every editor');
-  assert.ok(K.fromEvent(press('KeyH', { shiftKey: true, altKey: false })).error);
+  assert.deepEqual(K.fromEvent(press('KeyH')), { accel: 'H' }, 'one key alone');
+  assert.deepEqual(K.fromEvent(press('KeyH', { ctrlKey: true })), { accel: 'Ctrl+H' });
+  assert.deepEqual(K.fromEvent(press('Numpad5')), { accel: 'num5' });
+  assert.deepEqual(K.fromEvent(press('Tab')), { accel: 'Tab' });
+  assert.deepEqual(K.fromEvent(press('NumpadEnter')), { accel: 'Enter' });
   assert.ok(K.fromEvent(press('F11')).error, 'F11 is wall mode');
   assert.ok(K.fromEvent(press('F4', { altKey: true })).error);
-  assert.ok(K.fromEvent(press('IntlBackslash', { ctrlKey: true, shiftKey: true })).error);
+  assert.ok(K.fromEvent(press('IntlBackslash', { ctrlKey: true, shiftKey: true })).error, 'a key Electron has no name for');
+});
+
+test('hotkey: a key that types something, without Ctrl, Alt or Win, is taken from every program', () => {
+  ['H', 'Shift+H', 'num5', 'Space', 'Enter', 'Left'].forEach((k) => assert.equal(K.types(k), true, k));
+  ['Ctrl+H', 'Alt+Space', 'F9', 'Scrolllock', 'MediaPlayPause', 'Super+H'].forEach((k) => assert.equal(K.types(k), false, k));
+  assert.equal(K.normalize('return'), 'Enter');
+  assert.equal(K.label('Capslock'), 'Caps Lock');
+  assert.equal(K.label('Shift+num5'), 'Shift + Num 5');
+  assert.equal(K.label('numadd'), 'Num +');
 });
 
 test('hotkey: accelerators are written one way, compared and shown', () => {
@@ -35,7 +47,7 @@ test('hotkey: Scroll Lock and media keys work alone, with readable names', () =>
   assert.equal(K.normalize('scrolllock'), 'Scrolllock');
   assert.equal(K.normalize('mediaplaypause'), 'MediaPlayPause');
   assert.equal(K.problem('MediaPlayPause'), '');
-  assert.ok(K.problem('Space'), 'Space alone would take it from every program');
+  assert.equal(K.problem('Space'), '');
   assert.equal(K.label('VolumeMute'), 'Mute key');
   assert.equal(K.label('Scrolllock'), 'Scroll Lock');
   assert.ok(K.matches(press('ScrollLock', { key: 'ScrollLock' }), 'Scrolllock'));

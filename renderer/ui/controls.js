@@ -193,11 +193,7 @@
     var vid = A.videoOf(it), key = e.key;
     if (vid && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if ((key === ' ' && t.tagName !== 'BUTTON') || key === 'k' || key === 'K') { e.preventDefault(); if (vid.paused) vid.play().catch(function () {}); else vid.pause(); return; }
-      if (/^[jJlL]$/.test(key)) {
-        e.preventDefault();
-        vid.currentTime = clamp(vid.currentTime + (key.toLowerCase() === 'j' ? -5 : 5), 0, isFinite(vid.duration) ? vid.duration : Infinity);
-        return;
-      }
+      if (/^[jJlL]$/.test(key)) { e.preventDefault(); A.skip(it, key.toLowerCase() === 'j' ? -5 : 5); return; }
       if (!it.pl && key === '[') { e.preventDefault(); var at = vid.currentTime; A.setLoop(it, at, it.loopB != null && it.loopB > at ? it.loopB : null); return; }
       if (!it.pl && key === ']') { e.preventDefault(); A.setLoop(it, it.loopA || 0, vid.currentTime); return; }
       if (!it.pl && key === '\\') { e.preventDefault(); A.setLoop(it, null, null); return; }

@@ -8,6 +8,7 @@ const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const { png } = require('./media');
 const { start, root } = require('./launch');
+const { pressSide } = require('../mouseinput');
 
 const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
 
@@ -485,6 +486,121 @@ test('a big video on a small tile plays from a lighter copy, paused or playing a
     const after = await state('big.mp4');
     expect(after.paused).toBe(true);
     expect(Math.abs(after.t - t)).toBeLessThan(0.5);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('the last wall comes back with each video where it was', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'film.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=40', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const apps = [];
+  const open = async () => { const s = await start(dir); apps.push(s.app); return s; };
+  const at = (page) => page.locator('#wall .tile[aria-label^="film.mp4"] video').evaluate((v) => (v.readyState >= 1 ? v.currentTime : -1));
+  try {
+    let s = await open();
+    await s.answer(clip);
+    await s.page.click('#addBtn');
+    await s.page.click('#addFiles');
+    await expect.poll(() => at(s.page)).toBeGreaterThanOrEqual(0);
+    await s.page.locator('#wall .tile[aria-label^="film.mp4"] video').evaluate((v) => { v.currentTime = 23; });
+    await expect.poll(() => at(s.page)).toBeGreaterThan(23);
+    expect(s.errors).toEqual([]);
+    await s.app.close();   // saved as it closes
+    s = await open();
+    await s.page.click('#lastWallRestore');
+    await expect.poll(() => at(s.page)).toBeGreaterThan(22.5);
+    expect(await at(s.page)).toBeLessThan(30);
+    expect(s.errors).toEqual([]);
+  } finally { for (const a of apps) await a.close().catch(() => {}); }
+});
+
+test('10 s back and on: buttons in the video bar of a big tile or one full screen, not of a small one', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'long.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=40', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '25', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="long.mp4"]'), video = tile.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.duration)).toBeGreaterThan(39);
+    await video.evaluate((v) => { v.pause(); v.currentTime = 5; });
+    await tile.hover();
+    await expect(tile.locator('[data-act="on10"]')).toBeHidden();   // one cell of 4 × 3: too small
+    // Full screen, the buttons show; each jumps 10 s.
+    await tile.dblclick();
+    await expect(tile).toHaveClass(/\bsolo\b/);
+    await tile.hover();
+    const t = () => video.evaluate((v) => v.currentTime);
+    await tile.locator('[data-act="on10"]').click();
+    await expect.poll(t).toBeGreaterThan(14.5);
+    expect(await t()).toBeLessThan(15.5);
+    await tile.locator('[data-act="back10"]').click();
+    await tile.locator('[data-act="back10"]').click();
+    await expect.poll(t).toBe(0);   // never before the start
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('emergency hide: the mouse button works from any program, so it brings back windows that went away', async () => {
+  test.skip(process.platform !== 'win32' || (!process.env.WALLPANE_EXE && !fs.existsSync(path.join(root, 'vendor', 'mousehook', 'wallpane-mouse.exe'))),
+    'The mouse helper is not built (npm run build-mousehook)');
+  const { app, page, errors } = await start(dir);
+  try {
+    await page.evaluate(() => window.wall.setHide({ mouse: 'forward', cover: 'away' }));
+    await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
+    const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
+    // A real press, through Windows, wherever the pointer is: the windows go away, and the next press brings them back.
+    const sent = await pressSide(2);
+    test.skip(sent !== 2, 'Windows took no input here');
+    await expect.poll(visible).toBe(false);
+    expect(await pressSide(2)).toBe(2);
+    await expect.poll(visible).toBe(true);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('save the looped part as MP4: re-encoded when the keyframe before it is far, copied when it is near', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), out = path.join(dir, 'cut.mp4');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-g', '50', '-keyint_min', '50', '-sc_threshold', '0', '-c:a', 'aac', '-shortest', clip], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer(clip);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="clip.mp4"]');
+    await expect.poll(() => tile.locator('video').evaluate((v) => v.duration)).toBeGreaterThan(5);
+    await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 3.3, 5); });
+    // Properties › Playback offers it beside Make a GIF…
+    await tile.click();
+    await page.keyboard.press('Alt+Enter');
+    await expect(page.locator('#insCut')).toBeVisible();
+    await page.keyboard.press('Escape');
+    // From the tile's menu, straight to where to save it. The keyframe before 3.3 s is at 2 s: re-encoded, exactly.
+    const save = async (p) => {
+      await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, p);
+      await tile.click({ button: 'right' });
+      await page.locator('#ctxMenu .mi', { hasText: 'Save the part as MP4' }).click();
+    };
+    const secs = async (p) => parseFloat((await ff.probeRaw(p)).format.duration);
+    await save(out);
+    await expect(toast(page)).toContainText('Saved cut.mp4');
+    await expect(toast(page)).toContainText('the nearest keyframe was 1.3 s before it');
+    const info = await ff.probeRaw(out);
+    expect(info.streams.map((s) => s.codec_name).sort()).toEqual(['aac', 'h264']);
+    expect(Math.abs(await secs(out) - 1.7)).toBeLessThan(0.1);
+    expect(fs.existsSync(path.join(dir, 'cut.part.mp4'))).toBe(false);
+    // From 4.2 s the keyframe at 4 s is near: copied as it is, starting 0.2 s early.
+    const near = path.join(dir, 'near.mp4');
+    await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 4.2, 5); });
+    await save(near);
+    await expect(toast(page)).toContainText('Saved near.mp4');
+    await expect(toast(page)).toContainText('starts 0.2 s before the part');
+    expect(Math.abs(await secs(near) - 1)).toBeLessThan(0.1);
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
