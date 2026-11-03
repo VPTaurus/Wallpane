@@ -1,18 +1,15 @@
 # Changelog
 
-## Unreleased (1.7.0)
+## 1.6.8: Stars, hearts and tags; the looped part as MP4; a wall that carries on where it was
 
-- **The last wall carries on where it was:** after a restart its videos continue from where they were, not from the start (a folder's tile on its file, from where it was). Saved as Wallpane closes and every 20 seconds while videos play, so a crash or a power cut loses little. Saved walls you name start their videos as usual.
-- **10 s back and on:** two buttons in the video bar of a big tile, or one full screen (a curved arrow and "10"). Smaller tiles keep the bar as it was; J and L still skip 5 s.
-- **Stars, hearts and tags for library files:** 1 to 5 stars, a favourite heart and any tags, for one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart and the stars. Filters for rating and favourites, a Rating sort, a search that finds tags, and a Tags section in the folder row's list (right-click a tag to rename or delete it). On the wall, a tile whose file is in the library has a Library group in its menu and a Library part in Properties. `library.json` becomes version 2, which an older Wallpane opens read-only, so it never drops them.
+Download **Wallpane Setup 1.6.8.exe** (installer) or **Wallpane 1.6.8.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
 
-## 1.6.6: The looped part as MP4, and a surer emergency hide
-
-Download **Wallpane Setup 1.6.6.exe** (installer) or **Wallpane 1.6.6.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**.
-
-Save a video's looped part as an MP4, beside Make a GIF. The emergency hide takes any one key, and its mouse button now works from any program, so it also brings back windows that went away.
+Give library files stars, a favourite heart and tags. Save a video's looped part as an MP4, beside Make a GIF. After a restart the last wall's videos carry on where they were, and a big tile has 10 s back and on. The emergency hide takes any one key, and its mouse button now works from any program. (1.6.6 was never published: everything since 1.6.5 is here.)
 
 New:
+- **Stars, hearts and tags for library files:** 1 to 5 stars, a favourite heart and any tags, for one file or a whole selection at once: keys 1 to 5 (0 clears), F and T, or right-click › Favourite, Rating ›, Tags…. Thumbnails show the heart and the stars. Filters for rating and favourites, a Rating sort, a search that finds tags, and a Tags section in the folder row's list (right-click a tag to rename or delete it). On the wall, a tile whose file is in the library has a Library group in its menu and a Library part in Properties. `library.json` becomes version 2, which an older Wallpane opens read-only, so it never drops them.
+- **The last wall carries on where it was:** after a restart its videos continue from where they were, not from the start (a folder's tile on its file, from where it was). Saved as Wallpane closes and every 20 seconds while videos play, so a crash or a power cut loses little. Saved walls you name start their videos as usual.
+- **10 s back and on:** two buttons in the video bar of a big tile, or one full screen (a curved arrow and "10"). Smaller tiles keep the bar as it was; J and L still skip 5 s.
 - **Save the looped part as MP4:** beside Make a GIF (Properties › Playback and the tile's menu). When a keyframe lies within half a second before the part, it is copied without re-encoding: saved at once, nothing lost, starting on that keyframe. Otherwise it is re-encoded so it starts and ends exactly on the part, since a copy of a short part from a video with keyframes seconds apart would be mostly what comes before it. The message says which.
 - **Emergency hide, any one key:** the hide key no longer needs Ctrl+Shift or another pair of modifiers. Any key will do, alone or with modifiers (not F11, the wall mode key, or Alt+F4). For a key that types something, Settings says that typing it anywhere now hides the wall.
 
