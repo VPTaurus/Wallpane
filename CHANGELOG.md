@@ -1,6 +1,10 @@
 # Changelog
 
-## Not released yet
+## 1.7.0: Record the wall, and take screenshots
+
+Download **Wallpane Setup 1.7.0.exe** (installer) or **Wallpane 1.7.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. (**Wallpane-Setup.exe** and **Wallpane-Portable.exe** are the same two files under names that stay the same, for the website's download buttons.)
+
+Record the wall as it plays with one click in the top bar, and stop it with the next; its size, frame rate and quality are in the new Settings › Recording. Beside it, a screenshot of the whole wall. A tile's frame can be saved as a picture, and Saved walls can make a video of the wall of a length you choose. Wallpane also has a website now: https://vptaurus.github.io/Wallpane/
 
 New:
 - **Save this frame:** a video tile's right-click menu (File) and Properties › File save the frame the tile shows as a PNG or JPEG: the whole frame at the video's own size, from the original file, also when the tile is zoomed or plays a lighter copy.
@@ -10,6 +14,9 @@ New:
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
+
+Also:
+- **A website and a shorter README:** https://vptaurus.github.io/Wallpane/ shows what Wallpane does, with pictures and a recorded wall. The README on GitHub is now one screen; everything it held is in the [guide](docs/guide.md) and the [developer notes](docs/development.md).
 
 ## 1.6.8: Stars, hearts and tags; the looped part as MP4; a wall that carries on where it was
 

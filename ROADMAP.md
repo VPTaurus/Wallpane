@@ -69,7 +69,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
     - **Other docs:** the 1.6.1 Arrange entry in CHANGELOG (say both are gone and what to use instead), and the passing mention in `docs/library-design.md`.
   - **Saved walls:** nothing to migrate. Tiles that Fit to media shaped keep their places and their Whole frame setting.
 
-## E. Library, part 2 (1.7.0)
+## E. Library, part 2 (E1 released in 1.6.8; E2 to E4 on hold, the user's choice on 2026-11-03)
 - [x] **E1. Tags, ratings and favourites**, also for many files at once. Planned and done on 2026-11-03 (the user chose stars and a heart, set in the library and on wall tiles), and released early, in 1.6.8. Where it differs from the plan below: the tile's right-click menu gets one **Library ›** group (Favourite, the ratings, Tags… which opens Properties), whose hint shows the marks, instead of three items at the top level, so the menu 1.6.5 shortened stays short.
   - **What a file gets:** 1 to 5 **stars** (or none), a **favourite** heart, and any number of **tags** (short names; "Beach" and "beach" are one tag, written the way it was first typed). Only files in the library have them, since they live in `library.json` with the file. A changed file keeps them; a moved or renamed one does too (it keeps its id), and so does a copy that takes over from a file that left.
   - **Store** (`lib/library.js`): `stars`, `fav`, `tags` per file; `library.json` goes to version 2, so an older Wallpane opens it read-only and never drops them. `mark(ids, { stars, fav, addTags, dropTags })` for one file or many at once, `tags()` with how many files have each, `renameTag` (into an existing one merges them) and `dropTag`. Searching also matches tag names. Query: `fav`, `stars` (at least), `tag` (one tag shown, like a collection), and a **Rating** sort (most stars first, favourites first among equals).
@@ -87,7 +87,7 @@ Where Wallpane is going, in the order it is built. Each step lands on `Dev` with
 - [ ] **E3. Markers.** Suggested from scene changes and set by hand; loop a marked part; a playlist of marked moments.
 - [ ] **E4. Duplicates.** The same video under different names, found by comparing frames.
 
-## F. Make things from the wall (1.8.0)
+## F. Make things from the wall (released in 1.7.0; F1 earlier, in 1.6.5)
 - [x] **F1. Make a GIF from a looped part** (asked for on 2026-11-02; done the same day, brought forward into 1.6.5). The same part as an MP4 or animated WebP comes after, from the same dialog.
   - **Save the part as MP4** (done 2026-11-03, not in a dialog after all): a menu item and a Properties button that go straight to Save as. First only copied without re-encoding, but a 1 s loop in a video with keyframes 5 s apart gave a 6 s file. Now copied when the keyframe before the part is within 0.5 s (instant, lossless, the message says how early), else re-encoded to H.264 and AAC so it starts and ends exactly. A copy is an MP4 when the picture and sound go into one, else the video's own kind of file. Code: `lib/cutpart.js` (job kind 'cutpart'). Animated WebP stays open.
   - **Done, and where it differs from the plan below:**

@@ -29,8 +29,8 @@ GitHub Actions runs all three on every push to `main` or `Dev` and on every pull
 `npm run dist` creates an installer and a portable .exe in `dist/`, with FFmpeg inside (it fetches FFmpeg first if `vendor/ffmpeg` is missing). Building on Windows is simplest.
 
 ### Releases
-1. Raise `version` in `package.json` (`npm version 1.6.8 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
-2. On GitHub: Releases › Draft a new release › tag `v1.6.8` (the same version) on `main`, paste the changelog section, Publish.
+1. Raise `version` in `package.json` (`npm version 1.7.0 --no-git-tag-version` also updates `package-lock.json`) and add the changes to `CHANGELOG.md`. Merge into `main`.
+2. On GitHub: Releases › Draft a new release › tag `v1.7.0` (the same version) on `main`, paste the changelog section, Publish.
 3. The CI workflow builds both .exe files, tests the built app and attaches the files to the release within a few minutes. It stops if the tag and the version don't match.
 
 A release whose build fails can be built again by re-running the failed job. To include a fix made after the tag, delete the release and the tag on GitHub, then draft the release again on the new `main`.
