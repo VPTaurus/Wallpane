@@ -31,18 +31,24 @@
   };
   var S = A.S, wall = A.wall, toastEl = $('#toast'), toastTimer = 0;
 
-  // actions: buttons after the message ([{ label, act }]); a message with buttons stays longer.
+  // actions: buttons in a row under the message ([{ label, act }]); a message with buttons stays longer.
   A.toast = function (msg, actions) {
+    var has = !!(actions && actions.length);
     toastEl.textContent = msg;
-    (actions || []).forEach(function (a) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'tact'; b.textContent = a.label;
-      b.addEventListener('click', function () { hideToast(); a.act(); });
-      toastEl.appendChild(b);
-    });
-    toastEl.classList.toggle('acts', !!(actions && actions.length));
+    if (has) {
+      var row = document.createElement('span');
+      row.className = 'tacts';
+      actions.forEach(function (a) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'tact'; b.textContent = a.label;
+        b.addEventListener('click', function () { hideToast(); a.act(); });
+        row.appendChild(b);
+      });
+      toastEl.appendChild(row);
+    }
+    toastEl.classList.toggle('withacts', has);
     toastEl.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, actions && actions.length ? 12000 : 4200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, has ? 12000 : 4200);
   };
   // A button of a toast that has gone keeps no focus: Space or Enter would press it unseen.
   function hideToast() {

@@ -755,10 +755,12 @@ body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit, body.clean.idl
   max-width: min(92vw, 520px);
   background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 10px;
   font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow); overflow-wrap: anywhere;   /* a long file name breaks where it has to */
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
-.toast.show.acts { pointer-events: auto; }
-.toast .tact { margin-left: 10px; padding: 3px 9px; border: 1px solid currentColor; border-radius: 6px; background: none; font: 600 12px var(--ui); white-space: nowrap; }
+.toast.show.withacts { pointer-events: auto; }
+/* Its buttons sit in a row of their own under the message, on the right. */
+.toast .tacts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.toast .tact { padding: 3px 9px; border: 1px solid currentColor; border-radius: 6px; background: none; color: inherit; font: 600 12px var(--ui); white-space: nowrap; }
 .toast .tact:hover, .toast .tact:focus-visible { background: color-mix(in srgb, var(--bg) 18%, transparent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
