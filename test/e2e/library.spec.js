@@ -79,8 +79,11 @@ test('the drawer opens on the right; a left saved without a choice (1.6.0) follo
     await s.page.click('#libPlace');
     await s.page.locator('#ctxMenu .mi', { hasText: 'On the left' }).click();
     await expect(s.page.locator('#lib')).not.toHaveClass(/\bright\b/);
+    // Closing right after a change keeps it: the window saves its settings once more, at once, as it closes.
+    await s.page.evaluate(() => { window.MW.app.S.gap = 7; });
     expect(s.errors).toEqual([]);
   } finally { await s.app.close(); }
+  expect(JSON.parse(fs.readFileSync(path.join(dir, 'data', 'prefs.json'), 'utf8'))).toMatchObject({ gap: 7, lib: { side: 'left' } });
   s = await start();
   try {
     await expect(s.page.locator('#lib')).toBeVisible();
