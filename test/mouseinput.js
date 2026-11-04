@@ -20,6 +20,8 @@ public static class WallpaneTestMouse {
   [StructLayout(LayoutKind.Sequential)] public struct PT { public int x, y; }
   [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(PT p);
   [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr w, uint flags);
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
+  public static bool Held(int vk) { return GetAsyncKeyState(vk) < 0; }
   public static long At(int x, int y) { var p = new PT(); p.x = x; p.y = y; return (long)GetAncestor(WindowFromPoint(p), 2); }
   public static uint Send(uint b, params uint[] flags) { var a = new IN[flags.Length]; for (int i = 0; i < flags.Length; i++) { a[i].mi.data = b; a[i].mi.flags = flags[i]; } return SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(IN))); }
   public static long Capture(long w) { var g = new GUI(); g.size = Marshal.SizeOf(typeof(GUI)); GetGUIThreadInfo(GetWindowThreadProcessId((IntPtr)w, IntPtr.Zero), ref g); return (long)g.capture; }
@@ -45,5 +47,8 @@ const pointTo = async (x, y) => (await run('[WallpaneTestMouse]::SetCursorPos(' 
 const holdsMouse = async (hwnd) => Number(await run('[WallpaneTestMouse]::Capture(' + hwnd + ')')) > 0;
 // The top-level window at a screen point (its handle, a number).
 const windowAt = async (x, y) => Number(await run('[WallpaneTestMouse]::At(' + Math.round(x) + ', ' + Math.round(y) + ')')) || 0;
+// Whether Windows takes the side button as held down. A press whose release a hook swallowed leaves it so, and then
+// clicks go wrong all over Windows until a release gets through: a test that does that must send one at the end.
+const sideHeld = async (button) => (await run('[WallpaneTestMouse]::Held(' + (side(button) === 1 ? 5 : 6) + ')')) === 'True';
 
-module.exports = { pressSide, sideDown, sideUp, pointTo, holdsMouse, windowAt };
+module.exports = { pressSide, sideDown, sideUp, sideHeld, pointTo, holdsMouse, windowAt };

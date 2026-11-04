@@ -8,7 +8,7 @@ const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const { png } = require('./media');
 const { start, root } = require('./launch');
-const { pressSide, sideDown, sideUp, pointTo, holdsMouse, windowAt } = require('../mouseinput');
+const { pressSide, sideDown, sideUp, sideHeld, pointTo, holdsMouse, windowAt } = require('../mouseinput');
 
 const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
 
@@ -573,7 +573,7 @@ test('emergency hide: a wall that got the button\'s press itself lets go of the 
   test.skip(process.platform !== 'win32' || (!process.env.WALLPANE_EXE && !fs.existsSync(path.join(root, 'vendor', 'mousehook', 'wallpane-mouse.exe'))),
     'The mouse helper is not built (npm run build-mousehook)');
   const { app, page, errors } = await start(dir);
-  let pressed = false, released = false;
+  let pressed = false;
   try {
     // No helper yet: the wall in wall mode (full screen, in front, as when this happened) gets the Forward button's press
     // itself, and its window takes the mouse (as Windows gives a window the mouse from a press to its release). Only when
@@ -598,18 +598,23 @@ test('emergency hide: a wall that got the button\'s press itself lets go of the 
     // click in Windows would go to it. (On a busy PC the helper can be late with a press, which then reaches the wall.)
     await page.evaluate(() => window.wall.setHide({ mouse: 'forward', cover: 'sheet' }));
     await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
-    released = (await sideUp(2)) === 1;
-    expect(released).toBe(true);
+    expect(await sideUp(2)).toBe(1);
     expect(await holdsMouse(w.hwnd)).toBe(true);
     // Hiding lets go of it. Behind the spreadsheet the window stays, so it would still hold the mouse otherwise.
     await page.evaluate(() => window.wall.toggleHide());
     await expect(page.locator('.cover.sheet')).toBeVisible();
     await expect.poll(() => holdsMouse(w.hwnd)).toBe(false);
     await page.evaluate(() => window.wall.toggleHide());
+    // Windows still takes the button as held (its release was swallowed). With the helper off, a release over the wall
+    // ends that, and it lands in Wallpane, not in another program.
+    await page.evaluate(() => window.wall.setHide({ mouse: '' }));
+    await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk))).toBe(false);
+    expect(await sideUp(2)).toBe(1);
+    expect(await sideHeld(2)).toBe(false);
     expect(errors).toEqual([]);
   } finally {
     await app.close();
-    if (pressed && !released) await sideUp(2);   // the press it sent is not left half done
+    if (pressed && await sideHeld(2)) await sideUp(2);   // never leave the button held in Windows
   }
 });
 
