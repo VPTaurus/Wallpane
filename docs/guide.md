@@ -169,4 +169,6 @@ Settings › Keys lists them all.
 ## Your data
 Saved walls, frame layouts, settings and your last wall are JSON files in `%APPDATA%\Wallpane`; the library and the cache are there too. Settings › About shows the folder, and Saved walls › Show file opens it. Saved walls › Export / Import moves walls between PCs.
 
+Wallpane goes online only when you click Settings › General › **Check for updates**: it asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself, and nothing about your files is sent.
+
 Wallpane used to be called Media Wall. On its first start it copies your saved walls and settings from the old `%APPDATA%\Media Wall` folder, which stays as a backup; older exports import as before.

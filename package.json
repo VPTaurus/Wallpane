@@ -2,7 +2,7 @@
   "name": "wallpane",
   "productName": "Wallpane",
   "version": "1.7.0",
-  "description": "A video wall for your own videos, images and GIFs. Local files only, never online.",
+  "description": "A video wall for your own videos, images and GIFs. Local files only; online only when you check for updates.",
   "author": "Pavels Mazurs",
   "license": "GPL-3.0-or-later",
   "repository": {

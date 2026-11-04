@@ -128,5 +128,7 @@ contextBridge.exposeInMainWorld('wall', {
   gpuInfo: () => ipcRenderer.invoke('app:gpu'),
   pace: (p) => ipcRenderer.invoke('app:pace', typeof p === 'string' ? p : null),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
-  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
+  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url)),
+  // Check for updates (Settings › General): the one question Wallpane asks online, and only when clicked
+  checkUpdates: () => ipcRenderer.invoke('app:checkUpdates')
 });

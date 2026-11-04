@@ -302,6 +302,10 @@
               <div class="frow"><label for="setClock">Clock</label>
                 <select id="setClock"><option value="">As in Windows</option><option value="24">24-hour (14:05)</option><option value="12">12-hour (2:05 PM)</option></select>
               </div>
+              <span class="lab">Updates</span>
+              <div class="row"><button class="btn" id="updBtn" type="button">Check for updates</button><button class="btn" id="updGet" type="button" title="Opens the release page in your browser" hidden></button></div>
+              <p class="note" id="updNote" role="status" hidden></p>
+              <p class="note">Wallpane goes online only for this, when you click it: it asks GitHub which version is the newest. Nothing is downloaded or installed by itself.</p>
             </section>
 
             <section class="ssec" id="secTiles" data-sec="tiles" role="tabpanel" aria-labelledby="tabTiles" hidden>

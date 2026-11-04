@@ -298,7 +298,7 @@
   // About, in Settings: version and licence, the source code, and support links when package.json lists any.
   function fillAbout() {
     api.appInfo().then(function (info) {
-      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It goes online only when you check for updates.';
       var f = info.ffmpeg;
       $('#aboutFfmpeg').textContent = f
         ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
@@ -396,6 +396,27 @@
     A.savePrefs();
   });
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
+  // Check for updates: asks GitHub once per click (main.js app:checkUpdates). A newer version offers its release page.
+  var updLinks = null;
+  api.appInfo().then(function (i) { updLinks = i.links; });
+  $('#updBtn').addEventListener('click', function () {
+    var btn = this, note = $('#updNote'), get = $('#updGet');
+    btn.disabled = true; get.hidden = true;
+    note.hidden = false; note.textContent = 'Checking…';
+    api.checkUpdates().then(function (r) {
+      if (r && r.ok && r.newer) {
+        note.textContent = 'Wallpane ' + r.latest + ' is out. You have ' + r.current + '.';
+        get.textContent = 'Get Wallpane ' + r.latest;
+        get.hidden = !(updLinks && updLinks.releases);
+      } else if (r && r.ok) note.textContent = 'You have the newest version, ' + r.current + '.';
+      else if (r && r.reason === 'offline') note.textContent = 'Couldn’t reach GitHub. Check the internet connection and try again.';
+      else if (r && r.reason === 'busy') note.textContent = 'GitHub didn’t answer just now. Try again in a while.';
+      else note.textContent = 'Couldn’t read the newest version from GitHub. Try again later.';
+    }, function () {
+      note.textContent = 'Couldn’t check for updates. Try again later.';
+    }).then(function () { btn.disabled = false; });
+  });
+  $('#updGet').addEventListener('click', function () { if (updLinks && updLinks.releases) api.openLink(updLinks.releases); });
   $('#castBtn').addEventListener('click', function () { api.openDisplaySettings(); });
   $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
   $('#setFillShapes').addEventListener('change', function () { S.fillShapes = this.checked; A.savePrefs(); });

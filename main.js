@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -49,10 +49,12 @@ const { createStrips } = require('./lib/strips');
 const { createLoudness } = require('./lib/loudness');
 const { createOpenings } = require('./lib/openings');
 const { PACES, autoPace, paceHzOf } = require('./lib/pace');
+const updates = require('./lib/updates');
 
-// Links the page may open in the browser (About and support). Nothing else leaves the app.
+// Links the page may open in the browser (About, support, and a new release). Nothing else leaves the app.
 const LINKS = {
   source: pkg.homepage,
+  releases: pkg.homepage + '/releases/latest',
   support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || '')),
   ffmpeg: ffmpegBuild && /^https:\/\//.test(ffmpegBuild.source || '') ? ffmpegBuild.source : null
 };
@@ -745,8 +747,19 @@ handle('app:gpu', async () => {
 });
 // Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
-  if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
+  if (url === LINKS.source || url === LINKS.releases || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
   return true;
+});
+// Settings › General › Check for updates: asks GitHub for the newest release, only when clicked (lib/updates.js).
+// The end-to-end tests point it at a server of their own.
+let updateCheck = null;
+handle('app:checkUpdates', () => {
+  if (!updateCheck) {
+    const url = process.env.WALLPANE_UPDATES_URL || updates.latestUrl(pkg.homepage);
+    updateCheck = (url ? updates.check({ fetch: (u, o) => net.fetch(u, o), url, current: app.getVersion() }) : Promise.resolve({ ok: false, reason: 'none' }))
+      .finally(() => { updateCheck = null; });
+  }
+  return updateCheck;
 });
 
 // Keep the display from sleeping while a window that asked for it is full screen (wall mode).

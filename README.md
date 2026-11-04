@@ -3,7 +3,7 @@
 <h1 align="center">Wallpane</h1>
 
 <p align="center"><b>Your own videos, pictures and GIFs, many at once, on a wall that fills the screen.</b><br>
-Free for Windows. Everything stays on your PC: Wallpane never goes online.</p>
+Free for Windows. Everything stays on your PC: Wallpane goes online only when you click Check for updates.</p>
 
 <p align="center"><a href="https://github.com/VPTaurus/Wallpane/releases/latest"><b>Download for Windows</b></a> &nbsp;·&nbsp; <a href="https://vptaurus.github.io/Wallpane/">Website</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">What's new</a></p>
 
@@ -27,7 +27,7 @@ Free for Windows. Everything stays on your PC: Wallpane never goes online.</p>
 
 **Record it, share it.** Record the wall as it plays and stop when you like; take a screenshot; save a looped part as a GIF or MP4, or a frame as a picture. Background music can play behind it all.
 
-**Private.** Wallpane plays your local files only and never connects to the internet; your files are never changed. One key (or mouse button) hides every wall window at once, from any program.
+**Private.** Wallpane plays your local files only and connects to the internet only when you click Check for updates, to ask GitHub for the newest version; your files are never changed. One key (or mouse button) hides every wall window at once, from any program.
 
 ## Download and install
 1. Get **Wallpane Setup** (installer) or **Wallpane** (portable, no install) from the [latest release](https://github.com/VPTaurus/Wallpane/releases/latest). For Windows 10 and 11, 64-bit.

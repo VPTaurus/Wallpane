@@ -4,6 +4,9 @@
 
 For 1.7.1.
 
+Added:
+- **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
+
 Fixed:
 - **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
 - **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.

@@ -3,7 +3,7 @@
 Where Wallpane is going, in the order it is built. Each step lands on `Dev` with its tests, and each milestone ends in a release. Tick a box when a step is merged.
 
 **Principles for everything below**
-- **Offline.** FFmpeg is downloaded once at *build* time and shipped inside the app; Wallpane itself never goes online.
+- **Offline.** FFmpeg is downloaded once at *build* time and shipped inside the app; Wallpane itself goes online only when the user clicks Settings › General › Check for updates.
 - **Originals are never touched.** Converted files, thumbnails, previews and lighter copies live in a cache in Wallpane's data folder. Saved walls keep the original paths.
 - **The wall comes first.** Background work runs at low priority, one heavy job at a time, and never makes playing tiles stutter.
 - **One codebase**, plain JSON storage behind its own module (so SQLite stays an option), the same tests locally and on CI.
@@ -142,7 +142,7 @@ Planned with the user on 2026-11-03: the README becomes about one screen with sc
 - **Saved wall playlists.** A list of saved walls that a window plays in turn: each for a set time (or until its tiles' playlists have gone round once), in order or shuffled, with a fade between walls. Wall mode and the start can play the list; Next and Previous step through it by hand. Scheduled walls could build on it (a list for each time of day).
 - Scheduled walls; clock and text tiles on the wall; one wall across several screens; more transitions.
 - Research: similar apps for phones and tablets; a phone version or a phone as a remote for the wall.
-- **Automatic updates** (noted by the user on 2026-11-04). The installed app finds a new release and updates itself, as electron-updater does from GitHub Releases (the installer only; the portable .exe and a Microsoft Store copy update in their own ways). To settle first: Wallpane never goes online, so this would be its one exception, and how to keep it the user's choice (off until switched on, only asked when the user says, or a "Check for updates" button that just says a new one is out); what it may contact (GitHub's releases only); and that unsigned updates still meet SmartScreen.
+- **Automatic updates** (noted by the user on 2026-11-04). The installed app finds a new release and updates itself, as electron-updater does from GitHub Releases (the installer only; the portable .exe and a Microsoft Store copy update in their own ways). Chosen the same day instead, for 1.7.1: a **Check for updates** button in Settings › General that asks GitHub's newest release only when clicked and offers its release page; nothing downloads or installs by itself. Updating by itself stays an idea; to settle first: whether it is wanted beyond the button, how to keep it the user's choice, and that unsigned updates still meet SmartScreen.
 - **A VR version** (noted by the user on 2026-11-04). The wall around you in a headset: tiles as screens in a virtual room, their size and distance chosen freely. To research first: which headsets (a PC one through OpenXR / WebXR, which Electron's Chromium may support, or a standalone one such as Quest, which would be a separate app), how much of the wall's code it could share, and how many videos a headset can play at once.
 - **v2:** the optional Stash connector.
 - "Switch desktops": waiting for a description.

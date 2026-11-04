@@ -2,6 +2,7 @@
 // Starts the real app against a throwaway data folder and test media, with the file dialogs answered by the test.
 const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 const FF = require('../../lib/ffmpeg');
@@ -25,6 +26,14 @@ test.describe.configure({ mode: 'serial' });
 
 let app, page, dir, media;
 const errors = [];
+// Stands in for GitHub's newest-release answer: gh.answer is { status, body }, or 'drop' to hang up as if offline.
+const gh = { asked: [], answer: null };
+gh.server = http.createServer((req, res) => {
+  gh.asked.push(req.headers['user-agent'] || '');
+  if (gh.answer === 'drop') { req.socket.destroy(); return; }
+  res.writeHead(gh.answer.status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(gh.answer.body));
+});
 
 test.beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mw-e2e-'));
@@ -38,6 +47,9 @@ test.beforeAll(async () => {
   fs.mkdirSync(path.join(dir, 'data'));
   fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
   const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: path.join(dir, 'data') });
+  // Check for updates asks this server instead of GitHub.
+  await new Promise((r) => gh.server.listen(0, '127.0.0.1', r));
+  env.WALLPANE_UPDATES_URL = 'http://127.0.0.1:' + gh.server.address().port + '/repos/VPTaurus/wallpane/releases/latest';
   // WALLPANE_EXE runs the same tests against a built app (dist\win-unpacked\Wallpane.exe), to catch packaging mistakes.
   app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
   page = await app.firstWindow();
@@ -47,6 +59,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   if (app) await app.close();
+  gh.server.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -252,6 +265,35 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('#popS')).toBeHidden();
+});
+
+test('Check for updates: asks only when clicked; a newer version offers its release page; no answer is explained', async () => {
+  const version = require('../../package.json').version;
+  expect(gh.asked).toEqual([]);   // never on its own
+  await app.evaluate(({ shell }) => { globalThis.__opened = []; shell.openExternal = async (u) => { globalThis.__opened.push(u); }; });
+  await settingsAt('General');
+  await expect(page.locator('#updGet')).toBeHidden();
+  // A newer one: says so, and its button opens the release page on GitHub (never the address in the answer).
+  gh.answer = { status: 200, body: { tag_name: 'v99.0.0', html_url: 'https://example.com/elsewhere' } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toHaveText('Wallpane 99.0.0 is out. You have ' + version + '.');
+  expect(gh.asked).toEqual(['Wallpane/' + version]);
+  await page.click('#updGet');
+  await expect.poll(() => app.evaluate(() => globalThis.__opened)).toEqual(['https://github.com/VPTaurus/wallpane/releases/latest']);
+  // The same version.
+  gh.answer = { status: 200, body: { tag_name: 'v' + version } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toHaveText('You have the newest version, ' + version + '.');
+  await expect(page.locator('#updGet')).toBeHidden();
+  // GitHub saying not now (too many questions), and no connection at all.
+  gh.answer = { status: 403, body: { message: 'API rate limit exceeded' } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toContainText('didn’t answer just now');
+  gh.answer = 'drop';
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toContainText('Couldn’t reach GitHub');
+  await expect(page.locator('#updBtn')).toBeEnabled();
+  await page.keyboard.press('Escape');
 });
 
 // Tile boxes on screen, and whether any two overlap.
