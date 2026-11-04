@@ -1,5 +1,13 @@
 # Changelog
 
+## Not released yet
+
+For 1.7.1.
+
+Fixed:
+- **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
+- **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.
+
 ## 1.7.0: Record the wall, and take screenshots
 
 Download **Wallpane Setup 1.7.0.exe** (installer) or **Wallpane 1.7.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. (**Wallpane-Setup.exe** and **Wallpane-Portable.exe** are the same two files under names that stay the same, for the website's download buttons.)
@@ -14,8 +22,6 @@ New:
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
-- **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.
-- **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
 - **The emergency hide's mouse button holds on when the PC is busy:** Windows waits only a moment for the small helper that catches the button, and can pass the press on, or drop the helper for good, when it is late. The helper now answers at once, runs above normal priority, and puts its hook in afresh every 10 seconds.
 
 Also:
