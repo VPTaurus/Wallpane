@@ -586,6 +586,16 @@ handle('fs:gifDuration', async (_e, p) => {
     return files.gifSeconds(await fsp.readFile(p));
   } catch { return 0; }
 });
+// A GIF's bytes, for Record (renderer/ui/recorder.js decodes its frames: a canvas draws only a picture's first frame).
+// GIFs only, as large as fs:gifDuration takes; null otherwise.
+handle('fs:gifData', async (_e, p) => {
+  try {
+    if (typeof p !== 'string' || path.extname(p).toLowerCase() !== '.gif') return null;
+    const st = await fsp.stat(p);
+    if (!st.isFile() || st.size > 60 * 1024 * 1024) return null;
+    return await fsp.readFile(p);
+  } catch { return null; }
+});
 // What a media file holds and whether it plays as it is (ffprobe): see lib/mediainfo.js.
 handle('media:probe', async (_e, p) => {
   if (typeof p !== 'string' || !fs.existsSync(p)) return null;

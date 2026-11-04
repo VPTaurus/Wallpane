@@ -14,6 +14,7 @@ New:
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
+- **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.
 - **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
 - **The emergency hide's mouse button holds on when the PC is busy:** Windows waits only a moment for the small helper that catches the button, and can pass the press on, or drop the helper for good, when it is late. The helper now answers at once, runs above normal priority, and puts its hook in afresh every 10 seconds.
 

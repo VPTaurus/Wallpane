@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('wall', {
   pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch { return ''; } },
   expand: (paths) => ipcRenderer.invoke('fs:expand', paths),
   gifDuration: (p) => ipcRenderer.invoke('fs:gifDuration', p),
+  gifData: (p) => ipcRenderer.invoke('fs:gifData', String(p)),
   exists: (paths) => ipcRenderer.invoke('fs:exists', paths),
   resolveNames: (dir, names) => ipcRenderer.invoke('fs:resolveNames', dir, names),
   revealFile: (p) => ipcRenderer.invoke('shell:reveal', p),

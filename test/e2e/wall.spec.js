@@ -814,6 +814,43 @@ test('Record: starts and stops in the bar, saved in the folder of Settings › R
   } finally { await app.close(); }
 });
 
+test('Record: a GIF on the wall moves in the recording, frame after frame', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // Red and blue by turns, four frames a second, round and round.
+  const gif = path.join(dir, 'blink.gif'), saved = path.join(dir, 'Recordings');
+  fs.mkdirSync(saved);
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "color=c=black:s=160x120:r=4:d=2,format=rgb24,geq=r='255*lt(mod(T\\,0.5)\\,0.25)':g=0:b='255*gte(mod(T\\,0.5)\\,0.25)'",
+    '-loop', '0', gif], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([gif]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="blink.gif"]');
+    await expect(tile.locator('img')).toBeVisible();
+    await page.evaluate((d) => { const S = window.MW.app.S; S.rec = Object.assign({}, S.rec, { size: 720, sound: false, dir: d }); }, saved);
+    await page.click('#recordBtn');
+    await expect(page.locator('#recTime')).toHaveText(/^0:0[3-9]$/, { timeout: 10000 });
+    await page.click('#recordBtn');
+    await expect(toast(page)).toContainText('Saved Wallpane ', { timeout: 30000 });
+    const out = path.join(saved, fs.readdirSync(saved)[0]);
+    const v = (await ff.probeRaw(out)).streams.find((s) => s.codec_type === 'video');
+    // The GIF's tile, in the video: its colour at five moments, a fraction of a second apart.
+    const w = await page.locator('#wall').boundingBox(), t = await tile.boundingBox();
+    const fx = Math.round((t.x + t.width / 2 - w.x) / w.width * v.width) & ~1, fy = Math.round((t.y + t.height / 2 - w.y) / w.height * v.height) & ~1;
+    const seen = [];
+    for (const at of ['1.0', '1.3', '1.6', '1.9', '2.2']) {
+      const raw = path.join(dir, 'px' + at + '.rgb');
+      await ff.run('ffmpeg', ['-y', '-v', 'error', '-ss', at, '-i', out, '-frames:v', '1', '-vf', 'crop=2:2:' + fx + ':' + fy, '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw], { timeoutMs: 60000 });
+      const [r, , b] = fs.readFileSync(raw);
+      seen.push(r > 150 && b < 100 ? 'red' : b > 150 && r < 100 ? 'blue' : 'other');
+    }
+    expect(seen).toContain('red');
+    expect(seen).toContain('blue');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('save the wall as a video: the wall\'s shape at the size chosen, as long as chosen, with the heard tile\'s sound', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.mp4');
