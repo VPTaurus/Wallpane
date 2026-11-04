@@ -796,19 +796,30 @@ function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: h
 function tellHide() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
 }
+// A wall window that got the hide button's own press holds the mouse until it gets the release, and the helper may
+// swallow that release (it was late with the press on a busy PC, or the page caught it). Every click in Windows would
+// then go to that window, hidden or covered: the pointer moves, clicks do nothing. Disabling a window for a moment makes
+// Windows cancel that (WM_CANCELMODE), so it lets go. One that a dialog has disabled holds no mouse and is left so.
+function letGoOfMouse(w) {
+  if (w.isDestroyed() || !w.isEnabled()) return;
+  w.setEnabled(false);
+  w.setEnabled(true);
+}
 function setHidden(on) {
   if (hidden === !!on) return;
   hidden = !!on;
+  if (hidden) for (const w of wins.values()) letGoOfMouse(w);
   // Sound goes off here at once, whatever the page is doing; the page pauses its videos and covers itself.
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.setAudioMuted(hidden);
   tellHide();
   if (hidden && hideCfg.cover === 'away') { hiddenAway = true; for (const w of wins.values()) if (!w.isDestroyed()) w.hide(); }
   if (!hidden && hiddenAway) { hiddenAway = false; for (const w of wins.values()) if (!w.isDestroyed()) w.show(); }
 }
-// One press, one change, even if both Windows ('key') and the focused page ('page') report the same press.
+// One press, one change, even if two report the same press: Windows ('key') and the focused page ('page'), or the mouse
+// helper ('mouse') and the page when the helper was late with it (a second later, on a busy PC).
 function toggleHide(from) {
   const now = Date.now();
-  if (from !== hideFrom && now - hideAt < 300) return;
+  if (from !== hideFrom && now - hideAt < 1000) return;
   hideAt = now; hideFrom = from;
   setHidden(!hidden);
 }
