@@ -233,10 +233,28 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await exit.click();
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop']);
-  // F11 and Esc as well.
+  // F11 and Esc as well. With the bar hidden, the right-click menu has its screenshot and Record, and Exit.
   await page.keyboard.press('F11');
   await expect(page.locator('body')).toHaveClass(/clean/);
   await expect(exit).toBeHidden();
+  const shot = path.join(dir, 'wall mode shot.png'), recs = path.join(dir, 'Recordings');
+  fs.mkdirSync(recs);
+  await page.evaluate((d) => { window.MW.app.S.rec.dir = d; }, recs);
+  await answerDialogs([], shot);
+  await page.mouse.click(300, 300, { button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
+  await menuItem('Take a screenshot').click();
+  await expect(toast()).toContainText('Saved wall mode shot.png');
+  expect(fs.existsSync(shot)).toBe(true);
+  await page.mouse.click(300, 300, { button: 'right' });
+  await menuItem('Start recording').click();
+  await expect.poll(() => page.evaluate(() => window.MW.app.recordingTime()), { timeout: 8000 }).toMatch(/^0:0[2-9]$/);
+  await page.mouse.click(300, 300, { button: 'right' });
+  await expect(menuItem('Stop recording')).toContainText(/0:0\d/);
+  await menuItem('Stop recording').click();
+  await expect(toast()).toContainText('Saved Wallpane ', { timeout: 30000 });
+  expect(fs.readdirSync(recs)).toHaveLength(1);
+  await expect(page.locator('body')).toHaveClass(/clean/);
   await page.keyboard.press('Escape');
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop', 'start prevent-display-sleep', 'stop']);

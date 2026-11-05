@@ -180,9 +180,16 @@
   wall.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (document.body.classList.contains('clean')) {
-      // While recording, it can stop here too (the bar is hidden).
-      A.showMenu(e.clientX, e.clientY, [{ label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }]
-        .concat(A.recording() ? [{ label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }] : []));
+      // The bar is hidden in wall mode, so its screenshot and Record are here too.
+      var recording = A.recording();
+      A.showMenu(e.clientX, e.clientY, [
+        { label: 'Take a screenshot', hint: 'The wall as it shows now', icon: 'camera', act: A.wallShot },
+        recording
+          ? { label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }
+          : { label: 'Start recording', hint: 'Right-click again to stop', icon: 'record', act: A.toggleRecording },
+        '-',
+        { label: 'Exit wall mode', hint: 'Esc or F11', icon: 'tv', act: function () { A.setClean(false); } }
+      ]);
       return;
     }
     var t = e.target.closest('.tile');

@@ -776,7 +776,7 @@ body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
 body.shot .tile, body.shot .tile.sel, body.shot .slot { outline-color: transparent; box-shadow: none; transition: none; }
 body.shot .slot { border-color: transparent; background: transparent; }
 body.shot .slot > *, body.shot .tile.is-empty, body.shot .hud, body.shot .vbar, body.shot .rz, body.shot .pinmark, body.shot .ghost,
-body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel) { visibility: hidden !important; }
+body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel), body.shot .exit { visibility: hidden !important; }
 
 body.clean { padding: 0; }
 body.clean .bar, body.clean .props { display: none; }
@@ -784,14 +784,20 @@ body.clean .app { height: 100%; gap: 0; }
 body.clean .wall, body.clean .tile, body.clean .slot { border-radius: 0; }
 body.clean .tile, body.clean .tile.sel { outline-color: transparent; box-shadow: none; }
 body.clean .rz.c::after, body.clean .pinmark { display: none !important; }
-/* Exit wall mode waits out of the way, as full screen does in a browser: it shows at the top centre while the pointer
-   touches the screen's top edge or is on it, and is gone again once the pointer moves off (ui/controls.js, .atop). */
+/* Exit wall mode waits out of the way, as full screen does in a browser: it slides down from above the screen to the
+   top centre while the pointer touches the screen's top edge or is on it, and slides back up once the pointer moves
+   off (ui/controls.js, .atop). */
 body.clean .exit {
   display: inline-flex; position: fixed; z-index: 20;
-  top: 8px; left: 50%; transform: translateX(-50%);
-  opacity: 0; visibility: hidden; transition: opacity 0.15s, visibility 0s 0.15s;
+  top: 20px; left: 50%; transform: translate(-50%, calc(-100% - 24px));
+  opacity: 0; visibility: hidden;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s, visibility 0s 0.22s;
 }
-body.clean.atop .exit, body.clean .exit:focus-visible { opacity: 1; visibility: visible; transition: opacity 0.15s; }
+body.clean.atop .exit, body.clean .exit:focus-visible {
+  transform: translate(-50%, 0); opacity: 1; visibility: visible;
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s;
+}
+@media (prefers-reduced-motion: reduce) { body.clean .exit, body.clean.atop .exit { transition: opacity 0.15s, visibility 0s; } }
 /* After a few idle seconds the cursor, tile buttons and exit button disappear. */
 body.clean.idle, body.clean.idle * { cursor: none !important; }
 body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit, body.clean.idle .vbar { opacity: 0 !important; }

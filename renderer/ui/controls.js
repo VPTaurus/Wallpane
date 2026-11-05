@@ -158,14 +158,15 @@
   document.addEventListener('mousedown', wake);
   // Exit wall mode shows while the pointer touches the top edge of the screen, and stays while the pointer is on its way
   // to it or on it; anywhere else it goes, so it never covers a tile's buttons while they are in use (styles.css .atop).
+  // Where it is measured from where it comes to rest, as it may still be sliding in.
   var EDGE = 4, NEAR = 12;
   document.addEventListener('mousemove', function (e) {
     var b = document.body;
     if (!b.classList.contains('clean')) return;
     if (e.clientY <= EDGE) { b.classList.add('atop'); return; }
     if (!b.classList.contains('atop')) return;
-    var r = $('#exitBtn').getBoundingClientRect();
-    if (e.clientX < r.left - NEAR || e.clientX > r.right + NEAR || e.clientY > r.bottom + NEAR) b.classList.remove('atop');
+    var x = $('#exitBtn'), bottom = (parseFloat(getComputedStyle(x).top) || 0) + x.offsetHeight;
+    if (Math.abs(e.clientX - window.innerWidth / 2) > x.offsetWidth / 2 + NEAR || e.clientY > bottom + NEAR) b.classList.remove('atop');
   });
   $('#newWinBtn').addEventListener('click', function () {
     A.closePops();
