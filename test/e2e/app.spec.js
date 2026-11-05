@@ -1230,6 +1230,42 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await expect(toast()).toContainText('grey extra.png is on the selected tile now');
   await expect(tiles()).toHaveCount(3);
 
+  // A whole folder plays on the wall as a playlist, from its right-click menu in the list: into the empty cells, one per
+  // file at most (its subfolder's file too); or on the selected tile. Ctrl+Z undoes each.
+  await expect(page.locator('#libPlay')).toBeHidden();   // all folders show: no one folder to play
+  const drawerRow = folderList.locator('.lfolder', { hasText: 'Drawer media' });
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Show in Explorer/]);
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(folderList).toBeHidden();
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles.');
+  await expect(tiles()).toHaveCount(7);
+  expect(await page.evaluate(() => window.MW.app.S.items.filter((i) => i.pl).length)).toBe(5);   // and the Shift-drag tile
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  const grey = page.locator('#wall .tile[aria-label^="grey extra.png"]');
+  if (!/\bsel\b/.test(await grey.getAttribute('class'))) await grey.click();   // a click on the selected tile lets it go
+  await expect(grey).toHaveClass(/\bsel\b/);
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await menuItem('Play on the selected tile').click();
+  await expect(toast()).toContainText('This tile now plays "Drawer media" (4 files)');
+  await expect(tiles()).toHaveCount(3);
+  await page.locator('body').press('Control+z');
+  await expect(page.locator('#wall .tile[aria-label^="grey extra.png"]')).toHaveCount(1);
+  // While one folder shows, the button beside it does the same.
+  await page.click('#libFolderBtn');
+  await drawerRow.click();
+  await expect(page.locator('#libPlay')).toBeVisible();
+  await page.click('#libPlay');
+  await expect(tiles()).toHaveCount(7);
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  await page.click('#libFolderBtn');
+  await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
+  await expect(page.locator('#libPlay')).toBeHidden();
+
   // Esc first lets go of the selection, then closes it; Ctrl+L brings it back as it was.
   await page.locator('#libSearch').focus();
   await page.keyboard.press('Escape');
@@ -1314,6 +1350,16 @@ test('the library in a window of its own: from the bar, double-click sends a fil
   await page.keyboard.press('Escape');
   const before = await tiles().count();
   await lw.locator('#libGrid .lthumb[title^="blue square.png"]').dblclick();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // A folder from its list plays as a playlist on that wall, in its empty cells (no tile there to choose here).
+  await lw.click('#libFolderBtn');
+  await lw.locator('#libFolderList .lfolder', { hasText: 'Drawer media' }).click({ button: 'right' });
+  await expect(lw.locator('.ctx .mi')).toHaveText([/^Play on the wall as a playlist/, /^Show in Explorer/]);
+  await lw.locator('.ctx .mi', { hasText: 'Play on the wall as a playlist' }).click();
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files)');
+  await expect.poll(() => tiles().count()).toBeGreaterThan(before + 1);
+  await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(before + 1);
 
   // Esc lets go of the selection, then hides it; Ctrl+L on the wall shows it again; back to the drawer, it goes.

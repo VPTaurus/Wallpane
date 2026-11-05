@@ -6,6 +6,7 @@ For 1.7.1.
 
 Added:
 - **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
+- **A library folder as a playlist:** right-click a folder in the library's folder list › Play on the wall as a playlist (it fills the empty tiles and cells and keeps rotating, as Add › Folder as a playlist… does), or Play on the selected tile. While one folder shows, a button beside the folder row plays it too. Also in the library window.
 - **Save the wall as a GIF** (Saved walls › Save as a GIF…): made like Save as a video, as a GIF of 3 to 30 seconds, 320 to 800 pixels wide, 10 to 25 frames a second, without sound. The dialog says about how big it gets.
 - **More on the right-click menu in wall mode:** Pause all / Play all, Mute all / Unmute all, Take a screenshot, Make a GIF of the wall…, and Start recording / Stop recording, as the bar's buttons do (the bar is hidden in wall mode). While it records, a small red dot blinks in the top-left corner; it is not in the video.
 
