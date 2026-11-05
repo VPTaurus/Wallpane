@@ -6,9 +6,10 @@ For 1.7.1.
 
 Added:
 - **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
-- **Screenshot and Record in wall mode:** right-click the wall to take a screenshot, or to start and stop a recording, as the bar's buttons do (the bar is hidden in wall mode). While it records, a small red dot blinks in the top-left corner; it is not in the video.
+- **More on the right-click menu in wall mode:** Pause all / Play all, Mute all / Unmute all, Take a screenshot, and Start recording / Stop recording, as the bar's buttons do (the bar is hidden in wall mode). While it records, a small red dot blinks in the top-left corner; it is not in the video.
 
 Fixed:
+- **Esc right after choosing from a right-click menu works:** it could go to the menu that had just closed, so in wall mode the first Esc sometimes did nothing.
 - **Exit wall mode no longer covers a tile's buttons:** it sat in the top-right corner, over the buttons of the tile there. It now stays out of sight and slides down at the top centre when the pointer touches the top edge of the screen, as full screen does in a browser. Esc, F11 and right-click › Exit wall mode work as before.
 - **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
 - **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.

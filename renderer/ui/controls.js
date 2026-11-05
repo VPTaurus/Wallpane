@@ -110,19 +110,21 @@
   /* ---------- undo, play, mute, loop ---------- */
   $('#undoBtn').addEventListener('click', function () { A.undo(); });
   $('#redoBtn').addEventListener('click', function () { A.redo(); });
-  $('#playAll').addEventListener('click', function () {
-    var vids = A.videos();
-    var anyPlaying = vids.some(function (v) { return !v.paused; }) || (A.hasImagePlaylist() && !A.wallPaused);
+  // Pause all / Play all and Mute all / Unmute all: the bar's buttons, and in wall mode the right-click menu.
+  A.togglePlayAll = function () {
+    var vids = A.videos(), anyPlaying = A.transport().playing;
     A.wallPaused = anyPlaying;
     vids.forEach(function (v) { if (anyPlaying) v.pause(); else v.play().catch(function () {}); });
     A.updateTransport();
-  });
-  $('#muteAll').addEventListener('click', function () {
+  };
+  A.toggleMuteAll = function () {
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing; });
-    var anyOn = vi.some(function (i) { return !i.muted; });
+    var anyOn = A.transport().loud;
     vi.forEach(function (i) { i.muted = anyOn; });
     A.render(); A.refreshInspector();
-  });
+  };
+  $('#playAll').addEventListener('click', A.togglePlayAll);
+  $('#muteAll').addEventListener('click', A.toggleMuteAll);
   $('#loopAll').addEventListener('click', function () {
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing && !i.pl; });
     var allOn = vi.length > 0 && vi.every(function (i) { return i.loop; });

@@ -805,9 +805,18 @@
     if (b._icon !== icon) { b._icon = icon; b.innerHTML = '<span class="ic" aria-hidden="true">' + ICON[icon] + '</span>'; }
     b.setAttribute('aria-label', label); b.title = title || label;
   }
-  A.updateTransport = function () {
+  // What Pause all / Play all and Mute all / Unmute all stand at now: the bar's buttons, and wall mode's right-click menu.
+  A.transport = function () {
     var vids = A.videos(), imgPl = A.hasImagePlaylist();
-    $('#playAll').disabled = !(vids.length > 0 || imgPl); $('#muteAll').disabled = !vids.length;
+    var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing; });
+    return {
+      canPlay: vids.length > 0 || imgPl, playing: vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused),
+      canMute: vids.length > 0, loud: vi.some(function (i) { return !i.muted; })
+    };
+  };
+  A.updateTransport = function () {
+    var t = A.transport();
+    $('#playAll').disabled = !t.canPlay; $('#muteAll').disabled = !t.canMute;
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing; });
     var vl = vi.filter(function (i) { return !i.pl; });
     var nl = vl.filter(function (i) { return i.loop; }).length;
@@ -816,10 +825,8 @@
     $('#loopAll').classList.toggle('on', loop === 'on' && vl.length > 0);
     $('#loopAll').setAttribute('aria-pressed', loop === 'mixed' ? 'mixed' : String(loop === 'on'));
     iconBtn($('#loopAll'), 'loop', 'Repeat all videos', 'Repeat: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'repeat every video'));
-    var playing = vids.some(function (v) { return !v.paused; }) || (imgPl && !A.wallPaused);
-    iconBtn($('#playAll'), playing ? 'pause' : 'play', playing ? 'Pause all' : 'Play all');
-    var loud = vi.some(function (i) { return !i.muted; });
-    iconBtn($('#muteAll'), loud ? 'vol' : 'mute', loud ? 'Mute all' : 'Unmute all',
-      loud ? 'Sound is on. Click to mute every video' : 'Every video is muted. Click to turn their sound on');
+    iconBtn($('#playAll'), t.playing ? 'pause' : 'play', t.playing ? 'Pause all' : 'Play all');
+    iconBtn($('#muteAll'), t.loud ? 'vol' : 'mute', t.loud ? 'Mute all' : 'Unmute all',
+      t.loud ? 'Sound is on. Click to mute every video' : 'Every video is muted. Click to turn their sound on');
   };
 })(window.MW.app);

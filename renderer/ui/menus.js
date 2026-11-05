@@ -76,7 +76,13 @@
     menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
     if (firstIn(menu)) firstIn(menu).focus();
   };
-  A.hideMenu = function () { closeSub(); menu.hidden = true; };
+  // Focus leaves the menu with it: the browser would move it only at the next redraw, and until then a key such as Esc
+  // would still go to the hidden menu (and stop there) rather than to the wall.
+  A.hideMenu = function () {
+    var f = document.activeElement, inside = f && (menu.contains(f) || sub.contains(f));
+    closeSub(); menu.hidden = true;
+    if (inside) f.blur();
+  };
   A.menuOpen = function () { return !menu.hidden; };
   document.addEventListener('pointerdown', function (e) { if (!menu.hidden && !menu.contains(e.target) && !sub.contains(e.target)) A.hideMenu(); }, true);
   window.addEventListener('blur', A.hideMenu);
@@ -180,9 +186,12 @@
   wall.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (document.body.classList.contains('clean')) {
-      // The bar is hidden in wall mode, so its screenshot and Record are here too.
-      var recording = A.recording();
+      // The bar is hidden in wall mode, so its Pause all, Mute all, screenshot and Record are here too.
+      var recording = A.recording(), now = A.transport();
       A.showMenu(e.clientX, e.clientY, [
+        { label: now.playing ? 'Pause all' : 'Play all', icon: now.playing ? 'pause' : 'play', disabled: !now.canPlay, act: A.togglePlayAll },
+        { label: now.loud ? 'Mute all' : 'Unmute all', icon: now.loud ? 'mute' : 'vol', disabled: !now.canMute, act: A.toggleMuteAll },
+        '-',
         { label: 'Take a screenshot', hint: 'The wall as it shows now', icon: 'camera', act: A.wallShot },
         recording
           ? { label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }

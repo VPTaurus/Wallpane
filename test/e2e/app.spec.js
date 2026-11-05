@@ -242,7 +242,7 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await page.evaluate((d) => { window.MW.app.S.rec.dir = d; }, recs);
   await answerDialogs([], shot);
   await page.mouse.click(300, 300, { button: 'right' });
-  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^(Pause|Play) all/, /^(Mute|Unmute) all/, /^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
   await menuItem('Take a screenshot').click();
   await expect(toast()).toContainText('Saved wall mode shot.png');
   expect(fs.existsSync(shot)).toBe(true);
@@ -258,8 +258,16 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await expect(page.locator('#recDot')).toBeHidden();
   await expect(toast()).toContainText('Saved Wallpane ', { timeout: 30000 });
   expect(fs.readdirSync(recs)).toHaveLength(1);
+  await page.evaluate(() => { window.MW.app.S.rec.dir = null; });   // Videos again, as the Settings test expects
   await expect(page.locator('body')).toHaveClass(/clean/);
-  await page.keyboard.press('Escape');
+  // Esc straight after an item of the menu is picked goes to the wall (it leaves wall mode), not to the menu just closed.
+  expect(await page.evaluate(() => new Promise((ok) => {
+    window.MW.app.showMenu(200, 200, [{ label: 'Nothing', act: () => {
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      ok(document.body.classList.contains('clean'));
+    } }]);
+    document.querySelector('#ctxMenu .mi').click();
+  }))).toBe(false);
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop', 'start prevent-display-sleep', 'stop']);
 });
@@ -734,6 +742,29 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect(tile).not.toHaveClass(/\bsolo\b/);
   await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
   await page.keyboard.press('Escape');
+  // Wall mode hides the bar, so its right-click menu pauses and plays every video, and mutes and unmutes them.
+  const paused = await video.evaluate((v) => v.paused);
+  await page.keyboard.press('F11');
+  await expect(page.locator('body')).toHaveClass(/clean/);
+  await video.evaluate((v) => v.play());
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  await tile.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Pause all/, /^Unmute all/, /^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
+  await menuItem('Pause all').click();
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  await tile.click({ button: 'right' });
+  await menuItem('Play all').click();
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  await tile.click({ button: 'right' });
+  await menuItem('Unmute all').click();
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(false);
+  await tile.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi').nth(1)).toHaveText(/^Mute all/);
+  await page.locator('#ctxMenu .mi').nth(1).click();
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/clean/);
+  if (paused) await video.evaluate((v) => v.pause());
 });
 
 test('make playable: an AVI and AC3 sound play from copies; a long conversion shows in the bar and can be stopped', async () => {
