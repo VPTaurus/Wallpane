@@ -776,7 +776,7 @@ body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
 body.shot .tile, body.shot .tile.sel, body.shot .slot { outline-color: transparent; box-shadow: none; transition: none; }
 body.shot .slot { border-color: transparent; background: transparent; }
 body.shot .slot > *, body.shot .tile.is-empty, body.shot .hud, body.shot .vbar, body.shot .rz, body.shot .pinmark, body.shot .ghost,
-body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel), body.shot .exit { visibility: hidden !important; }
+body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel), body.shot .exit, body.shot .recdot { visibility: hidden !important; }
 
 body.clean { padding: 0; }
 body.clean .bar, body.clean .props { display: none; }
@@ -798,6 +798,16 @@ body.clean.atop .exit, body.clean .exit:focus-visible {
   transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s;
 }
 @media (prefers-reduced-motion: reduce) { body.clean .exit, body.clean.atop .exit { transition: opacity 0.15s, visibility 0s; } }
+/* While Record records in wall mode (the bar, and its red Record button, hidden): a small red dot in the top-left corner,
+   clear of the tile buttons, taking no clicks. It is not in the recording, which draws only the media; the emergency
+   hide's cover lies over it. */
+.recdot { display: none; }
+body.clean.recording .recdot {
+  display: block; position: fixed; z-index: 19; top: 6px; left: 6px; width: 9px; height: 9px; border-radius: 50%;
+  background: #e5484d; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); pointer-events: none;
+  animation: recblink 1.2s steps(2, jump-none) infinite;
+}
+@media (prefers-reduced-motion: reduce) { body.clean.recording .recdot { animation: none; } }
 /* After a few idle seconds the cursor, tile buttons and exit button disappear. */
 body.clean.idle, body.clean.idle * { cursor: none !important; }
 body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit, body.clean.idle .vbar { opacity: 0 !important; }

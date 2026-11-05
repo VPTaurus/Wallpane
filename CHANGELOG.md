@@ -6,7 +6,7 @@ For 1.7.1.
 
 Added:
 - **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
-- **Screenshot and Record in wall mode:** right-click the wall to take a screenshot, or to start and stop a recording, as the bar's buttons do (the bar is hidden in wall mode).
+- **Screenshot and Record in wall mode:** right-click the wall to take a screenshot, or to start and stop a recording, as the bar's buttons do (the bar is hidden in wall mode). While it records, a small red dot blinks in the top-left corner; it is not in the video.
 
 Fixed:
 - **Exit wall mode no longer covers a tile's buttons:** it sat in the top-right corner, over the buttons of the tile there. It now stays out of sight and slides down at the top centre when the pointer touches the top edge of the screen, as full screen does in a browser. Esc, F11 and right-click › Exit wall mode work as before.

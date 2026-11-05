@@ -246,12 +246,16 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await menuItem('Take a screenshot').click();
   await expect(toast()).toContainText('Saved wall mode shot.png');
   expect(fs.existsSync(shot)).toBe(true);
+  // While it records, a red dot in the corner says so.
+  await expect(page.locator('#recDot')).toBeHidden();
   await page.mouse.click(300, 300, { button: 'right' });
   await menuItem('Start recording').click();
+  await expect(page.locator('#recDot')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.MW.app.recordingTime()), { timeout: 8000 }).toMatch(/^0:0[2-9]$/);
   await page.mouse.click(300, 300, { button: 'right' });
   await expect(menuItem('Stop recording')).toContainText(/0:0\d/);
   await menuItem('Stop recording').click();
+  await expect(page.locator('#recDot')).toBeHidden();
   await expect(toast()).toContainText('Saved Wallpane ', { timeout: 30000 });
   expect(fs.readdirSync(recs)).toHaveLength(1);
   await expect(page.locator('body')).toHaveClass(/clean/);

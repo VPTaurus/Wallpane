@@ -186,6 +186,7 @@
   A.toggleRecording = function () { if (rec) stop(); else { A.closePops(); start(); } };
   function show() {
     var on = !!rec, t = A.recordingTime();
+    document.body.classList.toggle('recording', on);   // wall mode's red dot (styles.css .recdot)
     btn.classList.toggle('rec', on);
     btn.setAttribute('aria-pressed', String(on));
     btn.setAttribute('aria-label', on ? 'Stop recording' : 'Record the wall');
