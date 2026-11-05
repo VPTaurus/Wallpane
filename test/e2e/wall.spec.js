@@ -889,3 +889,52 @@ test('save the wall as a video: the wall\'s shape at the size chosen, as long as
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });
+
+test('save the wall as a GIF: the wall\'s shape at the width chosen, as many frames as chosen, playing forever', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.gif');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=4',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 80, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.locator('#wall .tile[aria-label^="clip.mp4"] video').evaluate((v) => v.duration)).toBeGreaterThan(3);
+    // From Saved walls: the same dialog, as a GIF: width, length and frames a second, and about how big it gets.
+    await page.click('#presetBtn');
+    await page.click('#wallGifBtn');
+    await expect(page.locator('#popWv')).toBeVisible();
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a GIF');
+    await expect(page.locator('#wvSize')).toBeHidden();
+    await page.selectOption('#wvWidth', '320');
+    await page.selectOption('#wvSecs', '3');
+    await page.selectOption('#wvFps', '10');
+    await expect(page.locator('#wvNote')).toContainText(/^320 × \d+ px, 3 s, 10 frames a second, about .+\. No sound\./);
+    await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, out);
+    await page.click('#wvMake');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await expect(toast(page)).toContainText('Saved wall.gif', { timeout: 90000 });
+    const wallBox = await page.locator('#wall').boundingBox();
+    const bytes = fs.readFileSync(out);
+    expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+    const w = bytes.readUInt16LE(6), h = bytes.readUInt16LE(8);
+    expect(w).toBe(320);
+    expect(Math.abs(w / h - wallBox.width / wallBox.height)).toBeLessThan(0.02);
+    let frames = 0;
+    for (let i = 0; i + 2 < bytes.length; i++) if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 4) frames++;
+    expect(frames).toBeGreaterThan(20);   // 30 at most: frames the same as the one before may be merged
+    expect(frames).toBeLessThanOrEqual(30);
+    expect(bytes.includes(Buffer.from('NETSCAPE2.0'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'wall.part.gif'))).toBe(false);
+    // The video's dialog is as it was.
+    await page.click('#presetBtn');
+    await page.click('#wallVideoBtn');
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a video');
+    await expect(page.locator('#wvWidth')).toBeHidden();
+    await expect(page.locator('#wvSecs')).toHaveValue('30');
+    await page.click('#wvCancel');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});

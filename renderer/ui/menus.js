@@ -186,13 +186,15 @@
   wall.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (document.body.classList.contains('clean')) {
-      // The bar is hidden in wall mode, so its Pause all, Mute all, screenshot and Record are here too.
+      // The bar is hidden in wall mode, so its Pause all, Mute all, screenshot and Record are here too, and Saved walls'
+      // Save as a GIF.
       var recording = A.recording(), now = A.transport();
       A.showMenu(e.clientX, e.clientY, [
         { label: now.playing ? 'Pause all' : 'Play all', icon: now.playing ? 'pause' : 'play', disabled: !now.canPlay, act: A.togglePlayAll },
         { label: now.loud ? 'Mute all' : 'Unmute all', icon: now.loud ? 'mute' : 'vol', disabled: !now.canMute, act: A.toggleMuteAll },
         '-',
         { label: 'Take a screenshot', hint: 'The wall as it shows now', icon: 'camera', act: A.wallShot },
+        { label: 'Make a GIF of the wall…', hint: 'A few seconds, from now on', icon: 'film', act: function () { A.openWallVideo(true); } },
         recording
           ? { label: 'Stop recording', hint: A.recordingTime(), icon: 'record', act: A.toggleRecording }
           : { label: 'Start recording', hint: 'Right-click again to stop', icon: 'record', act: A.toggleRecording },

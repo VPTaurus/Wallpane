@@ -6,16 +6,28 @@
 (function (A) {
   'use strict';
   if (!A) return;
-  var MW = window.MW, U = MW.util, WV = MW.wallvideo, PL = MW.pl;
+  var MW = window.MW, U = MW.util, WV = MW.wallvideo, PL = MW.pl, GM = MW.gifmake;
   var S = A.S, $ = A.$, api = A.api, box = $('#popWv'), wall = $('#wall');
 
   function fill(sel, list, val) {
     sel.innerHTML = list.map(function (o) { return '<option value="' + o[0] + '">' + U.esc(o[1]) + '</option>'; }).join('');
     sel.value = val;
   }
-  // The size and length stay as last chosen while Wallpane runs.
+  // The same dialog makes a video or a GIF (gif). The choices stay as last chosen while Wallpane runs, a length for each.
+  var gif = false, secsOf = { video: '30', gif: '5' };
   fill($('#wvSize'), WV.SIZES, '1080');
-  fill($('#wvSecs'), WV.LENGTHS, '30');
+  fill($('#wvWidth'), WV.GIF_WIDTHS.map(function (w) { return [w, w + ' px']; }), '480');
+  fill($('#wvFps'), WV.GIF_RATES.map(function (r) { return [r, String(r)]; }), '15');
+  function setMode(g) {
+    secsOf[gif ? 'gif' : 'video'] = $('#wvSecs').value || secsOf[gif ? 'gif' : 'video'];
+    gif = g;
+    fill($('#wvSecs'), gif ? WV.GIF_LENGTHS : WV.LENGTHS, secsOf[gif ? 'gif' : 'video']);
+    $('#wvTitle').textContent = gif ? 'Save the wall as a GIF' : 'Save the wall as a video';
+    $('#wvMake').textContent = gif ? 'Save the GIF…' : 'Save the video…';
+    $('#wvSizeFld').hidden = gif;
+    $('#wvWidthFld').hidden = $('#wvFpsFld').hidden = !gif;
+  }
+  setMode(false);
 
   // The wall's colour as #rrggbb, from its style (also for ui/recorder.js).
   A.wallColour = function () {
@@ -48,25 +60,35 @@
       tiles: tiles, playlists: lists, music: A.musicNow(), hints: A.heardHints(Object.keys(paths))
     };
   }
-  function lengthText(secs) { return (WV.LENGTHS.filter(function (o) { return o[0] === secs; })[0] || [0, secs + ' s'])[1]; }
+  function lengthText(secs) { return (WV.LENGTHS.concat(WV.GIF_LENGTHS).filter(function (o) { return o[0] === secs; })[0] || [0, secs + ' s'])[1]; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function refresh() {
-    var r = gather(), o = WV.outSize(r.wall.w, r.wall.h, +$('#wvSize').value), secs = +$('#wvSecs').value;
-    var heard = r.tiles.filter(function (t) { return t.vol > 0; }).length, lists = Object.keys(r.playlists).length;
+    var r = gather(), secs = +$('#wvSecs').value, lists = Object.keys(r.playlists).length;
     $('#wvSub').textContent = plural(r.tiles.length, 'tile', 'tiles') + (lists ? ', ' + plural(lists, 'playlist', 'playlists') : '');
+    if (gif) {
+      var g = WV.gifSize(r.wall.w, r.wall.h, +$('#wvWidth').value), fps = +$('#wvFps').value, bytes = GM.estimate(secs, fps, g.w, g.h);
+      $('#wvNote').textContent = g.w + ' × ' + g.h + ' px, ' + lengthText(secs) + ', ' + fps + ' frames a second, about ' + U.bytes(bytes) +
+        '. No sound. Each tile carries on from where it is when you save, as on the wall.' +
+        (bytes > 20 * 1024 * 1024 ? ' GIFs get big: a shorter length, a smaller width or fewer frames make a smaller file.' : '');
+      return;
+    }
+    var o = WV.outSize(r.wall.w, r.wall.h, +$('#wvSize').value), heard = r.tiles.filter(function (t) { return t.vol > 0; }).length;
     var sound = heard ? 'the sound of ' + plural(heard, 'tile', 'tiles') + (r.music ? ' and the music' : '') : r.music ? 'the music' : 'no sound';
     var note = o.w + ' × ' + o.h + ' px, ' + lengthText(secs) + ', with ' + sound + '. Each tile carries on from where it is when you save, as on the wall.';
     if (secs * o.w * o.h > 120 * 1920 * 1080) note += ' A long or big video takes a while to make; the bar shows how far it has got.';
     $('#wvNote').textContent = note;
   }
 
-  A.openWallVideo = function () {
-    if (!A.hasFfmpeg) { A.toast('Saving the wall as a video needs FFmpeg, which this Wallpane does not have.'); return; }
+  // asGif: the GIF of the wall (Saved walls › Save as a GIF…, and the right-click menu in wall mode).
+  A.openWallVideo = function (asGif) {
+    asGif = asGif === true;
+    if (!A.hasFfmpeg) { A.toast('Saving the wall as a ' + (asGif ? 'GIF' : 'video') + ' needs FFmpeg, which this Wallpane does not have.'); return; }
     if (!gather().tiles.length) { A.toast('Put some media on the wall first.'); return; }
     A.closePops();
+    setMode(asGif);
     box.hidden = false;
     refresh();
-    $('#wvSize').focus();
+    $(asGif ? '#wvWidth' : '#wvSize').focus();
   };
   function close() { box.hidden = true; }
   box.addEventListener('change', refresh);
@@ -75,7 +97,8 @@
   window.addEventListener('keydown', function (e) {
     if (!box.hidden && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
   }, true);
-  $('#wallVideoBtn').addEventListener('click', A.openWallVideo);
+  $('#wallVideoBtn').addEventListener('click', function () { A.openWallVideo(false); });
+  $('#wallGifBtn').addEventListener('click', function () { A.openWallVideo(true); });
 
   // A screenshot of the wall as it shows now, at the screen's resolution. For the moment it is taken only the media
   // shows (body.shot: no selection, tile controls, empty cells, nor anything over the wall); then where to save it.
@@ -106,16 +129,18 @@
 
   // The wall as it is at this moment goes to the main process.
   $('#wvMake').addEventListener('click', function () {
-    var r = gather();
+    var r = gather(), what = gif ? 'GIF' : 'video';
     close();
     if (!r.tiles.length) return;
-    r.size = +$('#wvSize').value; r.secs = +$('#wvSecs').value;
+    r.secs = +$('#wvSecs').value;
+    if (gif) { r.format = 'gif'; r.width = +$('#wvWidth').value; r.fps = +$('#wvFps').value; } else r.size = +$('#wvSize').value;
     api.wallVideo(r).then(function (res) {
       if (res.status === 'cancelled') return;
-      if (res.status !== 'working') { A.toast('The video could not be made: FFmpeg is missing, or the wall could not be read.'); return; }
-      A.toast('Saving the wall as a video. The bar shows how far it has got.');
+      if (res.status !== 'working') { A.toast('The ' + what + ' could not be made: FFmpeg is missing, or the wall could not be read.'); return; }
+      // In wall mode the bar is hidden; a message says when it is saved all the same.
+      A.toast('Saving the wall as a ' + what + '. ' + (document.body.classList.contains('clean') ? 'A message says when it is saved.' : 'The bar shows how far it has got.'));
       A.watchJob(res.key, function (j) {
-        if (j.state === 'failed') { A.toast('The video could not be made: ' + j.error); return; }
+        if (j.state === 'failed') { A.toast('The ' + what + ' could not be made: ' + j.error); return; }
         if (j.state !== 'done' || !j.result) return;
         var p = j.result.path;
         A.toast('Saved ' + j.label + (j.result.bytes ? ' (' + U.bytes(j.result.bytes) + ')' : '') + '.', [

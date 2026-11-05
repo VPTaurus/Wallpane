@@ -215,6 +215,7 @@
             <button class="btn" id="revealBtn" type="button">Show file</button>
           </div>
           <button class="btn full" id="wallVideoBtn" type="button" title="A video of the wall of a length you choose, made in the background (to record as it plays, use Record in the bar)"><span data-icon="film"></span>Save as a video…</button>
+          <button class="btn full" id="wallGifBtn" type="button" title="A GIF of the wall, a few seconds long, made in the background"><span data-icon="film"></span>Save as a GIF…</button>
           <p class="note" id="storeNote"></p>
         </div>
       </div>
@@ -505,8 +506,10 @@
   <button class="btn ib closex" id="wvClose" type="button" aria-label="Close" title="Close (Esc)"><span data-icon="x"></span></button>
   <div class="ins-head"><div class="ins-name" id="wvTitle">Save the wall as a video</div><div class="ins-sub" id="wvSub"></div></div>
   <div class="plgrid">
-    <label class="fld" for="wvSize"><span>Size</span><select id="wvSize"></select></label>
+    <label class="fld" for="wvSize" id="wvSizeFld"><span>Size</span><select id="wvSize"></select></label>
+    <label class="fld" for="wvWidth" id="wvWidthFld" hidden><span>Width</span><select id="wvWidth"></select></label>
     <label class="fld" for="wvSecs"><span>Length</span><select id="wvSecs"></select></label>
+    <label class="fld" for="wvFps" id="wvFpsFld" hidden><span>Frames a second</span><select id="wvFps"></select></label>
   </div>
   <p class="note" id="wvNote"></p>
   <div class="acts"><button class="btn" id="wvCancel" type="button">Cancel</button><button class="btn pri" id="wvMake" type="button">Save the video…</button></div>

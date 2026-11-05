@@ -41,6 +41,22 @@ test('clean: sizes and lengths from the lists, tiles checked, music and hints ke
   assert.equal(WV.clean({ wall: { w: 800, h: 450 }, tiles: [] }), null);
 });
 
+test('a GIF of the wall: its width and rate from the lists, short lengths, the wall\'s shape, and no sound', () => {
+  assert.deepEqual(WV.gifSize(1600, 900, 480), { w: 480, h: 270 });
+  assert.deepEqual(WV.gifSize(900, 1600, 320), { w: 320, h: 568 });
+  const wall = { w: 800, h: 450 }, tiles = [{ file: 'a.mp4', kind: 'video', x: 0, y: 0, w: 400, h: 450, vol: 1 }];
+  const g = WV.clean({ format: 'gif', width: 640, fps: 10, secs: 15, size: 720, wall, tiles, music: { tracks: ['m.mp3'], vol: 1 } });
+  assert.deepEqual(g.gif, { width: 640, fps: 10 });
+  assert.equal(g.secs, 15);
+  assert.equal(g.tiles[0].vol, 0);
+  assert.equal(g.music, null);
+  const d = WV.clean({ format: 'gif', width: 999, fps: 60, secs: 30 * 60, wall, tiles });
+  assert.deepEqual([d.gif, d.secs], [{ width: 480, fps: 15 }, 5]);
+  assert.deepEqual(WV.clean(g), g);   // the job checks it again and keeps it a GIF
+  assert.equal(WV.clean({ wall, tiles }).gif, null);   // a video, as before
+  assert.equal(WV.clean({ secs: 5, wall, tiles }).secs, 30);   // 5 s is a GIF's length, not a video's
+});
+
 test('placed: a filled tile shows the middle of a wider video over all of it; a whole frame sits between bars', () => {
   const cover = V.placed(400, 400, 16 / 9, 'cover', { mx: 0.5, my: 0.5, zoom: 1 });
   near(cover.crop.w, 9 / 16); near(cover.crop.x, (1 - 9 / 16) / 2); near(cover.crop.h, 1);
@@ -152,6 +168,13 @@ test('FFmpeg\'s arguments: the sound\'s speed in steps, a crop only when cropped
   assert.ok(pic.includes('loop=loop=-1:size=1'));
   assert.ok(pic.includes('-an'));
   assert.equal(X.listText(["p0.mkv", "it's.mkv"]), "ffconcat version 1.0\nfile 'p0.mkv'\nfile 'it'\\''s.mkv'\n");
+  // The GIF: the tiles on the wall's colour, at its rate, one palette for it all; no sound; as many frames as it lasts.
+  const pl = { size: { w: 480, h: 270 }, frames: 150, tiles: [{ box: { x: 0, y: 0, w: 240, h: 270 }, sound: false }, { box: { x: 240, y: 0, w: 240, h: 270 }, sound: false }] };
+  const gif = X.gifArgs(pl, ['t0.txt', 't1.txt'], '#203040', { width: 480, fps: 10 }, 5, 'w.part.gif').join(' ');
+  assert.ok(gif.includes('color=c=0x203040:s=480x270:r=30'));
+  assert.ok(gif.includes('[w1][2:v]overlay=x=240:y=0:eof_action=repeat[w2];[w2]trim=duration=5,fps=10,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse='));
+  assert.ok(gif.includes('-an -frames:v 50 -loop 0 -f gif'));
+  assert.ok(!gif.includes(':a]'));
 });
 
 const ff = FF.create(path.join(__dirname, '..', '..', 'vendor', 'ffmpeg'));
@@ -182,5 +205,18 @@ test('a real video of a small wall: its size and length, sound, and nothing left
     assert.ok(last > 0.9);
     assert.equal(fs.existsSync(path.join(dir, 'tmp')), false);
     assert.equal(fs.existsSync(path.join(dir, 'wall.part.mp4')), false);
+
+    // The same wall as a GIF: 320 px wide in the wall's shape, 3 s at 10 frames a second, playing forever.
+    const gjob = { input: { out: path.join(dir, 'wall.gif'), req: Object.assign({}, job.input.req, { format: 'gif', width: 320, fps: 10, secs: 3 }) } };
+    const g = await kind.run({ input: { out: gjob.input.out, req: WV.clean(gjob.input.req) } }, { signal: new AbortController().signal, progress() {} });
+    const bytes = fs.readFileSync(g.path);
+    assert.equal(bytes.subarray(0, 6).toString(), 'GIF89a');
+    assert.deepEqual([bytes.readUInt16LE(6), bytes.readUInt16LE(8)], [320, 180]);
+    const gp = await ff.probeRaw(g.path), gv = gp.streams.find((s) => s.codec_type === 'video');
+    assert.equal(gv.codec_name, 'gif');
+    near(parseFloat(gp.format.duration), 3, 0.15);
+    assert.equal(gp.streams.some((s) => s.codec_type === 'audio'), false);
+    assert.ok(bytes.includes(Buffer.from('NETSCAPE2.0')), 'it loops');
+    assert.equal(fs.existsSync(path.join(dir, 'wall.part.gif')), false);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

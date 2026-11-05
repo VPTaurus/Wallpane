@@ -314,12 +314,17 @@ function windowsFolder(kind) {
   try { return app.getPath(kind); } catch { return app.getPath('documents'); }
 }
 function wallFile(kind, ext) { return path.join(windowsFolder(kind), wallName(ext)); }
+// A GIF of the wall the same way (req.gif), in Pictures by default.
 handle('wall:video', async (e, r) => {
   const req = wallvideo.clean(r);
   if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
-  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: wallFile('videos', 'mp4'), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
+  const ext = req.gif ? 'gif' : 'mp4';
+  const s = await dialog.showSaveDialog(winOf(e), {
+    title: req.gif ? 'Save the wall as a GIF' : 'Save the wall as a video',
+    defaultPath: wallFile(req.gif ? 'pictures' : 'videos', ext), filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
+  });
   if (s.canceled || !s.filePath) return { status: 'cancelled' };
-  const out = /\.mp4$/i.test(s.filePath) ? s.filePath : s.filePath + '.mp4';
+  const out = path.extname(s.filePath).toLowerCase() === '.' + ext ? s.filePath : s.filePath + '.' + ext;
   if (req.tiles.some((t) => path.resolve(t.file).toLowerCase() === path.resolve(out).toLowerCase())) return { status: 'no' };
   const job = jobs.add({ kind: 'wallvideo', key: 'wallvideo:' + out, label: path.basename(out), input: { out, req }, priority: 'user' });
   return { status: 'working', key: job.key, path: out };

@@ -242,7 +242,20 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await page.evaluate((d) => { window.MW.app.S.rec.dir = d; }, recs);
   await answerDialogs([], shot);
   await page.mouse.click(300, 300, { button: 'right' });
-  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^(Pause|Play) all/, /^(Mute|Unmute) all/, /^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^(Pause|Play) all/, /^(Mute|Unmute) all/, /^Take a screenshot/, /^Make a GIF of the wall/, /^Start recording/, /^Exit wall mode/]);
+  // Make a GIF of the wall… opens Saved walls' dialog as a GIF; Esc closes it and the wall stays in wall mode.
+  if (await page.evaluate(() => window.MW.app.hasFfmpeg)) {
+    await menuItem('Make a GIF of the wall').click();
+    await expect(page.locator('#popWv')).toBeVisible();
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a GIF');
+    await expect(page.locator('#wvWidth')).toBeVisible();
+    await expect(page.locator('#wvSize')).toBeHidden();
+    await expect(page.locator('#wvNote')).toContainText('5 s, 15 frames a second, about');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await expect(page.locator('body')).toHaveClass(/clean/);
+    await page.mouse.click(300, 300, { button: 'right' });
+  }
   await menuItem('Take a screenshot').click();
   await expect(toast()).toContainText('Saved wall mode shot.png');
   expect(fs.existsSync(shot)).toBe(true);
@@ -749,7 +762,7 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await video.evaluate((v) => v.play());
   await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
   await tile.click({ button: 'right' });
-  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Pause all/, /^Unmute all/, /^Take a screenshot/, /^Start recording/, /^Exit wall mode/]);
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Pause all/, /^Unmute all/, /^Take a screenshot/, /^Make a GIF of the wall/, /^Start recording/, /^Exit wall mode/]);
   await menuItem('Pause all').click();
   await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
   await tile.click({ button: 'right' });
