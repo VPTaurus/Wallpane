@@ -221,9 +221,25 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await page.click('#cleanBtn');
   await expect(page.locator('body')).toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep']);
-  await page.keyboard.press('Escape');
+  // Exit wall mode is out of the way until the pointer touches the top edge, and goes again when it moves off.
+  const exit = page.locator('#exitBtn');
+  await page.mouse.move(300, 300);
+  await expect(exit).toBeHidden();
+  await page.mouse.move(150, 0);
+  await expect(exit).toBeVisible();
+  await page.mouse.move(150, 120);
+  await expect(exit).toBeHidden();
+  await page.mouse.move(150, 2);
+  await exit.click();
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop']);
+  // F11 and Esc as well.
+  await page.keyboard.press('F11');
+  await expect(page.locator('body')).toHaveClass(/clean/);
+  await expect(exit).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/clean/);
+  await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop', 'start prevent-display-sleep', 'stop']);
 });
 
 test('Settings: one section at a time; start in wall mode is saved; starting with Windows only in a built app', async () => {

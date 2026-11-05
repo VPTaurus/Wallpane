@@ -128,7 +128,7 @@ Settings › Library holds the folders where you keep your videos, GIFs and pict
 - **Adding folders:** drop folders from Explorer onto the drawer, or use its + button.
 
 ## Wall mode and unattended walls
-- **Wall mode** (F11) hides the controls and fills the display picked under Settings › Wall mode › Show on. Esc or F11 leaves it.
+- **Wall mode** (F11) hides the controls and fills the display picked under Settings › Wall mode › Show on. Esc or F11 leaves it, as does right-click › Exit wall mode, or the Exit wall mode button that shows at the top centre when the pointer touches the top edge of the screen.
 - Settings › Wall mode: start this window in wall mode; keep the display awake in wall mode (on by default).
 - Settings › General: start Wallpane when you sign in to Windows (installed or portable app only). If you had this on for Media Wall, turn it on again here.
 

@@ -137,13 +137,14 @@
   A.setClean = function (on) {
     if (on) { A.closeProps(); A.closePops(); }
     document.body.classList.toggle('clean', on);
+    document.body.classList.remove('atop');
     wake();
     api.setFullscreen(on, S.display);
     api.keepAwake(on && S.awake);
   };
   api.onFullscreen(function (v) {
     A.isFs = v;
-    if (!v) document.body.classList.remove('clean');
+    if (!v) document.body.classList.remove('clean', 'atop');
   });
   api.isFullscreen().then(function (v) { A.isFs = v; });
   // In wall mode the cursor and tile buttons disappear after a few idle seconds and come back on movement.
@@ -151,10 +152,21 @@
   function wake() {
     document.body.classList.remove('idle');
     clearTimeout(idleTimer);
-    if (document.body.classList.contains('clean')) idleTimer = setTimeout(function () { document.body.classList.add('idle'); }, 3000);
+    if (document.body.classList.contains('clean')) idleTimer = setTimeout(function () { document.body.classList.remove('atop'); document.body.classList.add('idle'); }, 3000);
   }
   document.addEventListener('mousemove', wake);
   document.addEventListener('mousedown', wake);
+  // Exit wall mode shows while the pointer touches the top edge of the screen, and stays while the pointer is on its way
+  // to it or on it; anywhere else it goes, so it never covers a tile's buttons while they are in use (styles.css .atop).
+  var EDGE = 4, NEAR = 12;
+  document.addEventListener('mousemove', function (e) {
+    var b = document.body;
+    if (!b.classList.contains('clean')) return;
+    if (e.clientY <= EDGE) { b.classList.add('atop'); return; }
+    if (!b.classList.contains('atop')) return;
+    var r = $('#exitBtn').getBoundingClientRect();
+    if (e.clientX < r.left - NEAR || e.clientX > r.right + NEAR || e.clientY > r.bottom + NEAR) b.classList.remove('atop');
+  });
   $('#newWinBtn').addEventListener('click', function () {
     A.closePops();
     api.newWindow().then(function (r) { if (r && r.error) A.toast(r.error); });
