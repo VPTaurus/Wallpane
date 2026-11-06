@@ -125,6 +125,7 @@
   };
   $('#playAll').addEventListener('click', A.togglePlayAll);
   $('#muteAll').addEventListener('click', A.toggleMuteAll);
+  $('#pinAll').addEventListener('click', function () { A.togglePinAll(); });
   $('#loopAll').addEventListener('click', function () {
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing && !i.pl; });
     var allOn = vi.length > 0 && vi.every(function (i) { return i.loop; });

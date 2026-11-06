@@ -1239,7 +1239,8 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Show in Explorer/]);
   await menuItem('Play on the wall as a playlist').click();
   await expect(folderList).toBeHidden();
-  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles. 7 tiles fill the wall');   // then Fill the wall
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles. Each file has a tile of its own');
+  await expect(toast()).toContainText('7 tiles fill the wall');   // then Fill the wall
   await expect(tiles()).toHaveCount(7);
   await expect(page.locator('#gridLabel')).toHaveText('Free');
   expect(await page.evaluate(() => window.MW.app.S.items.filter((i) => i.pl).length)).toBe(5);   // and the Shift-drag tile
@@ -1498,8 +1499,12 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
     await menuItem('Play on the wall as a playlist').click();
   };
   const filled = async () => {
-    await expect(toast()).toContainText(/^Playing "Evening" \(3 files\) on 3 tiles\. 3 tiles fill the wall in \d (rows?|columns?)\./);
+    // Every file on a tile of its own: each tile stays on its file (pinned), so none moves on to a file shown already.
+    await expect(toast()).toContainText(/^Playing "Evening" \(3 files\) on 3 tiles\. Each file has a tile of its own, so each tile stays on its file \(Pin all in the bar lets them move on\)\. 3 tiles fill the wall in \d (rows?|columns?)\./);
     await expect(toast()).not.toContainText('Add rows or columns');
+    await expect(toast()).not.toContainText('pick files shaped');
+    expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pinned && i.loop))).toBe(true);
+    await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#gridLabel')).toHaveText('Free');
     const box = await layout(), wb = await page.locator('#wall').boundingBox(), area = box.tiles.reduce((s, t) => s + t.w * t.h, 0);
     expect(box.tiles.length).toBe(3);
@@ -1522,8 +1527,19 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await page.click('#modeSeg [data-mode="free"]');
   await playEvening();
   await filled();
+  // Pin all in the bar lets every playlist tile move on again, and pins them all once more.
+  await page.click('#pinAll');
+  await expect(toast()).toContainText('The 3 playlist tiles carry on with their playlists.');
+  await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.MW.app.S.items.some((i) => i.pinned))).toBe(false);
+  await page.evaluate(() => { const A = window.MW.app; A.setPinned(A.S.items[0], true); });
+  await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'mixed');
+  await page.click('#pinAll');
+  await expect(toast()).toContainText('The 3 playlist tiles stay on the files they show, looping.');
+  expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pinned))).toBe(true);
   await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#pinAll')).toBeDisabled();
   await page.click('#modeSeg [data-mode="grid"]');
 
   // Deleting it takes two steps, and leaves the files.

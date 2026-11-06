@@ -120,7 +120,8 @@
       setTimeout(go, 1500);
     }
   }
-  A.setPinned = function (it, v) {
+  // quiet: many at once (Pin all), drawn once after.
+  A.setPinned = function (it, v, quiet) {
     it.pinned = !!v;
     if (v) it.loop = true;
     else {
@@ -128,7 +129,18 @@
       var el = A.tileEls.get(it.id), vid = el && el.querySelector('video');
       if (vid) it._t0 = vid.currentTime;
     }
+    if (!quiet) { A.render(); A.refreshInspector(); }
+  };
+  // The bar's Pin all: every tile that plays a playlist stays on the file it shows, looping it; when all of them do
+  // already, they all carry on with their playlists.
+  A.togglePinAll = function () {
+    var pl = S.items.filter(function (i) { return i.pl && S.playlists[i.pl]; });
+    if (!pl.length) return;
+    var all = pl.every(function (i) { return i.pinned; });
+    pl.forEach(function (i) { if (!!i.pinned === all) A.setPinned(i, !all, true); });
     A.render(); A.refreshInspector();
+    A.toast(all ? 'The ' + pl.length + (pl.length === 1 ? ' playlist tile carries on with its playlist.' : ' playlist tiles carry on with their playlists.')
+      : (pl.length === 1 ? 'The playlist tile stays' : 'The ' + pl.length + ' playlist tiles stay') + ' on the file' + (pl.length === 1 ? ' it shows' : 's they show') + ', looping. Pin all again lets them move on.');
   };
   A.failAdvance = function (it) {
     var p = it.pl && S.playlists[it.pl];
@@ -320,8 +332,13 @@
     S.playlists[id] = p;
     S.fillPl = id;
     var n = A.autoFill(false), more = !lib && S.mode !== 'free' && PL.playable(p) > n;   // files left for new cells
+    // From the library with every file on a tile of its own: each tile stays on its file (pinned), so a short one that
+    // ends does not move on to a file another tile already shows. Pin all in the bar lets them move on.
+    var own = lib && n && n >= PL.playable(p);
+    if (own) S.items.forEach(function (it) { if (it.pl === id) A.setPinned(it, true, true); });
     var msg = [n
-      ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + (more ? ' Add rows or columns and they fill too.' : '')
+      ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + (more ? ' Add rows or columns and they fill too.' : '') +
+        (own ? (n === 1 ? ' It is the only file, so the tile stays on it.' : ' Each file has a tile of its own, so each tile stays on its file (Pin all in the bar lets them move on).') : '')
       : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' ');
     if (lib && n) { A.fillWallAfterAdding(msg); return; }
     A.render(); A.refreshInspector();

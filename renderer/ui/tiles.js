@@ -825,6 +825,15 @@
     $('#loopAll').classList.toggle('on', loop === 'on' && vl.length > 0);
     $('#loopAll').setAttribute('aria-pressed', loop === 'mixed' ? 'mixed' : String(loop === 'on'));
     iconBtn($('#loopAll'), 'loop', 'Repeat all videos', 'Repeat: ' + loop + '. Click to ' + (loop === 'on' ? 'play every video once' : 'repeat every video'));
+    // Pin all: every tile that plays a playlist stays on the file it shows (on), or carries on with it (off).
+    var pl = S.items.filter(function (i) { return i.pl && S.playlists[i.pl]; }), np = pl.filter(function (i) { return i.pinned; }).length;
+    var pin = pl.length && np === pl.length ? 'on' : np ? 'mixed' : 'off';
+    $('#pinAll').disabled = !pl.length;
+    $('#pinAll').classList.toggle('on', pin === 'on');
+    $('#pinAll').setAttribute('aria-pressed', pin === 'mixed' ? 'mixed' : String(pin === 'on'));
+    iconBtn($('#pinAll'), 'pin', 'Pin all playlist tiles', !pl.length ? 'Pin all: for tiles that play a playlist'
+      : pin === 'on' ? 'Every playlist tile stays on its file. Click to let them carry on with their playlists'
+        : 'Pin all: every playlist tile stays on the file it shows' + (pin === 'mixed' ? ' (' + np + ' of ' + pl.length + ' do now)' : ''));
     iconBtn($('#playAll'), t.playing ? 'pause' : 'play', t.playing ? 'Pause all' : 'Play all');
     iconBtn($('#muteAll'), t.loud ? 'vol' : 'mute', t.loud ? 'Mute all' : 'Unmute all',
       t.loud ? 'Sound is on. Click to mute every video' : 'Every video is muted. Click to turn their sound on');

@@ -550,15 +550,15 @@
   }
   // After Fill the wall every tile has its media's shape: the playlists on the wall then pick files
   // shaped like their tiles first, so the shapes keep fitting (Settings › Tiles can leave them be). Returns how many
-  // playlists started to.
+  // playlists started to that a tile moves on with (not only pinned ones).
   function shapePlaylists() {
     if (!S.fillShapes) return 0;
-    var n = 0;
+    var set = {};
     S.items.forEach(function (it) {
       var p = it.pl && S.playlists[it.pl];
-      if (p && !p.fitShape) { p.fitShape = true; n++; }
+      if (p && !p.fitShape) { p.fitShape = true; set[it.pl] = true; }
     });
-    return n;
+    return Object.keys(set).filter(function (k) { return S.items.some(function (i) { return i.pl === k && !i.pinned; }); }).length;
   }
   // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
   // reading order unless regrouping them crops clearly less. Only tiles with media take part: empty tiles (and the
