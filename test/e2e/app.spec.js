@@ -1232,7 +1232,7 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
 
   // A whole folder plays on the wall as a playlist, from its right-click menu in the list: into the empty cells, one per
   // file at most (its subfolder's file too); or on the selected tile. Ctrl+Z undoes each.
-  await expect(page.locator('#libPlay')).toBeHidden();   // all folders show: no one folder to play
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play the 4 files shown on the wall as a playlist');   // all folders
   const drawerRow = folderList.locator('.lfolder', { hasText: 'Drawer media' });
   await page.click('#libFolderBtn');
   await drawerRow.click({ button: 'right' });
@@ -1260,14 +1260,41 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   // While one folder shows, the button beside it does the same.
   await page.click('#libFolderBtn');
   await drawerRow.click();
-  await expect(page.locator('#libPlay')).toBeVisible();
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play this folder on the wall as a playlist');
   await page.click('#libPlay');
   await expect(tiles()).toHaveCount(7);
+  expect(await page.evaluate(() => { const A = window.MW.app; return A.S.playlists[A.S.fillPl].root; })).toBe(lib);   // it follows the folder
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  // Filtered (here by a search), the button plays the very files shown, in their order, as a list that follows no
+  // folder; a folder's menu plays that folder as the filters would show it.
+  const plFiles = () => page.evaluate(() => { const A = window.MW.app, p = A.S.playlists[A.S.fillPl]; return [p.name, p.files.map((f) => f.name), p.root]; });
+  await page.fill('#libSearch', 'tall');
+  await expect(thumbs).toHaveCount(1);
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play the 1 file shown on the wall as a playlist');
+  await page.click('#libPlay');
+  await expect.poll(plFiles).toEqual(['Drawer media', ['green tall.png'], null]);
+  await expect(toast()).toContainText('Playing "Drawer media" (1 file) on 1 tile.');
   await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(3);
   await page.click('#libFolderBtn');
   await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
-  await expect(page.locator('#libPlay')).toBeHidden();
+  await page.fill('#libSearch', 'square');
+  await expect(thumbs).toHaveCount(1);
+  await expect(thumbs.first()).toHaveAttribute('title', /^blue square\.png/);   // the search has gone through
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(menuItem('Play on the wall as a playlist')).toContainText('As the library filters it');
+  await menuItem('Play on the wall as a playlist').click();
+  await expect.poll(plFiles).toEqual(['Drawer media', ['blue square.png'], null]);   // the message reads as the last one did
+  await expect(toast()).toContainText('Playing "Drawer media" (1 file) on 1 tile.');
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  await page.fill('#libSearch', '');
+  await expect(thumbs).toHaveCount(4);
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+  await thumb('grey extra.png').click();   // selected again (the searches let it go), for the Esc below
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(1);
 
   // Esc first lets go of the selection, then closes it; Ctrl+L brings it back as it was.
   await page.locator('#libSearch').focus();

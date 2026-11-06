@@ -565,10 +565,14 @@ handle('library:toWall', (_e, paths) => {
 // playlist (Play on the wall as a playlist).
 handle('library:playOnWall', (_e, what) => {
   const o = what && typeof what === 'object' ? what : {};
-  const msg = typeof o.dir === 'string' && o.dir ? { dir: o.dir }
-    : typeof o.coll === 'string' && o.coll ? { coll: o.coll, name: String(o.name || '').slice(0, 60) } : null;
+  const KINDS = ['video', 'gif', 'image'];
+  const list = Array.isArray(o.files) ? o.files.filter((f) => f && typeof f.path === 'string' && f.path).slice(0, 5000)
+    .map((f) => ({ path: f.path, name: String(f.name || ''), kind: KINDS.includes(f.kind) ? f.kind : 'image' })) : null;
+  const msg = list ? { files: list, name: String(o.name || '').slice(0, 60) }   // the files the library shows
+    : typeof o.dir === 'string' && o.dir ? { dir: o.dir }
+      : typeof o.coll === 'string' && o.coll ? { coll: o.coll, name: String(o.name || '').slice(0, 60) } : null;
   // kinds: the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
-  const kinds = (Array.isArray(o.kinds) ? o.kinds : []).filter((k) => ['video', 'gif', 'image'].includes(k));
+  const kinds = (Array.isArray(o.kinds) ? o.kinds : []).filter((k) => KINDS.includes(k));
   if (msg && kinds.length) msg.kinds = kinds;
   const w = wins.get(lastWall) || [...wins.values()][0];
   if (!msg || !w || w.isDestroyed()) return false;

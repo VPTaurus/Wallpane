@@ -8,8 +8,9 @@
 //   dragOut(e, paths)   a drag of files or a folder begins; dragEnd() when it ends
 //   close()             Esc with nothing left to clear
 //   places              whether its header offers the drawer / panel menu (placeMenu(x, y))
-//   play(what, onTile)  a library folder ({ dir }) or collection ({ coll, name }) plays on the wall as a playlist;
-//                       playHint says where. tile() gives the selected tile (the page only), and then onTile plays it there.
+//   play(what, onTile)  a library folder ({ dir }), collection ({ coll, name }) or list of files ({ files, name }) plays
+//                       on the wall as a playlist; playHint says where. tile() gives the selected tile (the page only),
+//                       and then onTile plays it there.
 // It gives A.libView: { show() (fill it as it opens), refresh(), cleanPrefs(saved) }.
 (function (A) {
   'use strict';
@@ -112,6 +113,7 @@
       sel.forEach(function (id) { if (!index.has(id)) sel.delete(id); });
       relayout();
       showCounts();
+      playTitle();
     });
   }
   function refreshFolders() {
@@ -166,10 +168,36 @@
     var k = kindsNow(), w = k && ['video', 'gif', 'image'].filter(function (x) { return k.indexOf(x) > -1; }).map(function (x) { return { video: 'videos', gif: 'GIFs', image: 'pictures' }[x]; });
     return w ? ' · ' + w.join(' and ').replace(/^./, function (s) { return s.toUpperCase(); }) + ' only' : '';
   }
+  // Filters beyond which folder, collection or tag shows and the kinds of file: search words, shape, length,
+  // resolution, needs a copy, favourites, rating.
+  function narrowed() { var l = S.lib; return !!(text.trim() || l.shape || l.length || l.res || l.copy || l.fav || l.stars); }
+  // What the view shows is one whole folder or collection (the kinds aside): Play then plays that, and follows it.
+  function wholeNow() { return !narrowed() && !S.lib.tag && (collNow() || S.lib.folder) ? true : false; }
+  function viewName() { var c = collNow(), t = tagNow(); return c ? c.name : t ? t.name : S.lib.folder ? nameOf(S.lib.folder) : 'Library'; }
+  // The button beside the folder row plays what the library shows: while that is one whole folder or collection, it
+  // (as its menu does); else the very files shown, in their order.
   function playTitle() {
-    var label = 'Play this ' + (collNow() ? 'collection' : 'folder') + ' on the wall as a playlist';
-    $('#libPlay').title = label + ': ' + host.playHint + kindsText();
+    var c = collNow(), whole = wholeNow(), n = results.length;
+    var label = whole ? 'Play this ' + (c ? 'collection' : 'folder') + ' on the wall as a playlist' : 'Play the ' + count(n, 'file', 'files') + ' shown on the wall as a playlist';
+    $('#libPlay').title = label + ': ' + host.playHint + (whole ? kindsText() : '');
     $('#libPlay').setAttribute('aria-label', label);
+    $('#libPlay').disabled = !n;
+  }
+  // Plays on the wall as a playlist: target { dir } or { coll, name } (a folder's or collection's menu), or null for what
+  // the library shows (the button). With no filters but the kinds, the folder or collection itself, which the playlist
+  // then follows, playing only those kinds; else the files the library finds with the filters as they are, in its
+  // order, as a list of their own (one that does not follow).
+  function playWhat(target, onTile) {
+    var k = kindsNow(), c = collNow();
+    if (!narrowed() && (target || wholeNow())) {
+      host.play(Object.assign({ kinds: k }, target || (c ? { coll: c.id, name: c.name } : { dir: S.lib.folder })), onTile);
+      return;
+    }
+    var q = query();
+    if (target) { q.folder = target.dir || null; q.collection = target.coll || null; q.tag = null; }
+    (target ? api.queryLibrary(q) : Promise.resolve({ items: results })).then(function (r) {
+      host.play({ files: r.items.map(function (e) { return { path: e.path, name: e.name, kind: e.kind }; }), name: target ? target.name || nameOf(target.dir) : viewName() }, onTile);
+    });
   }
   Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) {
     b.addEventListener('click', function () {
@@ -278,10 +306,8 @@
     $('#libFolderNum').textContent = c || t ? (c || t).files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
     $('#libFolderBtn').classList.toggle('off', !!now && now.available === false);
     $('#libFolderBtn').classList.toggle('one', !!(c || t || now.path));
-    // Beside it, while one folder or a collection shows: that plays on the wall as a playlist.
-    var play = $('#libPlay');
-    play.hidden = !(host.play && (c || (now && now.path)));
-    play.disabled = c ? !c.files : !!now && now.available === false;
+    // Beside it: what the library shows plays on the wall as a playlist (playWhat).
+    $('#libPlay').hidden = !host.play;
     playTitle();
     [all].concat(folders).forEach(function (f) {
       var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && !S.lib.tag && S.lib.folder === f.path, f.available === false ? 'off' : '');
@@ -342,14 +368,14 @@
     });
   }
   // The items that play a folder ({ dir }: all its files, its subfolders' too) or a collection ({ coll, name }) on the
-  // wall as a playlist, or on the selected tile. no: why they cannot (the folder is not found, the collection is empty).
+  // wall as a playlist, or on the selected tile, as the library's filters would show it (playWhat). no: why they cannot
+  // (the folder is not found, the collection is empty).
   function playItems(what, no) {
-    var tile = host.tile ? host.tile() : null, kind = what.coll ? 'collection' : 'folder', k = kindsNow();
-    if (k) what.kinds = k;
+    var tile = host.tile ? host.tile() : null, kind = what.coll ? 'collection' : 'folder', how = narrowed() ? ' · As the library filters it' : kindsText();
     return [
-      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: no || host.playHint + kindsText(), disabled: !!no, act: function () { openFolders(false); host.play(what, false); } }
+      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: no || host.playHint + how, disabled: !!no, act: function () { openFolders(false); playWhat(what, false); } }
     ].concat(host.tile ? [
-      { label: 'Play on the selected tile', icon: 'tile', hint: no ? '' : tile ? 'It plays the ' + kind + ' in turn' + kindsText() : 'Select a tile on the wall first', disabled: !!no || !tile, act: function () { openFolders(false); host.play(what, true); } }
+      { label: 'Play on the selected tile', icon: 'tile', hint: no ? '' : tile ? 'It plays the ' + kind + ' in turn' + how : 'Select a tile on the wall first', disabled: !!no || !tile, act: function () { openFolders(false); playWhat(what, true); } }
     ] : []);
   }
   function folderMenu(f, px, py) {
@@ -359,11 +385,7 @@
       { label: 'Show in Explorer', icon: 'folder', disabled: gone, act: function () { api.revealFile(f.path); } }
     ]));
   }
-  $('#libPlay').addEventListener('click', function () {
-    var c = collNow(), k = kindsNow();
-    if (c) host.play({ coll: c.id, name: c.name, kinds: k }, false);
-    else if (S.lib.folder) host.play({ dir: S.lib.folder, kinds: k }, false);
-  });
+  $('#libPlay').addEventListener('click', function () { if (results.length) playWhat(null, false); });
   function tagMenu(x, px, py) {
     A.showMenu(px, py, [
       { label: 'Rename', icon: 'file', hint: 'Into a tag in use, the two become one', act: function () { editing = 'tag:' + x.name; openFolders(true); drawFolders(); } },

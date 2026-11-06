@@ -107,12 +107,22 @@
   // the selected tile plays it instead. A collection's playlist follows it as it changes, as when it is dragged. kinds:
   // the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
   function play(what, onTile) {
-    (what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
+    (what.files ? Promise.resolve(listRes(what)) : what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
+      if (what.files && !res.entries.length) { A.toast('Nothing in "' + res.title + '" matches what the library shows.'); return; }
       if (what.coll && !res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
       if (Array.isArray(what.kinds) && what.kinds.length) res.types = what.kinds;   // the library's Videos / GIFs / Pictures
       var it = onTile ? A.selected() : null;
       if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts(), true);   // an empty wall gets tiles for it
     });
+  }
+  // The files the library shows with its filters ({ files, name }), in its order: a playlist of its own that follows no
+  // folder (at most as many files as a playlist takes).
+  function listRes(what) {
+    var max = window.MW.pl.MAX_FILES, files = what.files.filter(function (f) { return f && typeof f.path === 'string' && f.path; });
+    return {
+      entries: files.slice(0, max).map(function (f) { return { path: f.path, name: f.name || window.MW.util.baseName(f.path), kind: f.kind === 'video' ? 'video' : 'image' }; }),
+      dirs: [], skipped: 0, unsupported: {}, title: String(what.name || 'Library'), truncated: files.length > max, limit: max
+    };
   }
   api.onLibraryPlay(function (what) { if (what) play(what, false); });   // from the library window
 
