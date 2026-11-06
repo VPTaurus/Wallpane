@@ -102,15 +102,17 @@
     });
   }
   api.onLibraryPut(putOnWall);   // from the library window
-  // A library folder as a playlist (its right-click menu, and the button beside the folder shown): as Add › Folder as a
-  // playlist…, it fills the empty tiles and cells and keeps rotating; onTile: the selected tile plays it instead.
-  function playFolder(dir, onTile) {
-    api.expand([dir]).then(function (res) {
+  // A library folder ({ dir }) or a collection ({ coll, name }) as a playlist (their right-click menus, and the button
+  // beside the folder row): as Add › Folder as a playlist…, it fills the empty tiles and cells and keeps rotating; onTile:
+  // the selected tile plays it instead. A collection's playlist follows it as it changes, as when it is dragged.
+  function play(what, onTile) {
+    (what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
+      if (what.coll && !res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
       var it = onTile ? A.selected() : null;
       if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts());
     });
   }
-  api.onLibraryPlayFolder(function (dir) { if (dir) playFolder(dir, false); });   // from the library window
+  api.onLibraryPlay(function (what) { if (what) play(what, false); });   // from the library window
 
   /* ---------- the view here: a drawer or a panel ---------- */
   var root = $('#lib');
@@ -119,7 +121,7 @@
     dragCollections: true,
     isOpen: function () { return !root.hidden; },
     put: putOnWall,
-    playFolder: playFolder,
+    play: play,
     playHint: 'Fills the empty tiles and cells, and keeps rotating',
     tile: function () { var it = A.selected(); return it && !it.sample ? it : null; },
     // extra: the view's own items (collections).

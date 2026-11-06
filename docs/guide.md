@@ -126,7 +126,7 @@ Settings › Library holds the folders where you keep your videos, GIFs and pict
   - **Filling one:** right-click files › Add to "…" or Add to a new collection, or drag them onto a collection in that list (held over the folder row, the list opens).
   - **In a collection:** sorted by Collection order, drag thumbnails to change the order, or right-click › Move to the start / end. Delete (or right-click › Take out) takes files out of it, never off the disk.
   - **Renaming and deleting:** right-click a collection in the list.
-  - **On the wall:** drag a collection onto a tile and the tile plays it, following it as it changes (new files join, its order is kept). Dropped elsewhere, it fills the empty tiles and cells as a folder does.
+  - **On the wall:** drag a collection onto a tile and the tile plays it, following it as it changes (new files join, its order is kept). Dropped elsewhere, it fills the empty tiles and cells as a folder does. Or right-click it › Play on the wall as a playlist, or Play on the selected tile; while it shows, the playlist button beside the folder row plays it too (in the library window, on the wall window used last).
 - **Adding folders:** drop folders from Explorer onto the drawer, or use its + button.
 
 ## Wall mode and unattended walls

@@ -62,8 +62,9 @@
     places: false,
     isOpen: function () { return !!A.S.lib; },
     put: function (paths) { if (paths.length) api.libraryToWall(paths); },
-    // A library folder as a playlist, on the wall window used last (there it fills the empty tiles and cells).
-    playFolder: function (dir) { api.libraryFolderToWall(dir); },
+    // A library folder or collection as a playlist, on the wall window used last (there it fills the empty tiles and
+    // cells).
+    play: function (what) { api.libraryPlayOnWall(what); },
     playHint: 'On the wall window used last, in its empty tiles and cells',
     // extra: the view's own items (collections).
     menu: function (paths, x, y, extra) {

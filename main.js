@@ -561,12 +561,15 @@ handle('library:toWall', (_e, paths) => {
   w.webContents.send('library:put', list);
   return true;
 });
-// From the library window: a library folder for that wall window to play as a playlist (Play on the wall as a playlist).
-handle('library:folderToWall', (_e, dir) => {
-  if (typeof dir !== 'string' || !dir) return false;
+// From the library window: a library folder ({ dir }) or collection ({ coll, name }) for that wall window to play as a
+// playlist (Play on the wall as a playlist).
+handle('library:playOnWall', (_e, what) => {
+  const o = what && typeof what === 'object' ? what : {};
+  const msg = typeof o.dir === 'string' && o.dir ? { dir: o.dir }
+    : typeof o.coll === 'string' && o.coll ? { coll: o.coll, name: String(o.name || '').slice(0, 60) } : null;
   const w = wins.get(lastWall) || [...wins.values()][0];
-  if (!w || w.isDestroyed()) return false;
-  w.webContents.send('library:playFolder', dir);
+  if (!msg || !w || w.isDestroyed()) return false;
+  w.webContents.send('library:play', msg);
   return true;
 });
 // A real Windows file drag of these files out of the library window (Electron offers it for copying or linking, never

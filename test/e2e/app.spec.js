@@ -1458,6 +1458,36 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await menuItem('Add to "Evening"').click();
   await expect(toast()).toContainText('"Evening": 1 new file added to the playlist.', { timeout: 8000 });
 
+  // From its right-click menu it plays on the wall as a playlist, in the empty cells, or on the selected tile; while it
+  // shows, the button beside the folder row plays it too; and so does the library window. Ctrl+Z undoes each.
+  const before = await tiles().count(), undo = async () => { await page.locator('body').press('Control+z'); await expect(tiles()).toHaveCount(before); };
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Rename/, /^Delete/]);
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(toast()).toContainText(/Playing "Evening" \(3 files\) on [1-3] tiles?\./);
+  await expect.poll(() => tiles().count()).toBeGreaterThan(before);
+  await undo();
+  const other = await page.evaluate((id) => { const A = window.MW.app, it = A.S.items.find((i) => String(i.id) !== id && !i.sample && i.kind !== 'empty'); A.select(it.id); return it.id; }, tileId);
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await menuItem('Play on the selected tile').click();
+  await expect(toast()).toContainText('This tile now plays "Evening" (3 files)');
+  expect(await page.evaluate((id) => !!window.MW.app.itemById(id).pl, other)).toBe(true);
+  await page.locator('body').press('Control+z');
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click();
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play this collection on the wall as a playlist');
+  await page.click('#libPlay');
+  await expect(toast()).toContainText('Playing "Evening" (3 files)');
+  await undo();
+  const collId = await page.evaluate(() => window.MW.app.S.lib.coll);
+  await page.evaluate((id) => window.wall.libraryPlayOnWall({ coll: id, name: 'Evening' }), collId);   // as the library window asks
+  await expect(toast()).toContainText('Playing "Evening" (3 files)');
+  await undo();
+  await page.click('#libFolderBtn');
+  await list.locator('.lfolder', { hasText: 'All folders' }).click();
+
   // Deleting it takes two steps, and leaves the files.
   await page.click('#libFolderBtn');
   await collRow('Evening').click({ button: 'right' });

@@ -414,9 +414,14 @@
   }
   // A collection from the library: the tile it lands on plays it; anywhere else it fills the empty tiles and cells, as a
   // folder does. Either way the playlist follows the collection as it changes (ui/playlists.js).
+  // A collection's files as a folder's would come, for a playlist that follows it (also the library's Play on the wall).
+  A.collectionRes = function (coll, name) {
+    return A.api.collectionFiles(coll).then(function (entries) {
+      return { entries: entries || [], dirs: [], skipped: 0, unsupported: {}, coll: coll, title: String(name || 'Collection') };
+    });
+  };
   function dropCollection(lib, tgt) {
-    A.api.collectionFiles(lib.coll).then(function (entries) {
-      var res = { entries: entries || [], dirs: [], skipped: 0, unsupported: {}, coll: lib.coll, title: String(lib.name || 'Collection') };
+    A.collectionRes(lib.coll, lib.name).then(function (res) {
       if (!res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
       var on = tgt ? (tgt.free ? itemUnderPoint(tgt) : G.itemAt(S.items, tgt.col, tgt.row)) : null;
       if (on && !on.sample) A.assignFolder(on, res); else A.fillWithFolder(res, A.readPlOpts());

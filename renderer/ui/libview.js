@@ -8,8 +8,8 @@
 //   dragOut(e, paths)   a drag of files or a folder begins; dragEnd() when it ends
 //   close()             Esc with nothing left to clear
 //   places              whether its header offers the drawer / panel menu (placeMenu(x, y))
-//   playFolder(dir, onTile)  a library folder plays on the wall as a playlist; playHint says where. tile() gives the
-//                       selected tile (the page only), and then onTile plays it there.
+//   play(what, onTile)  a library folder ({ dir }) or collection ({ coll, name }) plays on the wall as a playlist;
+//                       playHint says where. tile() gives the selected tile (the page only), and then onTile plays it there.
 // It gives A.libView: { show() (fill it as it opens), refresh(), cleanPrefs(saved) }.
 (function (A) {
   'use strict';
@@ -266,19 +266,20 @@
     $('#libFolderNum').textContent = c || t ? (c || t).files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
     $('#libFolderBtn').classList.toggle('off', !!now && now.available === false);
     $('#libFolderBtn').classList.toggle('one', !!(c || t || now.path));
-    // Beside it, while one folder shows: that folder plays on the wall as a playlist.
-    var play = $('#libPlay');
-    play.hidden = !(host.playFolder && now && now.path);
-    play.disabled = !!now && now.available === false;
-    play.title = 'Play this folder on the wall as a playlist: ' + host.playHint;
+    // Beside it, while one folder or a collection shows: that plays on the wall as a playlist.
+    var play = $('#libPlay'), what = c ? 'collection' : 'folder', label = 'Play this ' + what + ' on the wall as a playlist';
+    play.hidden = !(host.play && (c || (now && now.path)));
+    play.disabled = c ? !c.files : !!now && now.available === false;
+    play.title = label + ': ' + host.playHint;
+    play.setAttribute('aria-label', label);
     [all].concat(folders).forEach(function (f) {
       var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && !S.lib.tag && S.lib.folder === f.path, f.available === false ? 'off' : '');
       if (f.path) {
-        b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.' + (host.playFolder ? '\nRight-click to play it on the wall as a playlist.' : '');
+        b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.' + (host.play ? '\nRight-click to play it on the wall as a playlist.' : '');
         b.draggable = true;
         b.addEventListener('dragstart', function (e) { host.dragOut(e, [f.path], {}); });
         b.addEventListener('dragend', function () { openFolders(false); });
-        if (host.playFolder) b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); folderMenu(f, e.clientX, e.clientY); });
+        if (host.play) b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); folderMenu(f, e.clientX, e.clientY); });
       }
       b.addEventListener('click', function () { show1(f.path, null); });
     });
@@ -289,7 +290,8 @@
       if (editing === x.id) { nameBox(x.name, function (v) { api.editCollection('rename', x.id, v).then(refreshFolders); }); return; }
       var b = row('playlist', x.name, x.files.toLocaleString('en'), S.lib.coll === x.id, 'coll');
       b.dataset.coll = x.id;
-      b.title = x.name + '\nDrop files here to add them.' + (host.dragCollections ? ' Drag it onto the wall: a tile plays it, and follows it as it changes.' : '') + '\nRight-click to rename or delete it.';
+      b.title = x.name + '\nDrop files here to add them.' + (host.dragCollections ? ' Drag it onto the wall: a tile plays it, and follows it as it changes.' : '') +
+        '\nRight-click to ' + (host.play ? 'play it on the wall as a playlist, ' : '') + 'rename or delete it.';
       if (host.dragCollections) {
         b.draggable = true;
         b.addEventListener('dragstart', function (e) { host.dragOut(e, null, { coll: x.id, name: x.name }); });
@@ -328,20 +330,28 @@
       b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); tagMenu(x, e.clientX, e.clientY); });
     });
   }
-  // A library folder's right-click menu: it plays on the wall as a playlist (all its files, its subfolders' too), or on
-  // the selected tile.
-  function folderMenu(f, px, py) {
-    var gone = f.available === false, tile = host.tile ? host.tile() : null;
-    A.showMenu(px, py, [
-      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: gone ? 'The folder is not found' : host.playHint, disabled: gone, act: function () { openFolders(false); host.playFolder(f.path, false); } }
+  // The items that play a folder ({ dir }: all its files, its subfolders' too) or a collection ({ coll, name }) on the
+  // wall as a playlist, or on the selected tile. no: why they cannot (the folder is not found, the collection is empty).
+  function playItems(what, no) {
+    var tile = host.tile ? host.tile() : null, kind = what.coll ? 'collection' : 'folder';
+    return [
+      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: no || host.playHint, disabled: !!no, act: function () { openFolders(false); host.play(what, false); } }
     ].concat(host.tile ? [
-      { label: 'Play on the selected tile', icon: 'tile', hint: gone ? '' : tile ? 'It plays the folder in turn' : 'Select a tile on the wall first', disabled: gone || !tile, act: function () { openFolders(false); host.playFolder(f.path, true); } }
-    ] : [], [
+      { label: 'Play on the selected tile', icon: 'tile', hint: no ? '' : tile ? 'It plays the ' + kind + ' in turn' : 'Select a tile on the wall first', disabled: !!no || !tile, act: function () { openFolders(false); host.play(what, true); } }
+    ] : []);
+  }
+  function folderMenu(f, px, py) {
+    var gone = f.available === false;
+    A.showMenu(px, py, playItems({ dir: f.path }, gone ? 'The folder is not found' : '').concat([
       '-',
       { label: 'Show in Explorer', icon: 'folder', disabled: gone, act: function () { api.revealFile(f.path); } }
     ]));
   }
-  $('#libPlay').addEventListener('click', function () { if (S.lib.folder) host.playFolder(S.lib.folder, false); });
+  $('#libPlay').addEventListener('click', function () {
+    var c = collNow();
+    if (c) host.play({ coll: c.id, name: c.name }, false);
+    else if (S.lib.folder) host.play({ dir: S.lib.folder }, false);
+  });
   function tagMenu(x, px, py) {
     A.showMenu(px, py, [
       { label: 'Rename', icon: 'file', hint: 'Into a tag in use, the two become one', act: function () { editing = 'tag:' + x.name; openFolders(true); drawFolders(); } },
@@ -360,7 +370,7 @@
     ]);
   }
   function collMenu(x, px, py) {
-    A.showMenu(px, py, [
+    A.showMenu(px, py, (host.play ? playItems({ coll: x.id, name: x.name }, x.files ? '' : 'It has no files yet').concat('-') : []).concat([
       { label: 'Rename', icon: 'file', act: function () { editing = x.id; openFolders(true); drawFolders(); } },
       { label: 'Delete…', icon: 'trash', hint: 'Its files stay where they are', act: function () {
         A.showMenu(px, py, [
@@ -374,7 +384,7 @@
           { label: 'Keep it', icon: 'x', act: function () {} }
         ]);
       } }
-    ]);
+    ]));
   }
   function openFolders(on) {
     folderBox.hidden = !on;
