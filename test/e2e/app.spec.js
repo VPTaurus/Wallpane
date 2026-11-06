@@ -230,7 +230,10 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await page.mouse.move(150, 120);
   await expect(exit).toBeHidden();
   await page.mouse.move(150, 2);
-  await exit.click();
+  await expect(exit).toBeVisible();
+  // Clicked as soon as it shows: Playwright's click would wait for the slide to end, and any real move of the mouse
+  // over the full-screen window meanwhile (someone at the PC) sends it away again.
+  await exit.evaluate((b) => b.click());
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop']);
   // F11 and Esc as well. With the bar hidden, the right-click menu has its screenshot and Record, and Exit.

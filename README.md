@@ -30,7 +30,7 @@ Free for Windows. Everything stays on your PC: Wallpane goes online only when yo
 **Private.** Wallpane plays your local files only and connects to the internet only when you click Check for updates, to ask GitHub for the newest version; your files are never changed. One key (or mouse button) hides every wall window at once, from any program.
 
 ## Download and install
-1. Get **Wallpane Setup** (installer) or **Wallpane** (portable, no install) from the [latest release](https://github.com/VPTaurus/Wallpane/releases/latest). For Windows 10 and 11, 64-bit.
+1. Get **Wallpane.Setup** (installer) or **Wallpane.Portable** (portable, no install) from the [latest release](https://github.com/VPTaurus/Wallpane/releases/latest). For Windows 10 and 11, 64-bit.
 2. Wallpane is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info**, then **Run anyway**.
 
 It plays MP4, WebM, MOV, MKV and more, and JPEG, PNG, GIF, WebP and other pictures. See [Formats](docs/guide.md#formats).

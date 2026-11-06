@@ -174,7 +174,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var
     <h1>All your videos,<br>playing at once.</h1>
     <p class="lede">Wallpane puts your own videos, pictures and GIFs side by side on a wall that fills the screen. Arrange it on a grid or freely, let whole folders play in turn, and leave it running on a TV. Everything stays on your PC.</p>
     <div class="actions">
-      <a class="btn pri" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Setup.exe">
+      <a class="btn pri" data-get="Setup" href="https://github.com/VPTaurus/Wallpane/releases/latest">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download for Windows</a>
       <a class="btn" href="#features">See what it does</a>
     </div>
@@ -259,13 +259,13 @@ footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var
         <div class="opt">
           <h3>Installer</h3>
           <p>Installs Wallpane with a Start menu entry and an uninstaller. Best for most people.</p>
-          <a class="btn pri" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Setup.exe">
+          <a class="btn pri" data-get="Setup" href="https://github.com/VPTaurus/Wallpane/releases/latest">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download installer</a>
         </div>
         <div class="opt">
           <h3>Portable</h3>
           <p>One file that runs from anywhere, even a USB stick. Nothing is installed.</p>
-          <a class="btn" href="https://github.com/VPTaurus/Wallpane/releases/latest/download/Wallpane-Portable.exe">
+          <a class="btn" data-get="Portable" href="https://github.com/VPTaurus/Wallpane/releases/latest">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>Download portable</a>
         </div>
         <div class="warn">
@@ -338,6 +338,23 @@ footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var
     var v = document.getElementById('wallClip');
     if (!v || !window.matchMedia || !matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     v.removeAttribute('autoplay'); v.pause(); v.controls = true;
+  })();
+  // The download buttons lead to the newest release's page; once GitHub says which files it has, straight to its
+  // installer (…Setup…exe) and portable (…Portable…exe). Without an answer they stay on the page.
+  (function () {
+    var links = document.querySelectorAll('a[data-get]');
+    if (!links.length || !window.fetch) return;
+    fetch('https://api.github.com/repos/VPTaurus/Wallpane/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
+        var files = rel && Array.isArray(rel.assets) ? rel.assets : [];
+        Array.prototype.forEach.call(links, function (a) {
+          var kind = new RegExp('(^|[.\\-])' + a.getAttribute('data-get') + '([.\\-]|$)', 'i');
+          var f = files.filter(function (x) { return /\.exe$/i.test(x.name) && kind.test(x.name); })[0];
+          if (f && /^https:\/\/github\.com\//.test(f.browser_download_url)) a.href = f.browser_download_url;
+        });
+      })
+      .catch(function () {});
   })();
 </script>
 </body>

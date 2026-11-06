@@ -71,8 +71,8 @@ jobs:
         with:
           name: wallpane-windows
           path: dist/*.exe
-      # Also under names without the version (Wallpane-Setup.exe, Wallpane-Portable.exe), so the landing page's links
-      # (releases/latest/download/...) always fetch the newest.
+      # Just the two files, Wallpane.Setup.<version>.exe and Wallpane.Portable.<version>.exe (package.json's
+      # artifactName). The landing page finds the newest release's files by itself (docs/index.html).
       - name: Attach the installer and the portable .exe to the release
         if: github.event_name == 'release'
         shell: pwsh
@@ -80,7 +80,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          New-Item -ItemType Directory -Force dist/latest | Out-Null
-          Copy-Item "dist/Wallpane Setup $v.exe" dist/latest/Wallpane-Setup.exe
-          Copy-Item "dist/Wallpane $v.exe" dist/latest/Wallpane-Portable.exe
-          gh release upload '${{ github.event.release.tag_name }}' (Get-ChildItem dist/*.exe, dist/latest/*.exe).FullName --clobber --repo '${{ github.repository }}'
+          $files = "dist/Wallpane.Setup.$v.exe", "dist/Wallpane.Portable.$v.exe"
+          $files | ForEach-Object { if (-not (Test-Path $_)) { throw "$_ was not built." } }
+          gh release upload '${{ github.event.release.tag_name }}' $files --clobber --repo '${{ github.repository }}'

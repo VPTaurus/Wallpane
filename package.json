@@ -1,7 +1,7 @@
 {
   "name": "wallpane",
   "productName": "Wallpane",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "A video wall for your own videos, images and GIFs. Local files only; online only when you check for updates.",
   "author": "Pavels Mazurs",
   "license": "GPL-3.0-or-later",
@@ -75,7 +75,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false
+      "perMachine": false,
+      "artifactName": "${productName}.Setup.${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}.Portable.${version}.${ext}"
     }
   },
   "allowScripts": {

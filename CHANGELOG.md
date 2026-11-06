@@ -1,10 +1,12 @@
 # Changelog
 
-## Not released yet
+## 1.7.1: The library on the wall, tag chips, and a GIF of the wall
 
-For 1.7.1.
+Download **Wallpane.Setup.1.7.1.exe** (installer) or **Wallpane.Portable.1.7.1.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. From this release on, each release has just these two files; the website's buttons find them by themselves.
 
-Added:
+Play a library folder, a collection or exactly what the library shows (by tags, kinds, rating, favourites, search) on the wall as a playlist in one click, laid out edge to edge by the shapes of its files. Tag chips filter the library, several at once. Save the wall as a GIF, Pin all in the top bar, a fuller right-click menu in wall mode, and Check for updates in Settings.
+
+New:
 - **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
 - **A library folder or collection as a playlist:** right-click one in the library's folder list › Play on the wall as a playlist (it fills the empty tiles and cells and keeps rotating, as Add › Folder as a playlist… does), or Play on the selected tile. While one shows, a button beside the folder row plays it too. A collection's playlist follows it as it changes, as when it is dragged. Also in the library window, where collections could not reach the wall before. On an empty wall it first makes a tile per file, up to the grid's number of cells (also in Free). Then Fill the wall arranges every tile by its media's shape, edge to edge; one Ctrl+Z undoes it all. When every file gets a tile of its own, the tiles stay on their files (pinned), so none moves on to a file another tile already shows. With Videos, GIFs or Pictures picked in the library, the playlist plays only those kinds of file. With a search, a tag, All folders or other filters (rating, favourites, shape, length, resolution), the button plays exactly the files the library shows, in its order.
 - **Pin all** in the top bar, beside Repeat: every playlist tile stays on the file it shows; when all do already, they all carry on with their playlists.

@@ -644,7 +644,7 @@ test('save the looped part as MP4: re-encoded when the keyframe before it is far
     };
     const secs = async (p) => parseFloat((await ff.probeRaw(p)).format.duration);
     await save(out);
-    await expect(toast(page)).toContainText('Saved cut.mp4');
+    await expect(toast(page)).toContainText('Saved cut.mp4', { timeout: 30000 });   // a re-encode: slower on a busy PC
     await expect(toast(page)).toContainText('the nearest keyframe was 1.3 s before it');
     const info = await ff.probeRaw(out);
     expect(info.streams.map((s) => s.codec_name).sort()).toEqual(['aac', 'h264']);
@@ -654,7 +654,7 @@ test('save the looped part as MP4: re-encoded when the keyframe before it is far
     const near = path.join(dir, 'near.mp4');
     await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 4.2, 5); });
     await save(near);
-    await expect(toast(page)).toContainText('Saved near.mp4');
+    await expect(toast(page)).toContainText('Saved near.mp4', { timeout: 30000 });
     await expect(toast(page)).toContainText('starts 0.2 s before the part');
     expect(Math.abs(await secs(near) - 1)).toBeLessThan(0.1);
     expect(errors).toEqual([]);
