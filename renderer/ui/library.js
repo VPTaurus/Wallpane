@@ -109,7 +109,7 @@
     (what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
       if (what.coll && !res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
       var it = onTile ? A.selected() : null;
-      if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts());
+      if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts(), true);   // an empty wall gets tiles for it
     });
   }
   api.onLibraryPlay(function (what) { if (what) play(what, false); });   // from the library window

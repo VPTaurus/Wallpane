@@ -1488,6 +1488,38 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await page.click('#libFolderBtn');
   await list.locator('.lfolder', { hasText: 'All folders' }).click();
 
+  // On an empty wall it first makes tiles that cover the wall, one per file: on the grid, set to them (the last tile
+  // wider when a row is short); in Free (pixels), the same tiles. Ctrl+Z gives the empty wall back.
+  const playEvening = async () => {
+    await page.click('#libFolderBtn');
+    await collRow('Evening').click({ button: 'right' });
+    await menuItem('Play on the wall as a playlist').click();
+  };
+  const geo = () => page.evaluate(() => window.MW.app.S.items.map((i) => [i.col, i.row, i.w, i.h, !!i.pl]));
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+  await playEvening();
+  await expect(toast()).toHaveText('Playing "Evening" (3 files) on 3 tiles.');   // no more files for more cells
+  await expect(page.locator('#gridLabel')).toHaveText('2 × 2');
+  expect(await geo()).toEqual([[0, 0, 1, 1, true], [1, 0, 1, 1, true], [0, 1, 2, 1, true]]);
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+  await page.click('#modeSeg [data-mode="free"]');
+  await playEvening();
+  await expect(toast()).toContainText('Playing "Evening" (3 files) on 3 tiles.');
+  await expect(toast()).not.toContainText('Add rows or columns');
+  const box = await layout();
+  expect(box.tiles.length).toBe(3);
+  expect(box.overlaps).toBe(0);
+  const wb = await page.locator('#wall').boundingBox(), area = box.tiles.reduce((s, t) => s + t.w * t.h, 0);
+  expect(area / (wb.width * wb.height)).toBeGreaterThan(0.9);   // they cover the wall (bar the gaps)
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('#modeSeg [data-mode="grid"]');
+
   // Deleting it takes two steps, and leaves the files.
   await page.click('#libFolderBtn');
   await collRow('Evening').click({ button: 'right' });

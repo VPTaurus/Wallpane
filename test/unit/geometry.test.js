@@ -94,3 +94,19 @@ test('layouts: frames are checked, and empty cells become extra slots', () => {
   assert.deepEqual(slots, [{ col: 0, row: 0, w: 2, h: 1 }, { col: 0, row: 1, w: 1, h: 1 }, { col: 1, row: 1, w: 1, h: 1 }]);
   assert.equal(G.gridFrames(3, 2).length, 6);
 });
+
+test('coverWall: n tiles cover the wall, row by row, the last one wider when its row is short; tiles near a screen\'s shape', () => {
+  const covers = (L) => {
+    const m = G.emptyGrid(L.cols, L.rows);
+    L.frames.forEach((f) => G.mark(m, f, f.w, f.h));
+    return m.every((row) => row.every(Boolean)) && G.validFrames({ cols: L.cols, rows: L.rows, f: L.frames.map((f) => [f.col, f.row, f.w, f.h]) });
+  };
+  const shape = (n, W, H) => { const L = G.coverWall(n, W, H); assert.ok(covers(L), n + ' tiles cover ' + W + 'x' + H); return [L.cols, L.rows, L.frames[n - 1].w]; };
+  assert.deepEqual(shape(1, 1600, 900), [1, 1, 1]);
+  assert.deepEqual(shape(2, 1600, 900), [2, 1, 1]);
+  assert.deepEqual(shape(3, 1600, 900), [2, 2, 2]);    // two above, one as wide as both below
+  assert.deepEqual(shape(6, 1600, 900), [3, 2, 1]);
+  assert.deepEqual(shape(12, 1600, 900), [4, 3, 1]);
+  assert.deepEqual(shape(6, 900, 1600), [2, 3, 1]);    // an upright wall: more rows
+  for (let n = 1; n <= 40; n++) { const L = G.coverWall(n, 1280, 720); assert.equal(L.frames.length, n); assert.ok(covers(L) && L.cols <= 12 && L.rows <= 12, String(n)); }
+});
