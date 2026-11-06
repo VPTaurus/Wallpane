@@ -1542,13 +1542,41 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await expect(page.locator('#pinAll')).toBeDisabled();
   await page.click('#modeSeg [data-mode="grid"]');
 
+  // The kinds picked in the library count: with GIFs picked, a folder plays its GIF only (and files that join it later
+  // only if they are GIFs); with Videos alone, it has nothing to play.
+  fs.writeFileSync(path.join(dir, 'Drawer media', 'spin.gif'), Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64'));
+  await expect(thumbs).toHaveCount(5, { timeout: 10000 });
+  const drawerRow = list.locator('.lfolder', { hasText: 'Drawer media' });
+  const playDrawer = async () => {
+    await page.click('#libFolderBtn');
+    await drawerRow.click({ button: 'right' });
+    await menuItem('Play on the wall as a playlist').click();
+  };
+  await page.click('.lkinds [data-kind="gif"]');
+  await expect(thumbs).toHaveCount(1);
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(menuItem('Play on the wall as a playlist')).toContainText('GIFs only');
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(toast()).toContainText('Playing "Drawer media" (1 of 5 files (GIFs only)) on 1 tile. It is the only one, so the tile stays on it.');
+  expect(await page.evaluate(() => { const A = window.MW.app; return [A.S.items.map((i) => i.name), A.S.playlists[A.S.items[0].pl].types]; })).toEqual([['spin.gif'], ['gif']]);
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('.lkinds [data-kind="gif"]');
+  await page.click('.lkinds [data-kind="video"]');
+  await playDrawer();
+  await expect(toast()).toContainText('"Drawer media" has no videos. Pick other kinds in the library');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('.lkinds [data-kind="video"]');
+  await expect(thumbs).toHaveCount(5);
+
   // Deleting it takes two steps, and leaves the files.
   await page.click('#libFolderBtn');
   await collRow('Evening').click({ button: 'right' });
   await menuItem('Delete…').click();
   await menuItem('Delete "Evening"').click();
   await expect(toast()).toContainText('"Evening" is deleted');
-  await expect(thumbs).toHaveCount(4);
+  await expect(thumbs).toHaveCount(5);   // the four pictures and the GIF added above
   await page.click('#libClose');
 });
 

@@ -97,7 +97,7 @@ contextBridge.exposeInMainWorld('wall', {
   onLibraryWindow: (cb) => { ipcRenderer.on('library:window', (_e, shown) => cb(!!shown)); },
   libraryToWall: (paths) => ipcRenderer.invoke('library:toWall', Array.isArray(paths) ? paths.map(String) : []),
   onLibraryPut: (cb) => { ipcRenderer.on('library:put', (_e, paths) => cb(Array.isArray(paths) ? paths : [])); },
-  libraryPlayOnWall: (what) => ipcRenderer.invoke('library:playOnWall', what && typeof what === 'object' ? { dir: what.dir, coll: what.coll, name: what.name } : null),
+  libraryPlayOnWall: (what) => ipcRenderer.invoke('library:playOnWall', what && typeof what === 'object' ? { dir: what.dir, coll: what.coll, name: what.name, kinds: Array.isArray(what.kinds) ? what.kinds.map(String) : null } : null),
   onLibraryPlay: (cb) => { ipcRenderer.on('library:play', (_e, what) => cb(what && typeof what === 'object' ? what : null)); },
   startFileDrag: (paths) => ipcRenderer.send('library:drag', Array.isArray(paths) ? paths.map(String) : []),
 

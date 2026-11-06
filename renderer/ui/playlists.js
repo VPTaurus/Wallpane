@@ -301,14 +301,18 @@
     var n = PL.playable(p), all = p.files.length, t = PL.typesLabel(p);
     return (n === all ? n : n + ' of ' + all) + (all === 1 ? ' file' : ' files') + (t ? ' (' + t + ')' : '');
   };
-  function nothingPlays(p) {
-    A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. Tick more kinds of file under Plays.');
+  function nothingPlays(p, fromLib) {
+    A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. ' +
+      (fromLib ? 'Pick other kinds in the library (Videos, GIFs, Pictures), or none for all of them.' : 'Tick more kinds of file under Plays.'));
   }
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
-  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows.
+  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows,
+  // res.types the kinds of file it plays (the library's Videos / GIFs / Pictures as picked when it was played), also of
+  // the files that join it later.
   function fromRes(p, res) {
     if (res.title) p.name = String(res.title).slice(0, 60);
     if (res.coll) p.coll = res.coll;
+    if (res.types) p.types = PL.cleanTypes(res.types);
     return p;
   }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
@@ -323,7 +327,7 @@
       return;
     }
     var id = newId(), p = fromRes(PL.make(files, opts, PL.rootFor(res, files)), res);
-    if (!PL.playable(p)) { nothingPlays(p); return; }
+    if (!PL.playable(p)) { nothingPlays(p, !!res.types); return; }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
     if (S.sel && !A.itemById(S.sel)) S.sel = null;
@@ -338,7 +342,7 @@
     if (own) S.items.forEach(function (it) { if (it.pl === id) A.setPinned(it, true, true); });
     var msg = [n
       ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + (more ? ' Add rows or columns and they fill too.' : '') +
-        (own ? (n === 1 ? ' It is the only file, so the tile stays on it.' : ' Each file has a tile of its own, so each tile stays on its file (Pin all in the bar lets them move on).') : '')
+        (own ? (n === 1 ? ' It is the only one, so the tile stays on it.' : ' Each file has a tile of its own, so each tile stays on its file (Pin all in the bar lets them move on).') : '')
       : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' ');
     if (lib && n) { A.fillWallAfterAdding(msg); return; }
     A.render(); A.refreshInspector();
@@ -404,7 +408,7 @@
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
     var base = (it.pl && S.playlists[it.pl]) || A.readPlOpts();
     var id = newId(), p = fromRes(PL.make(files, base, PL.rootFor(res, files)), res);
-    if (!PL.playable(p)) { nothingPlays(p); return; }
+    if (!PL.playable(p)) { nothingPlays(p, !!res.types); return; }
     p.truncated = !!res.truncated;
     A.pushHistory();
     S.playlists[id] = p;

@@ -104,10 +104,12 @@
   api.onLibraryPut(putOnWall);   // from the library window
   // A library folder ({ dir }) or a collection ({ coll, name }) as a playlist (their right-click menus, and the button
   // beside the folder row): as Add › Folder as a playlist…, it fills the empty tiles and cells and keeps rotating; onTile:
-  // the selected tile plays it instead. A collection's playlist follows it as it changes, as when it is dragged.
+  // the selected tile plays it instead. A collection's playlist follows it as it changes, as when it is dragged. kinds:
+  // the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
   function play(what, onTile) {
     (what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
       if (what.coll && !res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
+      if (Array.isArray(what.kinds) && what.kinds.length) res.types = what.kinds;   // the library's Videos / GIFs / Pictures
       var it = onTile ? A.selected() : null;
       if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts(), true);   // an empty wall gets tiles for it
     });

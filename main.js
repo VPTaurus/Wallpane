@@ -567,6 +567,9 @@ handle('library:playOnWall', (_e, what) => {
   const o = what && typeof what === 'object' ? what : {};
   const msg = typeof o.dir === 'string' && o.dir ? { dir: o.dir }
     : typeof o.coll === 'string' && o.coll ? { coll: o.coll, name: String(o.name || '').slice(0, 60) } : null;
+  // kinds: the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
+  const kinds = (Array.isArray(o.kinds) ? o.kinds : []).filter((k) => ['video', 'gif', 'image'].includes(k));
+  if (msg && kinds.length) msg.kinds = kinds;
   const w = wins.get(lastWall) || [...wins.values()][0];
   if (!msg || !w || w.isDestroyed()) return false;
   w.webContents.send('library:play', msg);

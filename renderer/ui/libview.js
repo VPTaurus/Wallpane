@@ -158,7 +158,19 @@
     clearTimeout(typing);
     typing = setTimeout(function () { text = v; grid.scrollTop = 0; refresh(); }, 120);
   });
-  function changed() { A.savePrefs(); grid.scrollTop = 0; refresh(); }
+  function changed() { A.savePrefs(); grid.scrollTop = 0; refresh(); playTitle(); }
+  // The kinds of file picked (Videos / GIFs / Pictures), or null for all: a folder or collection played on the wall
+  // plays only those. kindsText says so after a hint.
+  function kindsNow() { return S.lib.kinds.length ? S.lib.kinds.slice() : null; }
+  function kindsText() {
+    var k = kindsNow(), w = k && ['video', 'gif', 'image'].filter(function (x) { return k.indexOf(x) > -1; }).map(function (x) { return { video: 'videos', gif: 'GIFs', image: 'pictures' }[x]; });
+    return w ? ' · ' + w.join(' and ').replace(/^./, function (s) { return s.toUpperCase(); }) + ' only' : '';
+  }
+  function playTitle() {
+    var label = 'Play this ' + (collNow() ? 'collection' : 'folder') + ' on the wall as a playlist';
+    $('#libPlay').title = label + ': ' + host.playHint + kindsText();
+    $('#libPlay').setAttribute('aria-label', label);
+  }
   Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) {
     b.addEventListener('click', function () {
       var k = b.dataset.kind, on = S.lib.kinds.indexOf(k) < 0;
@@ -267,11 +279,10 @@
     $('#libFolderBtn').classList.toggle('off', !!now && now.available === false);
     $('#libFolderBtn').classList.toggle('one', !!(c || t || now.path));
     // Beside it, while one folder or a collection shows: that plays on the wall as a playlist.
-    var play = $('#libPlay'), what = c ? 'collection' : 'folder', label = 'Play this ' + what + ' on the wall as a playlist';
+    var play = $('#libPlay');
     play.hidden = !(host.play && (c || (now && now.path)));
     play.disabled = c ? !c.files : !!now && now.available === false;
-    play.title = label + ': ' + host.playHint;
-    play.setAttribute('aria-label', label);
+    playTitle();
     [all].concat(folders).forEach(function (f) {
       var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && !S.lib.tag && S.lib.folder === f.path, f.available === false ? 'off' : '');
       if (f.path) {
@@ -333,11 +344,12 @@
   // The items that play a folder ({ dir }: all its files, its subfolders' too) or a collection ({ coll, name }) on the
   // wall as a playlist, or on the selected tile. no: why they cannot (the folder is not found, the collection is empty).
   function playItems(what, no) {
-    var tile = host.tile ? host.tile() : null, kind = what.coll ? 'collection' : 'folder';
+    var tile = host.tile ? host.tile() : null, kind = what.coll ? 'collection' : 'folder', k = kindsNow();
+    if (k) what.kinds = k;
     return [
-      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: no || host.playHint, disabled: !!no, act: function () { openFolders(false); host.play(what, false); } }
+      { label: 'Play on the wall as a playlist', icon: 'playlist', hint: no || host.playHint + kindsText(), disabled: !!no, act: function () { openFolders(false); host.play(what, false); } }
     ].concat(host.tile ? [
-      { label: 'Play on the selected tile', icon: 'tile', hint: no ? '' : tile ? 'It plays the ' + kind + ' in turn' : 'Select a tile on the wall first', disabled: !!no || !tile, act: function () { openFolders(false); host.play(what, true); } }
+      { label: 'Play on the selected tile', icon: 'tile', hint: no ? '' : tile ? 'It plays the ' + kind + ' in turn' + kindsText() : 'Select a tile on the wall first', disabled: !!no || !tile, act: function () { openFolders(false); host.play(what, true); } }
     ] : []);
   }
   function folderMenu(f, px, py) {
@@ -348,9 +360,9 @@
     ]));
   }
   $('#libPlay').addEventListener('click', function () {
-    var c = collNow();
-    if (c) host.play({ coll: c.id, name: c.name }, false);
-    else if (S.lib.folder) host.play({ dir: S.lib.folder }, false);
+    var c = collNow(), k = kindsNow();
+    if (c) host.play({ coll: c.id, name: c.name, kinds: k }, false);
+    else if (S.lib.folder) host.play({ dir: S.lib.folder, kinds: k }, false);
   });
   function tagMenu(x, px, py) {
     A.showMenu(px, py, [
