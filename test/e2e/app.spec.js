@@ -1239,11 +1239,13 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Show in Explorer/]);
   await menuItem('Play on the wall as a playlist').click();
   await expect(folderList).toBeHidden();
-  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles.');
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles. 7 tiles fill the wall');   // then Fill the wall
   await expect(tiles()).toHaveCount(7);
+  await expect(page.locator('#gridLabel')).toHaveText('Free');
   expect(await page.evaluate(() => window.MW.app.S.items.filter((i) => i.pl).length)).toBe(5);   // and the Shift-drag tile
   await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(3);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
   const grey = page.locator('#wall .tile[aria-label^="grey extra.png"]');
   if (!/\bsel\b/.test(await grey.getAttribute('class'))) await grey.click();   // a click on the selected tile lets it go
   await expect(grey).toHaveClass(/\bsel\b/);
@@ -1488,34 +1490,38 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await page.click('#libFolderBtn');
   await list.locator('.lfolder', { hasText: 'All folders' }).click();
 
-  // On an empty wall it first makes tiles that cover the wall, one per file: on the grid, set to them (the last tile
-  // wider when a row is short); in Free (pixels), the same tiles. Ctrl+Z gives the empty wall back.
+  // On an empty wall it first makes a tile per file, then Fill the wall gives each its media's shape, edge to edge (in
+  // Free layout): on the grid as in Free. One Ctrl+Z gives the empty wall back, as it was.
   const playEvening = async () => {
     await page.click('#libFolderBtn');
     await collRow('Evening').click({ button: 'right' });
     await menuItem('Play on the wall as a playlist').click();
   };
-  const geo = () => page.evaluate(() => window.MW.app.S.items.map((i) => [i.col, i.row, i.w, i.h, !!i.pl]));
+  const filled = async () => {
+    await expect(toast()).toContainText(/^Playing "Evening" \(3 files\) on 3 tiles\. 3 tiles fill the wall in \d (rows?|columns?)\./);
+    await expect(toast()).not.toContainText('Add rows or columns');
+    await expect(page.locator('#gridLabel')).toHaveText('Free');
+    const box = await layout(), wb = await page.locator('#wall').boundingBox(), area = box.tiles.reduce((s, t) => s + t.w * t.h, 0);
+    expect(box.tiles.length).toBe(3);
+    expect(box.overlaps).toBe(0);
+    expect(area / (wb.width * wb.height)).toBeGreaterThan(0.85);   // they fill the wall (bar the gaps)
+    // Each tile has its picture's shape: red wide 16:9, green tall 9:16, grey extra 4:3.
+    const shapes = await page.evaluate(() => [...document.querySelectorAll('#wall .tile')].map((t) => { const b = t.getBoundingClientRect(); return [t.getAttribute('aria-label').split(' ')[0], Math.round(b.width / b.height * 100) / 100]; }));
+    for (const [, r] of shapes) expect([1.78, 0.56, 1.33].some((x) => Math.abs(r - x) < 0.12)).toBe(true);
+    expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pl))).toBe(true);
+  };
   await page.click('#clearBtn');
   await page.click('#clearBtn');
   await expect(tiles()).toHaveCount(0);
   await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
   await playEvening();
-  await expect(toast()).toHaveText('Playing "Evening" (3 files) on 3 tiles.');   // no more files for more cells
-  await expect(page.locator('#gridLabel')).toHaveText('2 × 2');
-  expect(await geo()).toEqual([[0, 0, 1, 1, true], [1, 0, 1, 1, true], [0, 1, 2, 1, true]]);
+  await filled();
   await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(0);
   await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
   await page.click('#modeSeg [data-mode="free"]');
   await playEvening();
-  await expect(toast()).toContainText('Playing "Evening" (3 files) on 3 tiles.');
-  await expect(toast()).not.toContainText('Add rows or columns');
-  const box = await layout();
-  expect(box.tiles.length).toBe(3);
-  expect(box.overlaps).toBe(0);
-  const wb = await page.locator('#wall').boundingBox(), area = box.tiles.reduce((s, t) => s + t.w * t.h, 0);
-  expect(area / (wb.width * wb.height)).toBeGreaterThan(0.9);   // they cover the wall (bar the gaps)
+  await filled();
   await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(0);
   await page.click('#modeSeg [data-mode="grid"]');

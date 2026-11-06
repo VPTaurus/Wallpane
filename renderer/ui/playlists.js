@@ -300,11 +300,12 @@
     return p;
   }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
-  // cover (the library's Play on the wall as a playlist): an empty wall first gets tiles that cover it (coverWall).
-  A.fillWithFolder = function (res, opts, cover) {
+  // lib (the library's Play on the wall as a playlist): an empty wall first gets tiles for it (coverWall), and then
+  // Fill the wall arranges every tile by its media's shape, edge to edge (in Free layout), in the same undo step.
+  A.fillWithFolder = function (res, opts, lib) {
     var files = res.entries || [];
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
-    var bare = !!cover && !S.items.some(function (i) { return !i.sample; });
+    var bare = !!lib && !S.items.some(function (i) { return !i.sample; });
     if (!bare && S.mode === 'free' && !S.items.some(function (i) { return i.kind === 'empty'; })) {
       A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
       return;
@@ -318,22 +319,23 @@
     p.truncated = !!res.truncated;
     S.playlists[id] = p;
     S.fillPl = id;
-    var n = A.autoFill(false), more = S.mode !== 'free' && PL.playable(p) > n;   // files left for new cells
-    A.render(); A.refreshInspector();
-    A.toast([n
+    var n = A.autoFill(false), more = !lib && S.mode !== 'free' && PL.playable(p) > n;   // files left for new cells
+    var msg = [n
       ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + (more ? ' Add rows or columns and they fill too.' : '')
-      : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' '));
+      : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' ');
+    if (lib && n) { A.fillWallAfterAdding(msg); return; }
+    A.render(); A.refreshInspector();
+    A.toast(msg);
   };
-  // An empty wall gets n empty tiles that cover it, for a playlist to fill: on the grid, n as many as its cells keeps
-  // the rows and columns; fewer files make fewer, bigger tiles, the grid set to them (as Arrange › Rows and columns
-  // would; Ctrl+Z goes back). In Free (pixels), tiles in the same places.
+  // An empty wall gets n empty tiles for a playlist to fill: one per file, at most as many as the grid has cells (Arrange
+  // › Rows and columns), placed as G.coverWall lays them out; Fill the wall then gives each its media's shape. With
+  // that many files on the grid, its empty cells take the playlist as they are.
   function coverWall(n) {
     var d = A.wallPx(), full = n >= S.cols * S.rows;
+    if (S.mode !== 'free' && full) return;
     var L = full ? { cols: S.cols, rows: S.rows, frames: G.gridFrames(S.cols, S.rows).map(function (f) { return { col: f[0], row: f[1], w: 1, h: 1 }; }) } : G.coverWall(n, d.W, d.H);
-    if (S.mode !== 'free' && full) return;   // its empty cells take the playlist as they are
     var tiles = L.frames.map(function (f) { return A.makeEmptyItem(f); });
-    if (S.mode === 'free') MW.free.toFree(tiles, L.cols, L.rows, S.gap, d);
-    else { S.cols = L.cols; S.rows = L.rows; A.savePrefs(); }
+    MW.free.toFree(tiles, L.cols, L.rows, S.gap, d);   // where they go in Free layout
     S.items = S.items.concat(tiles);
   }
   // Puts the fill folder into each empty tile, then (on the grid) into each empty cell, never more tiles than files.

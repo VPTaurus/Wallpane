@@ -595,5 +595,17 @@
     A.toast(msg);
   }
   $('#fillWallBtn').addEventListener('click', function () { A.closePops(); fillWall(); });
+  // Fill the wall straight after a library folder or collection went on it (the library's Play on the wall as a
+  // playlist), once the shapes of the files just put on tiles are known (they have not loaded yet): asked of the main
+  // process, 40 at a time. Part of the undo step the adding made; lead starts the message.
+  A.fillWallAfterAdding = function (lead) {
+    var need = S.items.filter(function (i) { return A.hasMedia(i) && !i.missing && !mediaAspect(i).known; }), asks = [];
+    for (var k = 0; k < need.length; k += 40) asks.push(A.api.mediaShapes(need.slice(k, k + 40).map(function (i) { return i.path; })).then(function (s) { return s || {}; }, function () { return {}; }));
+    Promise.all(asks).then(function (got) {
+      var shapes = Object.assign.apply(null, [{}].concat(got));
+      need.forEach(function (i) { if (shapes[i.path]) i.ar = shapes[i.path]; });
+      fillWall({ last: [], lead: lead });
+    });
+  };
   $('#setFullWall').addEventListener('change', function () { S.fullWall = this.value === 'fill' ? 'fill' : 'say'; A.savePrefs(); });
 })(window.MW.app);
