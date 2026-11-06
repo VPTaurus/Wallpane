@@ -1481,10 +1481,15 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await page.mouse.down();
   const lib = await page.locator('#lib').boundingBox();
   await page.mouse.move(lib.x + lib.width + 60, p[1], { steps: 6 });
+  // Meanwhile the library says it changed (as when it reads files' details in the background): its list is not drawn
+  // again under the drag, which would take the row away and leave the drawer faded, letting clicks through.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('library:changed')));
+  await page.waitForTimeout(1500);
   p = await at(page.locator('#wall .tile[data-id="' + tileId + '"]'));
   await page.mouse.move(p[0], p[1], { steps: 6 });
   await page.mouse.up();
   await expect(toast()).toContainText('This tile now plays "Evening" (2 files)');
+  await expect(page.locator('#lib')).not.toHaveClass(/\bout\b/);
   await page.click('#libFolderBtn');
   await list.locator('.lfolder', { hasText: 'All folders' }).click();
   await thumb('grey extra.png').click({ button: 'right' });

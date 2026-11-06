@@ -186,6 +186,8 @@
   root.addEventListener('dragleave', function (e) {
     if (A.libDrag && S.lib.place === 'drawer' && !root.contains(e.relatedTarget)) root.classList.add('out');
   });
+  // A drop anywhere also ends a drag out of the library, in case the end of the drag did not reach the drawer.
+  window.addEventListener('drop', function () { setTimeout(function () { if (A.libDrag || root.classList.contains('out')) A.libHost.dragEnd(); }, 0); });
 
   // A drawer over the wall, a panel beside it (which makes the wall narrower), or a window of its own.
   var PLACES = {

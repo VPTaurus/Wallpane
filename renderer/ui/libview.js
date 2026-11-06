@@ -650,11 +650,16 @@
   grid.addEventListener('pointerleave', stopPreview);
   grid.addEventListener('pointerdown', function (e) { if (e.button !== 0) stopPreview(); });
 
-  // The library changed (a scan, details read, a folder added or removed): drawn again at most once a second.
+  // The library changed (a scan, details read, a folder added or removed): drawn again at most once a second, and not
+  // while something is being dragged out of the view: drawing it again would take away the row or thumbnail being
+  // dragged, and with it the drag's end (the drawer would stay faded and let every click through to the wall).
   var changeTimer = 0;
   api.onLibrary(function () {
     if (!host.isOpen() || changeTimer) return;
-    changeTimer = setTimeout(function () { changeTimer = 0; refreshFolders(); refresh(); }, 1000);
+    changeTimer = setTimeout(function again() {
+      if (A.libDrag) { changeTimer = setTimeout(again, 300); return; }
+      changeTimer = 0; refreshFolders(); refresh();
+    }, 1000);
   });
 
   /* ---------- selecting ---------- */
