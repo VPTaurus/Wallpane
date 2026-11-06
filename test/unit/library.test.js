@@ -308,6 +308,11 @@ test('marks: stars, the heart and tags, on many files at once; found, filtered, 
   lib.mark([id('b.mp4')], { stars: 5, dropTags: ['SUN SET'] });
   assert.deepEqual(names({ text: 'beach' }), ['a.mp4', 'b.mp4', 'c.mp4'], 'a search finds tags');
   assert.deepEqual(names({ tag: 'Sun Set' }), ['a.mp4']);
+  // Several tags (the library's tag chips): the files that have every one of them.
+  assert.deepEqual(names({ tags: ['beach'] }), ['a.mp4', 'b.mp4', 'c.mp4']);
+  assert.deepEqual(names({ tags: ['BEACH', 'sun set'] }), ['a.mp4']);
+  assert.deepEqual(names({ tags: ['beach', 'none such'] }), []);
+  assert.deepEqual(names({ tags: ['beach'], fav: true }), ['c.mp4']);
   assert.deepEqual(names({ fav: true }), ['c.mp4']);
   assert.deepEqual(names({ stars: 4 }), ['a.mp4', 'b.mp4']);
   assert.deepEqual(lib.query({ sort: 'rating' }).items.map((i) => [i.name, i.stars, i.fav]), [['b.mp4', 5, false], ['a.mp4', 4, false], ['c.mp4', 0, true]]);

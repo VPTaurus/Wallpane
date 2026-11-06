@@ -22,11 +22,12 @@
   function nameOf(p) { return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p; }
 
   // The view's settings, from what was saved (anything odd falls back to the default).
-  // folder, coll or tag: what it shows (one library folder, one collection, or the files with one tag); sort for
-  // folders and tags, csort in a collection. fav, stars: only favourites, only files with at least so many stars.
+  // folder or coll: what it shows (one library folder, or one collection); sort for folders, csort in a collection.
+  // tags: only files with every one of these tags (the tag chips; tag, one tag shown instead of a folder before 1.7.1,
+  // becomes one). fav, stars: only favourites, only files with at least so many stars.
   // side: right by default, beside the Library button; sideSet: chosen by hand (before 1.6.1 the left was saved
   // without a choice, so such a wall follows the default).
-  var DEFAULTS = { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, fav: false, stars: 0, folder: null, coll: null, tag: null };
+  var DEFAULTS = { place: 'drawer', side: 'right', sideSet: false, open: false, w: 400, size: 110, sort: 'name', csort: 'order', rev: false, kinds: [], shape: '', length: '', res: '', copy: false, fav: false, stars: 0, folder: null, coll: null, tags: [] };
   var SORTS = ['added', 'changed', 'length', 'size', 'rating', 'random'];
   function cleanPrefs(l) {
     var one = function (v, list) { return list.indexOf(v) > -1 ? v : ''; };
@@ -39,7 +40,8 @@
       shape: one(l.shape, ['landscape', 'portrait', 'square']), length: one(l.length, ['short', 'medium', 'long']),
       res: one(l.res, ['sd', 'hd', 'fhd', '4k']), copy: l.copy === true, fav: l.fav === true, stars: U.clamp(Math.round(+l.stars) || 0, 0, 5),
       folder: typeof l.folder === 'string' && l.folder ? l.folder : null,
-      coll: typeof l.coll === 'string' && l.coll ? l.coll : null, tag: typeof l.tag === 'string' && l.tag ? l.tag : null
+      coll: typeof l.coll === 'string' && l.coll ? l.coll : null,
+      tags: (Array.isArray(l.tags) ? l.tags : typeof l.tag === 'string' && l.tag ? [l.tag] : []).filter(function (t) { return typeof t === 'string' && t; }).slice(0, 50)
     };
   }
 
@@ -56,6 +58,7 @@
       '<button type="button" class="chip" data-kind="gif" aria-pressed="false">GIFs</button>' +
       '<button type="button" class="chip" data-kind="image" aria-pressed="false">Pictures</button></div><span class="sp"></span>' +
       '<button type="button" class="chip" id="libFiltBtn" aria-expanded="false" aria-controls="libFilt">Filters<span class="lnum" id="libFiltN" hidden></span><span class="ic">' + ICON.chev + '</span></button></div>' +
+    '<div class="ltagchips" id="libTags" role="group" aria-label="Only files with these tags" hidden></div>' +
     '<div class="lfilt" id="libFilt" hidden>' +
       '<select id="libShape" aria-label="Shape"><option value="">Any shape</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option><option value="square">Square</option></select>' +
       '<select id="libLength" aria-label="Length"><option value="">Any length</option><option value="short">Under 30 s</option><option value="medium">30 s to 5 min</option><option value="long">Over 5 min</option></select>' +
@@ -95,11 +98,16 @@
   function sortNow() { return S.lib.coll ? S.lib.csort : S.lib.sort; }
   function query() {
     var l = S.lib;
-    return { text: text, folder: l.coll || l.tag ? null : l.folder, collection: l.coll, tag: l.coll ? null : l.tag, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, fav: l.fav, stars: l.stars, sort: sortNow(), reverse: l.rev, seed: seed };
+    return { text: text, folder: l.coll ? null : l.folder, collection: l.coll, tags: l.tags, kinds: l.kinds, shape: l.shape, length: l.length, res: l.res, needsCopy: l.copy, fav: l.fav, stars: l.stars, sort: sortNow(), reverse: l.rev, seed: seed };
   }
-  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.fav || l.stars || l.folder || l.coll || l.tag); }
+  function filtering() { var l = S.lib; return !!(text.trim() || l.kinds.length || l.shape || l.length || l.res || l.copy || l.fav || l.stars || l.folder || l.coll || l.tags.length); }
   function collNow() { return S.lib.coll ? colls.filter(function (c) { return c.id === S.lib.coll; })[0] || null : null; }
-  function tagNow() { var k = S.lib.tag && S.lib.tag.toLowerCase(); return k ? tagList.filter(function (t) { return t.name.toLowerCase() === k; })[0] || null : null; }
+  // A tag chip is on: the view shows only files with that tag (and the other tags on).
+  function tagOn(name) { var k = String(name).toLowerCase(); return S.lib.tags.some(function (t) { return t.toLowerCase() === k; }); }
+  function setTag(name, on) {
+    var k = String(name).toLowerCase();
+    S.lib.tags = S.lib.tags.filter(function (t) { return t.toLowerCase() !== k; }).concat(on ? [name] : []);
+  }
   // Dragging inside a collection changes its order: when it shows in its own order, not reversed.
   function canReorder() { return !!S.lib.coll && S.lib.csort === 'order' && !S.lib.rev; }
   function refresh() {
@@ -120,8 +128,12 @@
     if (!host.isOpen()) return;
     Promise.all([api.libraryFolders(), api.libraryCollections(), api.libraryTags()]).then(function (got) {
       folders = got[0]; colls = got[1] || []; tagList = got[2] || [];
-      var gone = (S.lib.folder && !folders.some(function (f) { return f.path === S.lib.folder; })) || (S.lib.coll && !collNow()) || (S.lib.tag && !tagNow());
-      if (gone) { S.lib.folder = null; S.lib.coll = null; S.lib.tag = null; showSortButtons(); refresh(); }
+      var gone = (S.lib.folder && !folders.some(function (f) { return f.path === S.lib.folder; })) || (S.lib.coll && !collNow());
+      if (gone) { S.lib.folder = null; S.lib.coll = null; showSortButtons(); refresh(); }
+      // A tag no file has any more lets go; one renamed elsewhere goes by its new spelling.
+      var left = S.lib.tags.map(function (t) { var k = t.toLowerCase(); return (tagList.filter(function (x) { return x.name.toLowerCase() === k; })[0] || {}).name; }).filter(Boolean);
+      if (left.join('\n') !== S.lib.tags.join('\n')) { S.lib.tags = left; A.savePrefs(); refresh(); }
+      drawTagChips();
       if (!editing) drawFolders();   // never under a name being typed
       showCounts();
     });
@@ -168,12 +180,33 @@
     var k = kindsNow(), w = k && ['video', 'gif', 'image'].filter(function (x) { return k.indexOf(x) > -1; }).map(function (x) { return { video: 'videos', gif: 'GIFs', image: 'pictures' }[x]; });
     return w ? ' · ' + w.join(' and ').replace(/^./, function (s) { return s.toUpperCase(); }) + ' only' : '';
   }
-  // Filters beyond which folder, collection or tag shows and the kinds of file: search words, shape, length,
+  // Filters beyond which folder or collection shows and the kinds of file: search words, tags, shape, length,
   // resolution, needs a copy, favourites, rating.
-  function narrowed() { var l = S.lib; return !!(text.trim() || l.shape || l.length || l.res || l.copy || l.fav || l.stars); }
+  function narrowed() { var l = S.lib; return !!(text.trim() || l.tags.length || l.shape || l.length || l.res || l.copy || l.fav || l.stars); }
   // What the view shows is one whole folder or collection (the kinds aside): Play then plays that, and follows it.
-  function wholeNow() { return !narrowed() && !S.lib.tag && (collNow() || S.lib.folder) ? true : false; }
-  function viewName() { var c = collNow(), t = tagNow(); return c ? c.name : t ? t.name : S.lib.folder ? nameOf(S.lib.folder) : 'Library'; }
+  function wholeNow() { return !narrowed() && (collNow() || S.lib.folder) ? true : false; }
+  // "Holidays · Beach, Sunset": the folder or collection shown and the tags on, the name a playlist of them gets.
+  function viewName() {
+    var c = collNow(), base = c ? c.name : S.lib.folder ? nameOf(S.lib.folder) : S.lib.tags.length ? '' : 'Library';
+    return [base, S.lib.tags.join(', ')].filter(Boolean).join(' · ');
+  }
+  // The tag chips: every tag in use, a click turning it on or off; with several on, only files with all of them show,
+  // in the folder or collection shown and with the other filters. Right-click to rename or delete one.
+  function drawTagChips() {
+    var box = $('#libTags');
+    box.hidden = !tagList.length;
+    box.innerHTML = '';
+    tagList.forEach(function (x) {
+      var b = document.createElement('button'), on = tagOn(x.name);
+      b.type = 'button'; b.className = 'chip'; b.dataset.tag = x.name;
+      b.setAttribute('aria-pressed', String(on));
+      b.textContent = x.name;
+      b.title = x.name + ': ' + count(x.files, 'file', 'files') + '\n' + (on ? 'Click to show files without it too' : 'Click to show only files with this tag') + '\nRight-click to rename or delete it';
+      b.addEventListener('click', function () { setTag(x.name, !tagOn(x.name)); drawTagChips(); drawFolders(); changed(); });
+      b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); tagMenu(x, e.clientX, e.clientY); });
+      box.appendChild(b);
+    });
+  }
   // The button beside the folder row plays what the library shows: while that is one whole folder or collection, it
   // (as its menu does); else the very files shown, in their order.
   function playTitle() {
@@ -229,10 +262,10 @@
   });
   function clearAll() {
     $('#libSearch').value = ''; text = '';
-    S.lib.kinds = []; S.lib.folder = null; S.lib.coll = null; S.lib.tag = null;
+    S.lib.kinds = []; S.lib.folder = null; S.lib.coll = null; S.lib.tags = [];
     Array.prototype.forEach.call(root.querySelectorAll('.lkinds .chip'), function (b) { b.setAttribute('aria-pressed', 'false'); });
     $('#libFiltClear').click();
-    showSortButtons(); drawFolders();
+    showSortButtons(); drawTagChips(); drawFolders();
   }
   // The sort list offers "Collection order" only in a collection, which keeps its own sort.
   function showSortButtons() {
@@ -258,12 +291,11 @@
   function folderLabel(f) { return f.path ? nameOf(f.path) + (f.available === false ? ' (not found)' : '') : 'All folders'; }
   // What is being named in the list: a collection's id ('new' for a new one), 'tag:' and a tag's name, or null.
   var editing = null;
-  function show1(folder, coll, tag) {
-    tag = tag || null;
+  function show1(folder, coll) {
     openFolders(false);
     $('#libFolderBtn').focus();
-    if (S.lib.folder === folder && S.lib.coll === coll && S.lib.tag === tag) return;
-    S.lib.folder = folder; S.lib.coll = coll; S.lib.tag = tag;
+    if (S.lib.folder === folder && S.lib.coll === coll) return;
+    S.lib.folder = folder; S.lib.coll = coll;
     showSortButtons(); drawFolders(); changed();
   }
   function row(icon, label, num, current, cls) {
@@ -300,17 +332,17 @@
     folderPick.hidden = !folders.length;
     if (!folders.length) { openFolders(false); return; }
     var all = { path: null, files: folders.reduce(function (s, f) { return s + f.files; }, 0) };
-    var c = collNow(), t = c ? null : tagNow(), f1 = folders.filter(function (f) { return f.path === S.lib.folder; })[0], now = c || t ? null : f1 || all;
-    $('#libFolderIc').innerHTML = c ? ICON.playlist : t ? ICON.hash : now.path ? ICON.folder : ICON.library;
-    $('#libFolderName').textContent = c ? c.name : t ? t.name : folderLabel(now);
-    $('#libFolderNum').textContent = c || t ? (c || t).files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
+    var c = collNow(), f1 = folders.filter(function (f) { return f.path === S.lib.folder; })[0], now = c ? null : f1 || all;
+    $('#libFolderIc').innerHTML = c ? ICON.playlist : now.path ? ICON.folder : ICON.library;
+    $('#libFolderName').textContent = c ? c.name : folderLabel(now);
+    $('#libFolderNum').textContent = c ? c.files.toLocaleString('en') : now.scanning ? '…' : now.files.toLocaleString('en');
     $('#libFolderBtn').classList.toggle('off', !!now && now.available === false);
-    $('#libFolderBtn').classList.toggle('one', !!(c || t || now.path));
+    $('#libFolderBtn').classList.toggle('one', !!(c || now.path));
     // Beside it: what the library shows plays on the wall as a playlist (playWhat).
     $('#libPlay').hidden = !host.play;
     playTitle();
     [all].concat(folders).forEach(function (f) {
-      var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && !S.lib.tag && S.lib.folder === f.path, f.available === false ? 'off' : '');
+      var b = row(f.path ? 'folder' : 'library', folderLabel(f), f.scanning ? '…' : f.files.toLocaleString('en'), !S.lib.coll && S.lib.folder === f.path, f.available === false ? 'off' : '');
       if (f.path) {
         b.title = f.path + '\nDrag onto the wall: a tile plays this folder, or the empty tiles do.' + (host.play ? '\nRight-click to play it on the wall as a playlist.' : '');
         b.draggable = true;
@@ -345,7 +377,8 @@
       var add = row('plus', 'New collection', '', false, 'newcoll');
       add.addEventListener('click', function () { editing = 'new'; drawFolders(); });
     }
-    // Tags: the files that have one; right-click to rename or delete it. New tags are given to files (Tags…).
+    // Tags: the same as the tag chips (a click turns one on or off, with the folder or collection kept); right-click to
+    // rename or delete one, renamed right here. New tags are given to files (Tags…).
     if (!tagList.length) return;
     var th = document.createElement('div');
     th.className = 'lfhead'; th.textContent = 'Tags';
@@ -354,16 +387,20 @@
       if (editing === 'tag:' + x.name) {
         nameBox(x.name, function (v) {
           api.editTag('rename', x.name, v).then(function () {
-            if (t && t.name === x.name) S.lib.tag = v.replace(/\s+/g, ' ').trim() || x.name;
+            if (tagOn(x.name)) { setTag(x.name, false); setTag(v.replace(/\s+/g, ' ').trim() || x.name, true); A.savePrefs(); }
             refreshFolders(); refresh();
           });
         }, 'tag');
         return;
       }
-      var b = row('hash', x.name, x.files.toLocaleString('en'), !S.lib.coll && t === x, 'tag');
+      var b = row('hash', x.name, x.files.toLocaleString('en'), tagOn(x.name), 'tag');
       b.dataset.tag = x.name;
-      b.title = x.name + '\nThe files with this tag.\nRight-click to rename or delete it.';
-      b.addEventListener('click', function () { show1(null, null, x.name); });
+      b.title = x.name + '\n' + (tagOn(x.name) ? 'Click to show files without it too' : 'Click to show only files with this tag') + ', as its chip does.\nRight-click to rename or delete it.';
+      b.addEventListener('click', function () {
+        setTag(x.name, !tagOn(x.name));
+        openFolders(false); $('#libFolderBtn').focus();
+        drawTagChips(); drawFolders(); changed();
+      });
       b.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); tagMenu(x, e.clientX, e.clientY); });
     });
   }
@@ -393,7 +430,7 @@
         A.showMenu(px, py, [
           { label: 'Delete the tag "' + x.name + '"', icon: 'trash', hint: 'It comes off ' + count(x.files, 'file', 'files') + '; the files stay where they are', act: function () {
             api.editTag('drop', x.name).then(function () {
-              if (tagNow() === x) { S.lib.tag = null; showSortButtons(); changed(); }
+              if (tagOn(x.name)) { setTag(x.name, false); changed(); }
               A.toast('The tag "' + x.name + '" is deleted. Its files are still there.');
               refreshFolders(); refresh();
             });

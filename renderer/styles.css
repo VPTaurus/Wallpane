@@ -586,6 +586,10 @@ body.clean .lib { display: none !important; }
 .lsearch input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; padding: 0; }
 .lchips { display: flex; align-items: center; gap: 6px; }
 .lkinds { display: flex; gap: 4px; flex-wrap: wrap; }
+/* The tag chips under them: every tag in use, on or off; a few rows at most, then they scroll. */
+.ltagchips { display: flex; gap: 4px; flex-wrap: wrap; flex: none; max-height: 92px; overflow-y: auto; }
+.ltagchips .chip { height: 26px; padding: 0 9px; font-size: 12px; }
+.ltagchips .chip::before { content: "#"; opacity: 0.55; margin-right: -2px; }
 .chip { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; background: transparent; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .chip:hover { background: var(--panel-2); }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
