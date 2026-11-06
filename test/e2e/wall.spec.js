@@ -8,7 +8,7 @@ const path = require('path');
 const FF = require('../../lib/ffmpeg');
 const { png } = require('./media');
 const { start, root } = require('./launch');
-const { pressSide } = require('../mouseinput');
+const { pressSide, sideDown, sideUp, sideHeld, pointTo, holdsMouse, windowAt } = require('../mouseinput');
 
 const ff = FF.create(path.join(root, 'vendor', 'ffmpeg'));
 
@@ -569,6 +569,55 @@ test('emergency hide: the mouse button works from any program, so it brings back
   } finally { await app.close(); }
 });
 
+test('emergency hide: a wall that got the button\'s press itself lets go of the mouse as it hides, so clicks keep working', async () => {
+  test.skip(process.platform !== 'win32' || (!process.env.WALLPANE_EXE && !fs.existsSync(path.join(root, 'vendor', 'mousehook', 'wallpane-mouse.exe'))),
+    'The mouse helper is not built (npm run build-mousehook)');
+  const { app, page, errors } = await start(dir);
+  let pressed = false;
+  try {
+    // No helper yet: the wall in wall mode (full screen, in front, as when this happened) gets the Forward button's press
+    // itself, and its window takes the mouse (as Windows gives a window the mouse from a press to its release). Only when
+    // the wall is the window under the pointer, so no other program gets that press.
+    await page.evaluate(() => window.wall.setHide({ mouse: '', cover: 'sheet' }));
+    await app.evaluate(({ BrowserWindow }) => { const b = BrowserWindow.getAllWindows()[0]; b.show(); b.moveTop(); b.focus(); });
+    await page.evaluate(() => window.MW.app.setClean(true));
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(true);
+    await page.waitForTimeout(1000);
+    const w = await app.evaluate(({ BrowserWindow }) => {
+      const b = BrowserWindow.getAllWindows()[0];
+      const r = b.getContentBounds();
+      return { hwnd: Number(b.getNativeWindowHandle().readBigUInt64LE(0)), x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(await pointTo(w.x, w.y)).toBe(true);
+    await expect.poll(() => windowAt(w.x, w.y), { timeout: 5000 }).toBe(w.hwnd).catch(() => {});
+    test.skip((await windowAt(w.x, w.y)) !== w.hwnd, 'Another window is in front of the wall here');
+    pressed = (await sideDown(2)) === 1;
+    test.skip(!pressed, 'Windows took no input here');
+    await expect.poll(() => holdsMouse(w.hwnd)).toBe(true);
+    // Now the helper watches that button and swallows its release, so the window would go on holding the mouse: every
+    // click in Windows would go to it. (On a busy PC the helper can be late with a press, which then reaches the wall.)
+    await page.evaluate(() => window.wall.setHide({ mouse: 'forward', cover: 'sheet' }));
+    await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk)), { timeout: 30000 }).toBe(true);
+    expect(await sideUp(2)).toBe(1);
+    expect(await holdsMouse(w.hwnd)).toBe(true);
+    // Hiding lets go of it. Behind the spreadsheet the window stays, so it would still hold the mouse otherwise.
+    await page.evaluate(() => window.wall.toggleHide());
+    await expect(page.locator('.cover.sheet')).toBeVisible();
+    await expect.poll(() => holdsMouse(w.hwnd)).toBe(false);
+    await page.evaluate(() => window.wall.toggleHide());
+    // Windows still takes the button as held (its release was swallowed). With the helper off, a release over the wall
+    // ends that, and it lands in Wallpane, not in another program.
+    await page.evaluate(() => window.wall.setHide({ mouse: '' }));
+    await expect.poll(() => page.evaluate(() => window.wall.hideState().then((s) => s.mouseOk))).toBe(false);
+    expect(await sideUp(2)).toBe(1);
+    expect(await sideHeld(2)).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    await app.close();
+    if (pressed && await sideHeld(2)) await sideUp(2);   // never leave the button held in Windows
+  }
+});
+
 test('save the looped part as MP4: re-encoded when the keyframe before it is far, copied when it is near', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), out = path.join(dir, 'cut.mp4');
@@ -595,7 +644,7 @@ test('save the looped part as MP4: re-encoded when the keyframe before it is far
     };
     const secs = async (p) => parseFloat((await ff.probeRaw(p)).format.duration);
     await save(out);
-    await expect(toast(page)).toContainText('Saved cut.mp4');
+    await expect(toast(page)).toContainText('Saved cut.mp4', { timeout: 30000 });   // a re-encode: slower on a busy PC
     await expect(toast(page)).toContainText('the nearest keyframe was 1.3 s before it');
     const info = await ff.probeRaw(out);
     expect(info.streams.map((s) => s.codec_name).sort()).toEqual(['aac', 'h264']);
@@ -605,7 +654,7 @@ test('save the looped part as MP4: re-encoded when the keyframe before it is far
     const near = path.join(dir, 'near.mp4');
     await page.evaluate(() => { const A = window.MW.app; A.setLoop(A.S.items.find((i) => i.kind === 'video'), 4.2, 5); });
     await save(near);
-    await expect(toast(page)).toContainText('Saved near.mp4');
+    await expect(toast(page)).toContainText('Saved near.mp4', { timeout: 30000 });
     await expect(toast(page)).toContainText('starts 0.2 s before the part');
     expect(Math.abs(await secs(near) - 1)).toBeLessThan(0.1);
     expect(errors).toEqual([]);
@@ -765,6 +814,43 @@ test('Record: starts and stops in the bar, saved in the folder of Settings › R
   } finally { await app.close(); }
 });
 
+test('Record: a GIF on the wall moves in the recording, frame after frame', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  // Red and blue by turns, four frames a second, round and round.
+  const gif = path.join(dir, 'blink.gif'), saved = path.join(dir, 'Recordings');
+  fs.mkdirSync(saved);
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "color=c=black:s=160x120:r=4:d=2,format=rgb24,geq=r='255*lt(mod(T\\,0.5)\\,0.25)':g=0:b='255*gte(mod(T\\,0.5)\\,0.25)'",
+    '-loop', '0', gif], { timeoutMs: 60000 });
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([gif]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    const tile = page.locator('#wall .tile[aria-label^="blink.gif"]');
+    await expect(tile.locator('img')).toBeVisible();
+    await page.evaluate((d) => { const S = window.MW.app.S; S.rec = Object.assign({}, S.rec, { size: 720, sound: false, dir: d }); }, saved);
+    await page.click('#recordBtn');
+    await expect(page.locator('#recTime')).toHaveText(/^0:0[3-9]$/, { timeout: 10000 });
+    await page.click('#recordBtn');
+    await expect(toast(page)).toContainText('Saved Wallpane ', { timeout: 30000 });
+    const out = path.join(saved, fs.readdirSync(saved)[0]);
+    const v = (await ff.probeRaw(out)).streams.find((s) => s.codec_type === 'video');
+    // The GIF's tile, in the video: its colour at five moments, a fraction of a second apart.
+    const w = await page.locator('#wall').boundingBox(), t = await tile.boundingBox();
+    const fx = Math.round((t.x + t.width / 2 - w.x) / w.width * v.width) & ~1, fy = Math.round((t.y + t.height / 2 - w.y) / w.height * v.height) & ~1;
+    const seen = [];
+    for (const at of ['1.0', '1.3', '1.6', '1.9', '2.2']) {
+      const raw = path.join(dir, 'px' + at + '.rgb');
+      await ff.run('ffmpeg', ['-y', '-v', 'error', '-ss', at, '-i', out, '-frames:v', '1', '-vf', 'crop=2:2:' + fx + ':' + fy, '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw], { timeoutMs: 60000 });
+      const [r, , b] = fs.readFileSync(raw);
+      seen.push(r > 150 && b < 100 ? 'red' : b > 150 && r < 100 ? 'blue' : 'other');
+    }
+    expect(seen).toContain('red');
+    expect(seen).toContain('blue');
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
 test('save the wall as a video: the wall\'s shape at the size chosen, as long as chosen, with the heard tile\'s sound', async () => {
   test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
   const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.mp4');
@@ -800,6 +886,55 @@ test('save the wall as a video: the wall\'s shape at the size chosen, as long as
     expect(probe.streams.some((s) => s.codec_type === 'audio')).toBe(true);
     expect(Math.abs(parseFloat(probe.format.duration) - 10)).toBeLessThan(0.15);
     expect(fs.existsSync(path.join(dir, 'wall.part.mp4'))).toBe(false);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('save the wall as a GIF: the wall\'s shape at the width chosen, as many frames as chosen, playing forever', async () => {
+  test.skip(!ff.available(), 'FFmpeg is not in vendor/ffmpeg (npm run fetch-ffmpeg)');
+  const clip = path.join(dir, 'clip.mp4'), pic = path.join(dir, 'pic.png'), out = path.join(dir, 'wall.gif');
+  await ff.run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=25:duration=4',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clip], { timeoutMs: 60000 });
+  fs.writeFileSync(pic, png(160, 90, [200, 80, 40]));
+  const { app, page, errors, answer } = await start(dir);
+  try {
+    await answer([clip, pic]);
+    await page.click('#addBtn');
+    await page.click('#addFiles');
+    await expect.poll(() => page.locator('#wall .tile[aria-label^="clip.mp4"] video').evaluate((v) => v.duration)).toBeGreaterThan(3);
+    // From Saved walls: the same dialog, as a GIF: width, length and frames a second, and about how big it gets.
+    await page.click('#presetBtn');
+    await page.click('#wallGifBtn');
+    await expect(page.locator('#popWv')).toBeVisible();
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a GIF');
+    await expect(page.locator('#wvSize')).toBeHidden();
+    await page.selectOption('#wvWidth', '320');
+    await page.selectOption('#wvSecs', '3');
+    await page.selectOption('#wvFps', '10');
+    await expect(page.locator('#wvNote')).toContainText(/^320 × \d+ px, 3 s, 10 frames a second, about .+\. No sound\./);
+    await app.evaluate(({ dialog }, f) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, out);
+    await page.click('#wvMake');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await expect(toast(page)).toContainText('Saved wall.gif', { timeout: 90000 });
+    const wallBox = await page.locator('#wall').boundingBox();
+    const bytes = fs.readFileSync(out);
+    expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+    const w = bytes.readUInt16LE(6), h = bytes.readUInt16LE(8);
+    expect(w).toBe(320);
+    expect(Math.abs(w / h - wallBox.width / wallBox.height)).toBeLessThan(0.02);
+    let frames = 0;
+    for (let i = 0; i + 2 < bytes.length; i++) if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 4) frames++;
+    expect(frames).toBeGreaterThan(20);   // 30 at most: frames the same as the one before may be merged
+    expect(frames).toBeLessThanOrEqual(30);
+    expect(bytes.includes(Buffer.from('NETSCAPE2.0'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'wall.part.gif'))).toBe(false);
+    // The video's dialog is as it was.
+    await page.click('#presetBtn');
+    await page.click('#wallVideoBtn');
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a video');
+    await expect(page.locator('#wvWidth')).toBeHidden();
+    await expect(page.locator('#wvSecs')).toHaveValue('30');
+    await page.click('#wvCancel');
     expect(errors).toEqual([]);
   } finally { await app.close(); }
 });

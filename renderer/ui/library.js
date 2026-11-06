@@ -102,6 +102,29 @@
     });
   }
   api.onLibraryPut(putOnWall);   // from the library window
+  // A library folder ({ dir }) or a collection ({ coll, name }) as a playlist (their right-click menus, and the button
+  // beside the folder row): as Add › Folder as a playlist…, it fills the empty tiles and cells and keeps rotating; onTile:
+  // the selected tile plays it instead. A collection's playlist follows it as it changes, as when it is dragged. kinds:
+  // the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
+  function play(what, onTile) {
+    (what.files ? Promise.resolve(listRes(what)) : what.coll ? A.collectionRes(what.coll, what.name) : api.expand([what.dir])).then(function (res) {
+      if (what.files && !res.entries.length) { A.toast('Nothing in "' + res.title + '" matches what the library shows.'); return; }
+      if (what.coll && !res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
+      if (Array.isArray(what.kinds) && what.kinds.length) res.types = what.kinds;   // the library's Videos / GIFs / Pictures
+      var it = onTile ? A.selected() : null;
+      if (it && !it.sample) A.assignFolder(it, res); else A.fillWithFolder(res, A.readPlOpts(), true);   // an empty wall gets tiles for it
+    });
+  }
+  // The files the library shows with its filters ({ files, name }), in its order: a playlist of its own that follows no
+  // folder (at most as many files as a playlist takes).
+  function listRes(what) {
+    var max = window.MW.pl.MAX_FILES, files = what.files.filter(function (f) { return f && typeof f.path === 'string' && f.path; });
+    return {
+      entries: files.slice(0, max).map(function (f) { return { path: f.path, name: f.name || window.MW.util.baseName(f.path), kind: f.kind === 'video' ? 'video' : 'image' }; }),
+      dirs: [], skipped: 0, unsupported: {}, title: String(what.name || 'Library'), truncated: files.length > max, limit: max
+    };
+  }
+  api.onLibraryPlay(function (what) { if (what) play(what, false); });   // from the library window
 
   /* ---------- the view here: a drawer or a panel ---------- */
   var root = $('#lib');
@@ -110,6 +133,9 @@
     dragCollections: true,
     isOpen: function () { return !root.hidden; },
     put: putOnWall,
+    play: play,
+    playHint: 'Fills the empty tiles and cells, and keeps rotating',
+    tile: function () { var it = A.selected(); return it && !it.sample ? it : null; },
     // extra: the view's own items (collections).
     menu: function (paths, x, y, extra) {
       var n = paths.length, it = A.selected(), tile = it && !it.sample ? it : null;
@@ -160,6 +186,8 @@
   root.addEventListener('dragleave', function (e) {
     if (A.libDrag && S.lib.place === 'drawer' && !root.contains(e.relatedTarget)) root.classList.add('out');
   });
+  // A drop anywhere also ends a drag out of the library, in case the end of the drag did not reach the drawer.
+  window.addEventListener('drop', function () { setTimeout(function () { if (A.libDrag || root.classList.contains('out')) A.libHost.dragEnd(); }, 0); });
 
   // A drawer over the wall, a panel beside it (which makes the wall narrower), or a window of its own.
   var PLACES = {

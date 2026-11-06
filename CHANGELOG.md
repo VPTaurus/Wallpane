@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.1: The library on the wall, tag chips, and a GIF of the wall
+
+Download **Wallpane.Setup.1.7.1.exe** (installer) or **Wallpane.Portable.1.7.1.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. From this release on, each release has just these two files; the website's buttons find them by themselves.
+
+Play a library folder, a collection or exactly what the library shows (by tags, kinds, rating, favourites, search) on the wall as a playlist in one click, laid out edge to edge by the shapes of its files. Tag chips filter the library, several at once. Save the wall as a GIF, Pin all in the top bar, a fuller right-click menu in wall mode, and Check for updates in Settings.
+
+New:
+- **Check for updates** in Settings › General: asks GitHub which version is the newest and, when one is newer than yours, offers its release page in your browser. Nothing is downloaded or installed by itself. This is the only time Wallpane goes online, and only when you click it.
+- **A library folder or collection as a playlist:** right-click one in the library's folder list › Play on the wall as a playlist (it fills the empty tiles and cells and keeps rotating, as Add › Folder as a playlist… does), or Play on the selected tile. While one shows, a button beside the folder row plays it too. A collection's playlist follows it as it changes, as when it is dragged. Also in the library window, where collections could not reach the wall before. On an empty wall it first makes a tile per file, up to the grid's number of cells (also in Free). Then Fill the wall arranges every tile by its media's shape, edge to edge; one Ctrl+Z undoes it all. When every file gets a tile of its own, the tiles stay on their files (pinned), so none moves on to a file another tile already shows. With Videos, GIFs or Pictures picked in the library, the playlist plays only those kinds of file. With a search, a tag, All folders or other filters (rating, favourites, shape, length, resolution), the button plays exactly the files the library shows, in its order.
+- **Pin all** in the top bar, beside Repeat: every playlist tile stays on the file it shows; when all do already, they all carry on with their playlists.
+- **Tag chips in the library:** every tag in use as a chip under Videos / GIFs / Pictures. Click to show only the files with it, together with the folder or collection and the other filters; several on show the files that have them all. (A tag picked in the folder row's list used to replace the folder; it now turns its chip on.)
+- **Save the wall as a GIF** (Saved walls › Save as a GIF…): made like Save as a video, as a GIF of 3 to 30 seconds, 320 to 800 pixels wide, 10 to 25 frames a second, without sound. The dialog says about how big it gets.
+- **More on the right-click menu in wall mode:** Pause all / Play all, Mute all / Unmute all, Take a screenshot, Make a GIF of the wall…, and Start recording / Stop recording, as the bar's buttons do (the bar is hidden in wall mode). While it records, a small red dot blinks in the top-left corner; it is not in the video.
+
+Fixed:
+- **The library drawer no longer stays faded after a drag:** when the library changed (as while it reads files' details) during a drag of a folder or collection out of it, the drawer could stay faded and let every click through to the wall.
+- **Esc right after choosing from a right-click menu works:** it could go to the menu that had just closed, so in wall mode the first Esc sometimes did nothing.
+- **Exit wall mode no longer covers a tile's buttons:** it sat in the top-right corner, over the buttons of the tile there. It now stays out of sight and slides down at the top centre when the pointer touches the top edge of the screen, as full screen does in a browser. Esc, F11 and right-click › Exit wall mode work as before.
+- **Clicks no longer stop working after hiding with the mouse button:** on a busy PC (a full wall in wall mode) the button's press could reach the wall itself while its release did not, so the wall's window kept hold of the mouse: hidden, it took every click in Windows, and only bringing it back ended that. Wallpane now makes its windows let go of the mouse whenever it hides them.
+- **GIFs move in a recording:** Record drew each GIF on the wall as a still picture (a canvas only takes a GIF's first frame). It now plays them frame by frame, with each frame's own timing.
+
 ## 1.7.0: Record the wall, and take screenshots
 
 Download **Wallpane Setup 1.7.0.exe** (installer) or **Wallpane 1.7.0.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. (**Wallpane-Setup.exe** and **Wallpane-Portable.exe** are the same two files under names that stay the same, for the website's download buttons.)
@@ -14,7 +35,7 @@ New:
 
 Fixed:
 - **A setting changed just before closing Wallpane is kept:** settings were saved in the background, and closing right after a change could cut that save off. A wall now saves its settings once more, at once, as its window closes.
-- **The emergency hide's mouse button holds on when the PC is busy:** Windows waits only a moment for the small helper that catches the button, and can drop it for good when it is late. The helper now answers at once, runs above normal priority, and puts its hook in afresh every 10 seconds, so the button cannot go dead.
+- **The emergency hide's mouse button holds on when the PC is busy:** Windows waits only a moment for the small helper that catches the button, and can pass the press on, or drop the helper for good, when it is late. The helper now answers at once, runs above normal priority, and puts its hook in afresh every 10 seconds.
 
 Also:
 - **A website and a shorter README:** https://vptaurus.github.io/Wallpane/ shows what Wallpane does, with pictures and a recorded wall. The README on GitHub is now one screen; everything it held is in the [guide](docs/guide.md) and the [developer notes](docs/development.md).

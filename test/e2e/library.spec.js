@@ -263,11 +263,38 @@ test('your marks: stars, the heart and tags by key, menu and Tags…; filters, t
     await page.click('#libFiltClear');
     await page.selectOption('#libSort', 'rating');
     await expect.poll(shownNames).toEqual(['b.png', 'a.png', 'c.png']);
-    // The tag in the folder row's list shows its files.
+    // The tag in the folder row's list turns its chip on, the folder kept as it was.
+    const chip = (t) => page.locator('#libTags .chip[data-tag="' + t + '"]');
+    await expect(chip('Beach')).toHaveAttribute('aria-pressed', 'false');
     await page.click('#libFolderBtn');
     await page.locator('#libFolderList .lfolder.tag', { hasText: 'Beach' }).click();
-    await expect(page.locator('#libFolderName')).toHaveText('Beach');
+    await expect(page.locator('#libFolderName')).toHaveText('All folders');
+    await expect(chip('Beach')).toHaveAttribute('aria-pressed', 'true');
     await expect(thumbs(page)).toHaveCount(3);
+    // The chips under the search: with two on, only the files with both; with the folder too; Play plays those.
+    await thumb(page, 'b.png').click();
+    await page.keyboard.press('t');
+    await page.locator('#libTagInput').fill('Evening');
+    await page.keyboard.press('Enter');
+    await page.click('#libTagClose');
+    await chip('Evening').click();
+    await expect(chip('Evening')).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(shownNames).toEqual(['b.png']);
+    await page.click('#libFolderBtn');
+    await page.locator('#libFolderList .lfolder', { hasText: 'Marks' }).click();
+    await expect(page.locator('#libFolderName')).toHaveText('Marks');
+    await expect.poll(shownNames).toEqual(['b.png']);
+    await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play the 1 file shown on the wall as a playlist');
+    await chip('Beach').click();
+    await expect(chip('Beach')).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(shownNames).toEqual(['b.png']);
+    await chip('Evening').click();
+    await expect(thumbs(page)).toHaveCount(3);
+    await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play this folder on the wall as a playlist');
+    // A tag shown instead of a folder (before 1.7.1) comes back as its chip.
+    expect(await page.evaluate(() => window.MW.app.libView.cleanPrefs({ tag: 'Beach', folder: 'C:\\x' }).tags)).toEqual(['Beach']);
+    await page.click('#libFolderBtn');
+    await page.locator('#libFolderList .lfolder', { hasText: 'All folders' }).click();
     // On the wall: the tile's Properties show its file's marks, and change them.
     await thumb(page, 'a.png').dblclick();
     const tile = page.locator('#wall .tile[aria-label^="a.png"]');

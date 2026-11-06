@@ -110,19 +110,22 @@
   /* ---------- undo, play, mute, loop ---------- */
   $('#undoBtn').addEventListener('click', function () { A.undo(); });
   $('#redoBtn').addEventListener('click', function () { A.redo(); });
-  $('#playAll').addEventListener('click', function () {
-    var vids = A.videos();
-    var anyPlaying = vids.some(function (v) { return !v.paused; }) || (A.hasImagePlaylist() && !A.wallPaused);
+  // Pause all / Play all and Mute all / Unmute all: the bar's buttons, and in wall mode the right-click menu.
+  A.togglePlayAll = function () {
+    var vids = A.videos(), anyPlaying = A.transport().playing;
     A.wallPaused = anyPlaying;
     vids.forEach(function (v) { if (anyPlaying) v.pause(); else v.play().catch(function () {}); });
     A.updateTransport();
-  });
-  $('#muteAll').addEventListener('click', function () {
+  };
+  A.toggleMuteAll = function () {
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing; });
-    var anyOn = vi.some(function (i) { return !i.muted; });
+    var anyOn = A.transport().loud;
     vi.forEach(function (i) { i.muted = anyOn; });
     A.render(); A.refreshInspector();
-  });
+  };
+  $('#playAll').addEventListener('click', A.togglePlayAll);
+  $('#muteAll').addEventListener('click', A.toggleMuteAll);
+  $('#pinAll').addEventListener('click', function () { A.togglePinAll(); });
   $('#loopAll').addEventListener('click', function () {
     var vi = S.items.filter(function (i) { return i.kind === 'video' && !i.missing && !i.pl; });
     var allOn = vi.length > 0 && vi.every(function (i) { return i.loop; });
@@ -137,13 +140,14 @@
   A.setClean = function (on) {
     if (on) { A.closeProps(); A.closePops(); }
     document.body.classList.toggle('clean', on);
+    document.body.classList.remove('atop');
     wake();
     api.setFullscreen(on, S.display);
     api.keepAwake(on && S.awake);
   };
   api.onFullscreen(function (v) {
     A.isFs = v;
-    if (!v) document.body.classList.remove('clean');
+    if (!v) document.body.classList.remove('clean', 'atop');
   });
   api.isFullscreen().then(function (v) { A.isFs = v; });
   // In wall mode the cursor and tile buttons disappear after a few idle seconds and come back on movement.
@@ -151,10 +155,22 @@
   function wake() {
     document.body.classList.remove('idle');
     clearTimeout(idleTimer);
-    if (document.body.classList.contains('clean')) idleTimer = setTimeout(function () { document.body.classList.add('idle'); }, 3000);
+    if (document.body.classList.contains('clean')) idleTimer = setTimeout(function () { document.body.classList.remove('atop'); document.body.classList.add('idle'); }, 3000);
   }
   document.addEventListener('mousemove', wake);
   document.addEventListener('mousedown', wake);
+  // Exit wall mode shows while the pointer touches the top edge of the screen, and stays while the pointer is on its way
+  // to it or on it; anywhere else it goes, so it never covers a tile's buttons while they are in use (styles.css .atop).
+  // Where it is measured from where it comes to rest, as it may still be sliding in.
+  var EDGE = 4, NEAR = 12;
+  document.addEventListener('mousemove', function (e) {
+    var b = document.body;
+    if (!b.classList.contains('clean')) return;
+    if (e.clientY <= EDGE) { b.classList.add('atop'); return; }
+    if (!b.classList.contains('atop')) return;
+    var x = $('#exitBtn'), bottom = (parseFloat(getComputedStyle(x).top) || 0) + x.offsetHeight;
+    if (Math.abs(e.clientX - window.innerWidth / 2) > x.offsetWidth / 2 + NEAR || e.clientY > bottom + NEAR) b.classList.remove('atop');
+  });
   $('#newWinBtn').addEventListener('click', function () {
     A.closePops();
     api.newWindow().then(function (r) { if (r && r.error) A.toast(r.error); });
@@ -298,7 +314,7 @@
   // About, in Settings: version and licence, the source code, and support links when package.json lists any.
   function fillAbout() {
     api.appInfo().then(function (info) {
-      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It never goes online.';
+      $('#aboutLine').textContent = info.name + ' ' + info.version + ' · free software, ' + String(info.license || '').replace('-or-later', ' or later').replace('-', ' ') + '. It goes online only when you check for updates.';
       var f = info.ffmpeg;
       $('#aboutFfmpeg').textContent = f
         ? 'Includes FFmpeg ' + f.version + ' (build by ' + f.by + '), free software under the ' + f.license.replace('-', ' ') + ', used for converting and reading media files.'
@@ -396,6 +412,27 @@
     A.savePrefs();
   });
   $('#dataDirBtn').addEventListener('click', function () { api.revealStore(); });
+  // Check for updates: asks GitHub once per click (main.js app:checkUpdates). A newer version offers its release page.
+  var updLinks = null;
+  api.appInfo().then(function (i) { updLinks = i.links; });
+  $('#updBtn').addEventListener('click', function () {
+    var btn = this, note = $('#updNote'), get = $('#updGet');
+    btn.disabled = true; get.hidden = true;
+    note.hidden = false; note.textContent = 'Checking…';
+    api.checkUpdates().then(function (r) {
+      if (r && r.ok && r.newer) {
+        note.textContent = 'Wallpane ' + r.latest + ' is out. You have ' + r.current + '.';
+        get.textContent = 'Get Wallpane ' + r.latest;
+        get.hidden = !(updLinks && updLinks.releases);
+      } else if (r && r.ok) note.textContent = 'You have the newest version, ' + r.current + '.';
+      else if (r && r.reason === 'offline') note.textContent = 'Couldn’t reach GitHub. Check the internet connection and try again.';
+      else if (r && r.reason === 'busy') note.textContent = 'GitHub didn’t answer just now. Try again in a while.';
+      else note.textContent = 'Couldn’t read the newest version from GitHub. Try again later.';
+    }, function () {
+      note.textContent = 'Couldn’t check for updates. Try again later.';
+    }).then(function () { btn.disabled = false; });
+  });
+  $('#updGet').addEventListener('click', function () { if (updLinks && updLinks.releases) api.openLink(updLinks.releases); });
   $('#castBtn').addEventListener('click', function () { api.openDisplaySettings(); });
   $('#setSoloSound').addEventListener('change', function () { S.soloSound = this.checked; A.savePrefs(); A.render(); });
   $('#setFillShapes').addEventListener('change', function () { S.fillShapes = this.checked; A.savePrefs(); });

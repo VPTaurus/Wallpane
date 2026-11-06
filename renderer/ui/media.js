@@ -414,9 +414,14 @@
   }
   // A collection from the library: the tile it lands on plays it; anywhere else it fills the empty tiles and cells, as a
   // folder does. Either way the playlist follows the collection as it changes (ui/playlists.js).
+  // A collection's files as a folder's would come, for a playlist that follows it (also the library's Play on the wall).
+  A.collectionRes = function (coll, name) {
+    return A.api.collectionFiles(coll).then(function (entries) {
+      return { entries: entries || [], dirs: [], skipped: 0, unsupported: {}, coll: coll, title: String(name || 'Collection') };
+    });
+  };
   function dropCollection(lib, tgt) {
-    A.api.collectionFiles(lib.coll).then(function (entries) {
-      var res = { entries: entries || [], dirs: [], skipped: 0, unsupported: {}, coll: lib.coll, title: String(lib.name || 'Collection') };
+    A.collectionRes(lib.coll, lib.name).then(function (res) {
       if (!res.entries.length) { A.toast('"' + res.title + '" has no files yet.'); return; }
       var on = tgt ? (tgt.free ? itemUnderPoint(tgt) : G.itemAt(S.items, tgt.col, tgt.row)) : null;
       if (on && !on.sample) A.assignFolder(on, res); else A.fillWithFolder(res, A.readPlOpts());
@@ -545,15 +550,15 @@
   }
   // After Fill the wall every tile has its media's shape: the playlists on the wall then pick files
   // shaped like their tiles first, so the shapes keep fitting (Settings › Tiles can leave them be). Returns how many
-  // playlists started to.
+  // playlists started to that a tile moves on with (not only pinned ones).
   function shapePlaylists() {
     if (!S.fillShapes) return 0;
-    var n = 0;
+    var set = {};
     S.items.forEach(function (it) {
       var p = it.pl && S.playlists[it.pl];
-      if (p && !p.fitShape) { p.fitShape = true; n++; }
+      if (p && !p.fitShape) { p.fitShape = true; set[it.pl] = true; }
     });
-    return n;
+    return Object.keys(set).filter(function (k) { return S.items.some(function (i) { return i.pl === k && !i.pinned; }); }).length;
   }
   // Every tile keeps its media's shape, in rows (or columns) that fill the wall edge to edge; the tiles keep their
   // reading order unless regrouping them crops clearly less. Only tiles with media take part: empty tiles (and the
@@ -590,5 +595,17 @@
     A.toast(msg);
   }
   $('#fillWallBtn').addEventListener('click', function () { A.closePops(); fillWall(); });
+  // Fill the wall straight after a library folder or collection went on it (the library's Play on the wall as a
+  // playlist), once the shapes of the files just put on tiles are known (they have not loaded yet): asked of the main
+  // process, 40 at a time. Part of the undo step the adding made; lead starts the message.
+  A.fillWallAfterAdding = function (lead) {
+    var need = S.items.filter(function (i) { return A.hasMedia(i) && !i.missing && !mediaAspect(i).known; }), asks = [];
+    for (var k = 0; k < need.length; k += 40) asks.push(A.api.mediaShapes(need.slice(k, k + 40).map(function (i) { return i.path; })).then(function (s) { return s || {}; }, function () { return {}; }));
+    Promise.all(asks).then(function (got) {
+      var shapes = Object.assign.apply(null, [{}].concat(got));
+      need.forEach(function (i) { if (shapes[i.path]) i.ar = shapes[i.path]; });
+      fillWall({ last: [], lead: lead });
+    });
+  };
   $('#setFullWall').addEventListener('change', function () { S.fullWall = this.value === 'fill' ? 'fill' : 'say'; A.savePrefs(); });
 })(window.MW.app);

@@ -2,6 +2,7 @@
 // Starts the real app against a throwaway data folder and test media, with the file dialogs answered by the test.
 const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 const FF = require('../../lib/ffmpeg');
@@ -25,6 +26,14 @@ test.describe.configure({ mode: 'serial' });
 
 let app, page, dir, media;
 const errors = [];
+// Stands in for GitHub's newest-release answer: gh.answer is { status, body }, or 'drop' to hang up as if offline.
+const gh = { asked: [], answer: null };
+gh.server = http.createServer((req, res) => {
+  gh.asked.push(req.headers['user-agent'] || '');
+  if (gh.answer === 'drop') { req.socket.destroy(); return; }
+  res.writeHead(gh.answer.status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(gh.answer.body));
+});
 
 test.beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mw-e2e-'));
@@ -38,6 +47,9 @@ test.beforeAll(async () => {
   fs.mkdirSync(path.join(dir, 'data'));
   fs.writeFileSync(path.join(dir, 'data', 'window.json'), JSON.stringify({ wins: { 1: { width: 1024, height: 728 } }, open: [1] }));
   const env = Object.assign({}, process.env, { WALLPANE_USER_DATA: path.join(dir, 'data') });
+  // Check for updates asks this server instead of GitHub.
+  await new Promise((r) => gh.server.listen(0, '127.0.0.1', r));
+  env.WALLPANE_UPDATES_URL = 'http://127.0.0.1:' + gh.server.address().port + '/repos/VPTaurus/wallpane/releases/latest';
   // WALLPANE_EXE runs the same tests against a built app (dist\win-unpacked\Wallpane.exe), to catch packaging mistakes.
   app = await electron.launch(process.env.WALLPANE_EXE ? { executablePath: process.env.WALLPANE_EXE, args: [], env } : { args: [root], env });
   page = await app.firstWindow();
@@ -47,6 +59,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   if (app) await app.close();
+  gh.server.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -208,9 +221,71 @@ test('wall mode goes full screen and keeps the display awake until it ends', asy
   await page.click('#cleanBtn');
   await expect(page.locator('body')).toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep']);
-  await page.keyboard.press('Escape');
+  // Exit wall mode is out of the way until the pointer touches the top edge, and goes again when it moves off.
+  const exit = page.locator('#exitBtn');
+  await page.mouse.move(300, 300);
+  await expect(exit).toBeHidden();
+  await page.mouse.move(150, 0);
+  await expect(exit).toBeVisible();
+  await page.mouse.move(150, 120);
+  await expect(exit).toBeHidden();
+  await page.mouse.move(150, 2);
+  await expect(exit).toBeVisible();
+  // Clicked as soon as it shows: Playwright's click would wait for the slide to end, and any real move of the mouse
+  // over the full-screen window meanwhile (someone at the PC) sends it away again.
+  await exit.evaluate((b) => b.click());
   await expect(page.locator('body')).not.toHaveClass(/clean/);
   await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop']);
+  // F11 and Esc as well. With the bar hidden, the right-click menu has its screenshot and Record, and Exit.
+  await page.keyboard.press('F11');
+  await expect(page.locator('body')).toHaveClass(/clean/);
+  await expect(exit).toBeHidden();
+  const shot = path.join(dir, 'wall mode shot.png'), recs = path.join(dir, 'Recordings');
+  fs.mkdirSync(recs);
+  await page.evaluate((d) => { window.MW.app.S.rec.dir = d; }, recs);
+  await answerDialogs([], shot);
+  await page.mouse.click(300, 300, { button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^(Pause|Play) all/, /^(Mute|Unmute) all/, /^Take a screenshot/, /^Make a GIF of the wall/, /^Start recording/, /^Exit wall mode/]);
+  // Make a GIF of the wall… opens Saved walls' dialog as a GIF; Esc closes it and the wall stays in wall mode.
+  if (await page.evaluate(() => window.MW.app.hasFfmpeg)) {
+    await menuItem('Make a GIF of the wall').click();
+    await expect(page.locator('#popWv')).toBeVisible();
+    await expect(page.locator('#wvTitle')).toHaveText('Save the wall as a GIF');
+    await expect(page.locator('#wvWidth')).toBeVisible();
+    await expect(page.locator('#wvSize')).toBeHidden();
+    await expect(page.locator('#wvNote')).toContainText('5 s, 15 frames a second, about');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#popWv')).toBeHidden();
+    await expect(page.locator('body')).toHaveClass(/clean/);
+    await page.mouse.click(300, 300, { button: 'right' });
+  }
+  await menuItem('Take a screenshot').click();
+  await expect(toast()).toContainText('Saved wall mode shot.png');
+  expect(fs.existsSync(shot)).toBe(true);
+  // While it records, a red dot in the corner says so.
+  await expect(page.locator('#recDot')).toBeHidden();
+  await page.mouse.click(300, 300, { button: 'right' });
+  await menuItem('Start recording').click();
+  await expect(page.locator('#recDot')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.MW.app.recordingTime()), { timeout: 8000 }).toMatch(/^0:0[2-9]$/);
+  await page.mouse.click(300, 300, { button: 'right' });
+  await expect(menuItem('Stop recording')).toContainText(/0:0\d/);
+  await menuItem('Stop recording').click();
+  await expect(page.locator('#recDot')).toBeHidden();
+  await expect(toast()).toContainText('Saved Wallpane ', { timeout: 30000 });
+  expect(fs.readdirSync(recs)).toHaveLength(1);
+  await page.evaluate(() => { window.MW.app.S.rec.dir = null; });   // Videos again, as the Settings test expects
+  await expect(page.locator('body')).toHaveClass(/clean/);
+  // Esc straight after an item of the menu is picked goes to the wall (it leaves wall mode), not to the menu just closed.
+  expect(await page.evaluate(() => new Promise((ok) => {
+    window.MW.app.showMenu(200, 200, [{ label: 'Nothing', act: () => {
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      ok(document.body.classList.contains('clean'));
+    } }]);
+    document.querySelector('#ctxMenu .mi').click();
+  }))).toBe(false);
+  await expect(page.locator('body')).not.toHaveClass(/clean/);
+  await expect.poll(() => app.evaluate(() => globalThis.__blocks)).toEqual(['start prevent-display-sleep', 'stop', 'start prevent-display-sleep', 'stop']);
 });
 
 test('Settings: one section at a time; start in wall mode is saved; starting with Windows only in a built app', async () => {
@@ -252,6 +327,35 @@ test('Settings: one section at a time; start in wall mode is saved; starting wit
   await expect.poll(() => saved('prefs').startWall).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('#popS')).toBeHidden();
+});
+
+test('Check for updates: asks only when clicked; a newer version offers its release page; no answer is explained', async () => {
+  const version = require('../../package.json').version;
+  expect(gh.asked).toEqual([]);   // never on its own
+  await app.evaluate(({ shell }) => { globalThis.__opened = []; shell.openExternal = async (u) => { globalThis.__opened.push(u); }; });
+  await settingsAt('General');
+  await expect(page.locator('#updGet')).toBeHidden();
+  // A newer one: says so, and its button opens the release page on GitHub (never the address in the answer).
+  gh.answer = { status: 200, body: { tag_name: 'v99.0.0', html_url: 'https://example.com/elsewhere' } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toHaveText('Wallpane 99.0.0 is out. You have ' + version + '.');
+  expect(gh.asked).toEqual(['Wallpane/' + version]);
+  await page.click('#updGet');
+  await expect.poll(() => app.evaluate(() => globalThis.__opened)).toEqual(['https://github.com/VPTaurus/wallpane/releases/latest']);
+  // The same version.
+  gh.answer = { status: 200, body: { tag_name: 'v' + version } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toHaveText('You have the newest version, ' + version + '.');
+  await expect(page.locator('#updGet')).toBeHidden();
+  // GitHub saying not now (too many questions), and no connection at all.
+  gh.answer = { status: 403, body: { message: 'API rate limit exceeded' } };
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toContainText('didn’t answer just now');
+  gh.answer = 'drop';
+  await page.click('#updBtn');
+  await expect(page.locator('#updNote')).toContainText('Couldn’t reach GitHub');
+  await expect(page.locator('#updBtn')).toBeEnabled();
+  await page.keyboard.press('Escape');
 });
 
 // Tile boxes on screen, and whether any two overlap.
@@ -654,6 +758,29 @@ test('video controls: speed, volume, a looped part, and keys', async () => {
   await expect(tile).not.toHaveClass(/\bsolo\b/);
   await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
   await page.keyboard.press('Escape');
+  // Wall mode hides the bar, so its right-click menu pauses and plays every video, and mutes and unmutes them.
+  const paused = await video.evaluate((v) => v.paused);
+  await page.keyboard.press('F11');
+  await expect(page.locator('body')).toHaveClass(/clean/);
+  await video.evaluate((v) => v.play());
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  await tile.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Pause all/, /^Unmute all/, /^Take a screenshot/, /^Make a GIF of the wall/, /^Start recording/, /^Exit wall mode/]);
+  await menuItem('Pause all').click();
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+  await tile.click({ button: 'right' });
+  await menuItem('Play all').click();
+  await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  await tile.click({ button: 'right' });
+  await menuItem('Unmute all').click();
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(false);
+  await tile.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi').nth(1)).toHaveText(/^Mute all/);
+  await page.locator('#ctxMenu .mi').nth(1).click();
+  await expect.poll(() => video.evaluate((v) => v.muted)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/clean/);
+  if (paused) await video.evaluate((v) => v.pause());
 });
 
 test('make playable: an AVI and AC3 sound play from copies; a long conversion shows in the bar and can be stopped', async () => {
@@ -1106,6 +1233,72 @@ test('the library drawer: search, kinds, and files dragged or double-clicked ont
   await expect(toast()).toContainText('grey extra.png is on the selected tile now');
   await expect(tiles()).toHaveCount(3);
 
+  // A whole folder plays on the wall as a playlist, from its right-click menu in the list: into the empty cells, one per
+  // file at most (its subfolder's file too); or on the selected tile. Ctrl+Z undoes each.
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play the 4 files shown on the wall as a playlist');   // all folders
+  const drawerRow = folderList.locator('.lfolder', { hasText: 'Drawer media' });
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Show in Explorer/]);
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(folderList).toBeHidden();
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files) on 4 tiles. Each file has a tile of its own');
+  await expect(toast()).toContainText('7 tiles fill the wall');   // then Fill the wall
+  await expect(tiles()).toHaveCount(7);
+  await expect(page.locator('#gridLabel')).toHaveText('Free');
+  expect(await page.evaluate(() => window.MW.app.S.items.filter((i) => i.pl).length)).toBe(5);   // and the Shift-drag tile
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+  const grey = page.locator('#wall .tile[aria-label^="grey extra.png"]');
+  if (!/\bsel\b/.test(await grey.getAttribute('class'))) await grey.click();   // a click on the selected tile lets it go
+  await expect(grey).toHaveClass(/\bsel\b/);
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await menuItem('Play on the selected tile').click();
+  await expect(toast()).toContainText('This tile now plays "Drawer media" (4 files)');
+  await expect(tiles()).toHaveCount(3);
+  await page.locator('body').press('Control+z');
+  await expect(page.locator('#wall .tile[aria-label^="grey extra.png"]')).toHaveCount(1);
+  // While one folder shows, the button beside it does the same.
+  await page.click('#libFolderBtn');
+  await drawerRow.click();
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play this folder on the wall as a playlist');
+  await page.click('#libPlay');
+  await expect(tiles()).toHaveCount(7);
+  expect(await page.evaluate(() => { const A = window.MW.app; return A.S.playlists[A.S.fillPl].root; })).toBe(lib);   // it follows the folder
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  // Filtered (here by a search), the button plays the very files shown, in their order, as a list that follows no
+  // folder; a folder's menu plays that folder as the filters would show it.
+  const plFiles = () => page.evaluate(() => { const A = window.MW.app, p = A.S.playlists[A.S.fillPl]; return [p.name, p.files.map((f) => f.name), p.root]; });
+  await page.fill('#libSearch', 'tall');
+  await expect(thumbs).toHaveCount(1);
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play the 1 file shown on the wall as a playlist');
+  await page.click('#libPlay');
+  await expect.poll(plFiles).toEqual(['Drawer media', ['green tall.png'], null]);
+  await expect(toast()).toContainText('Playing "Drawer media" (1 file) on 1 tile.');
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  await page.click('#libFolderBtn');
+  await folderList.locator('.lfolder', { hasText: 'All folders' }).click();
+  await page.fill('#libSearch', 'square');
+  await expect(thumbs).toHaveCount(1);
+  await expect(thumbs.first()).toHaveAttribute('title', /^blue square\.png/);   // the search has gone through
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(menuItem('Play on the wall as a playlist')).toContainText('As the library filters it');
+  await menuItem('Play on the wall as a playlist').click();
+  await expect.poll(plFiles).toEqual(['Drawer media', ['blue square.png'], null]);   // the message reads as the last one did
+  await expect(toast()).toContainText('Playing "Drawer media" (1 file) on 1 tile.');
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(3);
+  await page.fill('#libSearch', '');
+  await expect(thumbs).toHaveCount(4);
+  await expect(page.locator('#libFolderName')).toHaveText('All folders');
+  await thumb('grey extra.png').click();   // selected again (the searches let it go), for the Esc below
+  await expect(page.locator('#libGrid .lthumb.sel')).toHaveCount(1);
+
   // Esc first lets go of the selection, then closes it; Ctrl+L brings it back as it was.
   await page.locator('#libSearch').focus();
   await page.keyboard.press('Escape');
@@ -1190,6 +1383,16 @@ test('the library in a window of its own: from the bar, double-click sends a fil
   await page.keyboard.press('Escape');
   const before = await tiles().count();
   await lw.locator('#libGrid .lthumb[title^="blue square.png"]').dblclick();
+  await expect(tiles()).toHaveCount(before + 1);
+
+  // A folder from its list plays as a playlist on that wall, in its empty cells (no tile there to choose here).
+  await lw.click('#libFolderBtn');
+  await lw.locator('#libFolderList .lfolder', { hasText: 'Drawer media' }).click({ button: 'right' });
+  await expect(lw.locator('.ctx .mi')).toHaveText([/^Play on the wall as a playlist/, /^Show in Explorer/]);
+  await lw.locator('.ctx .mi', { hasText: 'Play on the wall as a playlist' }).click();
+  await expect(toast()).toContainText('Playing "Drawer media" (4 files)');
+  await expect.poll(() => tiles().count()).toBeGreaterThan(before + 1);
+  await page.locator('body').press('Control+z');
   await expect(tiles()).toHaveCount(before + 1);
 
   // Esc lets go of the selection, then hides it; Ctrl+L on the wall shows it again; back to the drawer, it goes.
@@ -1278,15 +1481,129 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await page.mouse.down();
   const lib = await page.locator('#lib').boundingBox();
   await page.mouse.move(lib.x + lib.width + 60, p[1], { steps: 6 });
+  // Meanwhile the library says it changed (as when it reads files' details in the background): its list is not drawn
+  // again under the drag, which would take the row away and leave the drawer faded, letting clicks through.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('library:changed')));
+  await page.waitForTimeout(1500);
   p = await at(page.locator('#wall .tile[data-id="' + tileId + '"]'));
   await page.mouse.move(p[0], p[1], { steps: 6 });
   await page.mouse.up();
   await expect(toast()).toContainText('This tile now plays "Evening" (2 files)');
+  await expect(page.locator('#lib')).not.toHaveClass(/\bout\b/);
   await page.click('#libFolderBtn');
   await list.locator('.lfolder', { hasText: 'All folders' }).click();
   await thumb('grey extra.png').click({ button: 'right' });
   await menuItem('Add to "Evening"').click();
   await expect(toast()).toContainText('"Evening": 1 new file added to the playlist.', { timeout: 8000 });
+
+  // From its right-click menu it plays on the wall as a playlist, in the empty cells, or on the selected tile; while it
+  // shows, the button beside the folder row plays it too; and so does the library window. Ctrl+Z undoes each.
+  const before = await tiles().count(), undo = async () => { await page.locator('body').press('Control+z'); await expect(tiles()).toHaveCount(before); };
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await expect(page.locator('#ctxMenu .mi')).toHaveText([/^Play on the wall as a playlist/, /^Play on the selected tile/, /^Rename/, /^Delete/]);
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(toast()).toContainText(/Playing "Evening" \(3 files\) on [1-3] tiles?\./);
+  await expect.poll(() => tiles().count()).toBeGreaterThan(before);
+  await undo();
+  const other = await page.evaluate((id) => { const A = window.MW.app, it = A.S.items.find((i) => String(i.id) !== id && !i.sample && i.kind !== 'empty'); A.select(it.id); return it.id; }, tileId);
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click({ button: 'right' });
+  await menuItem('Play on the selected tile').click();
+  await expect(toast()).toContainText('This tile now plays "Evening" (3 files)');
+  expect(await page.evaluate((id) => !!window.MW.app.itemById(id).pl, other)).toBe(true);
+  await page.locator('body').press('Control+z');
+  await page.click('#libFolderBtn');
+  await collRow('Evening').click();
+  await expect(page.locator('#libPlay')).toHaveAttribute('aria-label', 'Play this collection on the wall as a playlist');
+  await page.click('#libPlay');
+  await expect(toast()).toContainText('Playing "Evening" (3 files)');
+  await undo();
+  const collId = await page.evaluate(() => window.MW.app.S.lib.coll);
+  await page.evaluate((id) => window.wall.libraryPlayOnWall({ coll: id, name: 'Evening' }), collId);   // as the library window asks
+  await expect(toast()).toContainText('Playing "Evening" (3 files)');
+  await undo();
+  await page.click('#libFolderBtn');
+  await list.locator('.lfolder', { hasText: 'All folders' }).click();
+
+  // On an empty wall it first makes a tile per file, then Fill the wall gives each its media's shape, edge to edge (in
+  // Free layout): on the grid as in Free. One Ctrl+Z gives the empty wall back, as it was.
+  const playEvening = async () => {
+    await page.click('#libFolderBtn');
+    await collRow('Evening').click({ button: 'right' });
+    await menuItem('Play on the wall as a playlist').click();
+  };
+  const filled = async () => {
+    // Every file on a tile of its own: each tile stays on its file (pinned), so none moves on to a file shown already.
+    await expect(toast()).toContainText(/^Playing "Evening" \(3 files\) on 3 tiles\. Each file has a tile of its own, so each tile stays on its file \(Pin all in the bar lets them move on\)\. 3 tiles fill the wall in \d (rows?|columns?)\./);
+    await expect(toast()).not.toContainText('Add rows or columns');
+    await expect(toast()).not.toContainText('pick files shaped');
+    expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pinned && i.loop))).toBe(true);
+    await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#gridLabel')).toHaveText('Free');
+    const box = await layout(), wb = await page.locator('#wall').boundingBox(), area = box.tiles.reduce((s, t) => s + t.w * t.h, 0);
+    expect(box.tiles.length).toBe(3);
+    expect(box.overlaps).toBe(0);
+    expect(area / (wb.width * wb.height)).toBeGreaterThan(0.85);   // they fill the wall (bar the gaps)
+    // Each tile has its picture's shape: red wide 16:9, green tall 9:16, grey extra 4:3.
+    const shapes = await page.evaluate(() => [...document.querySelectorAll('#wall .tile')].map((t) => { const b = t.getBoundingClientRect(); return [t.getAttribute('aria-label').split(' ')[0], Math.round(b.width / b.height * 100) / 100]; }));
+    for (const [, r] of shapes) expect([1.78, 0.56, 1.33].some((x) => Math.abs(r - x) < 0.12)).toBe(true);
+    expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pl))).toBe(true);
+  };
+  await page.click('#clearBtn');
+  await page.click('#clearBtn');
+  await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+  await playEvening();
+  await filled();
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#gridLabel')).toHaveText('4 × 3');
+  await page.click('#modeSeg [data-mode="free"]');
+  await playEvening();
+  await filled();
+  // Pin all in the bar lets every playlist tile move on again, and pins them all once more.
+  await page.click('#pinAll');
+  await expect(toast()).toContainText('The 3 playlist tiles carry on with their playlists.');
+  await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.MW.app.S.items.some((i) => i.pinned))).toBe(false);
+  await page.evaluate(() => { const A = window.MW.app; A.setPinned(A.S.items[0], true); });
+  await expect(page.locator('#pinAll')).toHaveAttribute('aria-pressed', 'mixed');
+  await page.click('#pinAll');
+  await expect(toast()).toContainText('The 3 playlist tiles stay on the files they show, looping.');
+  expect(await page.evaluate(() => window.MW.app.S.items.every((i) => i.pinned))).toBe(true);
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await expect(page.locator('#pinAll')).toBeDisabled();
+  await page.click('#modeSeg [data-mode="grid"]');
+
+  // The kinds picked in the library count: with GIFs picked, a folder plays its GIF only (and files that join it later
+  // only if they are GIFs); with Videos alone, it has nothing to play.
+  fs.writeFileSync(path.join(dir, 'Drawer media', 'spin.gif'), Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64'));
+  await expect(thumbs).toHaveCount(5, { timeout: 10000 });
+  const drawerRow = list.locator('.lfolder', { hasText: 'Drawer media' });
+  const playDrawer = async () => {
+    await page.click('#libFolderBtn');
+    await drawerRow.click({ button: 'right' });
+    await menuItem('Play on the wall as a playlist').click();
+  };
+  await page.click('.lkinds [data-kind="gif"]');
+  await expect(thumbs).toHaveCount(1);
+  await page.click('#libFolderBtn');
+  await drawerRow.click({ button: 'right' });
+  await expect(menuItem('Play on the wall as a playlist')).toContainText('GIFs only');
+  await menuItem('Play on the wall as a playlist').click();
+  await expect(toast()).toContainText('Playing "Drawer media" (1 of 5 files (GIFs only)) on 1 tile. It is the only one, so the tile stays on it.');
+  expect(await page.evaluate(() => { const A = window.MW.app; return [A.S.items.map((i) => i.name), A.S.playlists[A.S.items[0].pl].types]; })).toEqual([['spin.gif'], ['gif']]);
+  await page.locator('body').press('Control+z');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('.lkinds [data-kind="gif"]');
+  await page.click('.lkinds [data-kind="video"]');
+  await playDrawer();
+  await expect(toast()).toContainText('"Drawer media" has no videos. Pick other kinds in the library');
+  await expect(tiles()).toHaveCount(0);
+  await page.click('.lkinds [data-kind="video"]');
+  await expect(thumbs).toHaveCount(5);
 
   // Deleting it takes two steps, and leaves the files.
   await page.click('#libFolderBtn');
@@ -1294,7 +1611,7 @@ test('collections: made and renamed, filled by dragging, reordered, played on a 
   await menuItem('Delete…').click();
   await menuItem('Delete "Evening"').click();
   await expect(toast()).toContainText('"Evening" is deleted');
-  await expect(thumbs).toHaveCount(4);
+  await expect(thumbs).toHaveCount(5);   // the four pictures and the GIF added above
   await page.click('#libClose');
 });
 

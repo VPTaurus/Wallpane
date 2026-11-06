@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerSaveBlocker, globalShortcut, nativeImage, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -49,10 +49,12 @@ const { createStrips } = require('./lib/strips');
 const { createLoudness } = require('./lib/loudness');
 const { createOpenings } = require('./lib/openings');
 const { PACES, autoPace, paceHzOf } = require('./lib/pace');
+const updates = require('./lib/updates');
 
-// Links the page may open in the browser (About and support). Nothing else leaves the app.
+// Links the page may open in the browser (About, support, and a new release). Nothing else leaves the app.
 const LINKS = {
   source: pkg.homepage,
+  releases: pkg.homepage + '/releases/latest',
   support: [].concat(pkg.funding || []).map((f) => (typeof f === 'string' ? f : f && f.url)).filter((u) => /^https:\/\//.test(u || '')),
   ffmpeg: ffmpegBuild && /^https:\/\//.test(ffmpegBuild.source || '') ? ffmpegBuild.source : null
 };
@@ -312,12 +314,17 @@ function windowsFolder(kind) {
   try { return app.getPath(kind); } catch { return app.getPath('documents'); }
 }
 function wallFile(kind, ext) { return path.join(windowsFolder(kind), wallName(ext)); }
+// A GIF of the wall the same way (req.gif), in Pictures by default.
 handle('wall:video', async (e, r) => {
   const req = wallvideo.clean(r);
   if (!req || !ffmpeg.available() || !jobs) return { status: 'no' };
-  const s = await dialog.showSaveDialog(winOf(e), { title: 'Save the wall as a video', defaultPath: wallFile('videos', 'mp4'), filters: [{ name: 'MP4', extensions: ['mp4'] }] });
+  const ext = req.gif ? 'gif' : 'mp4';
+  const s = await dialog.showSaveDialog(winOf(e), {
+    title: req.gif ? 'Save the wall as a GIF' : 'Save the wall as a video',
+    defaultPath: wallFile(req.gif ? 'pictures' : 'videos', ext), filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
+  });
   if (s.canceled || !s.filePath) return { status: 'cancelled' };
-  const out = /\.mp4$/i.test(s.filePath) ? s.filePath : s.filePath + '.mp4';
+  const out = path.extname(s.filePath).toLowerCase() === '.' + ext ? s.filePath : s.filePath + '.' + ext;
   if (req.tiles.some((t) => path.resolve(t.file).toLowerCase() === path.resolve(out).toLowerCase())) return { status: 'no' };
   const job = jobs.add({ kind: 'wallvideo', key: 'wallvideo:' + out, label: path.basename(out), input: { out, req }, priority: 'user' });
   return { status: 'working', key: job.key, path: out };
@@ -554,6 +561,24 @@ handle('library:toWall', (_e, paths) => {
   w.webContents.send('library:put', list);
   return true;
 });
+// From the library window: a library folder ({ dir }) or collection ({ coll, name }) for that wall window to play as a
+// playlist (Play on the wall as a playlist).
+handle('library:playOnWall', (_e, what) => {
+  const o = what && typeof what === 'object' ? what : {};
+  const KINDS = ['video', 'gif', 'image'];
+  const list = Array.isArray(o.files) ? o.files.filter((f) => f && typeof f.path === 'string' && f.path).slice(0, 5000)
+    .map((f) => ({ path: f.path, name: String(f.name || ''), kind: KINDS.includes(f.kind) ? f.kind : 'image' })) : null;
+  const msg = list ? { files: list, name: String(o.name || '').slice(0, 60) }   // the files the library shows
+    : typeof o.dir === 'string' && o.dir ? { dir: o.dir }
+      : typeof o.coll === 'string' && o.coll ? { coll: o.coll, name: String(o.name || '').slice(0, 60) } : null;
+  // kinds: the library's Videos / GIFs / Pictures picked, which the playlist then plays only.
+  const kinds = (Array.isArray(o.kinds) ? o.kinds : []).filter((k) => KINDS.includes(k));
+  if (msg && kinds.length) msg.kinds = kinds;
+  const w = wins.get(lastWall) || [...wins.values()][0];
+  if (!msg || !w || w.isDestroyed()) return false;
+  w.webContents.send('library:play', msg);
+  return true;
+});
 // A real Windows file drag of these files out of the library window (Electron offers it for copying or linking, never
 // moving): a wall window takes it as it takes a drop from Explorer.
 ipcMain.on('library:drag', (e, paths) => {
@@ -585,6 +610,16 @@ handle('fs:gifDuration', async (_e, p) => {
     if (st.size > 60 * 1024 * 1024) return 0;
     return files.gifSeconds(await fsp.readFile(p));
   } catch { return 0; }
+});
+// A GIF's bytes, for Record (renderer/ui/recorder.js decodes its frames: a canvas draws only a picture's first frame).
+// GIFs only, as large as fs:gifDuration takes; null otherwise.
+handle('fs:gifData', async (_e, p) => {
+  try {
+    if (typeof p !== 'string' || path.extname(p).toLowerCase() !== '.gif') return null;
+    const st = await fsp.stat(p);
+    if (!st.isFile() || st.size > 60 * 1024 * 1024) return null;
+    return await fsp.readFile(p);
+  } catch { return null; }
 });
 // What a media file holds and whether it plays as it is (ffprobe): see lib/mediainfo.js.
 handle('media:probe', async (_e, p) => {
@@ -735,8 +770,19 @@ handle('app:gpu', async () => {
 });
 // Opens one of the app's own links (source code, support, FFmpeg's source) in the browser; any other address is ignored.
 handle('app:openLink', (_e, url) => {
-  if (url === LINKS.source || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
+  if (url === LINKS.source || url === LINKS.releases || LINKS.support.includes(url) || (LINKS.ffmpeg && url === LINKS.ffmpeg)) shell.openExternal(url);
   return true;
+});
+// Settings › General › Check for updates: asks GitHub for the newest release, only when clicked (lib/updates.js).
+// The end-to-end tests point it at a server of their own.
+let updateCheck = null;
+handle('app:checkUpdates', () => {
+  if (!updateCheck) {
+    const url = process.env.WALLPANE_UPDATES_URL || updates.latestUrl(pkg.homepage);
+    updateCheck = (url ? updates.check({ fetch: (u, o) => net.fetch(u, o), url, current: app.getVersion() }) : Promise.resolve({ ok: false, reason: 'none' }))
+      .finally(() => { updateCheck = null; });
+  }
+  return updateCheck;
 });
 
 // Keep the display from sleeping while a window that asked for it is full screen (wall mode).
@@ -796,19 +842,30 @@ function hideState() { return { key: hideCfg.key, cover: hideCfg.cover, image: h
 function tellHide() {
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.send('hide:changed', hideState());
 }
+// A wall window that got the hide button's own press holds the mouse until it gets the release, and the helper may
+// swallow that release (it was late with the press on a busy PC, or the page caught it). Every click in Windows would
+// then go to that window, hidden or covered: the pointer moves, clicks do nothing. Disabling a window for a moment makes
+// Windows cancel that (WM_CANCELMODE), so it lets go. One that a dialog has disabled holds no mouse and is left so.
+function letGoOfMouse(w) {
+  if (w.isDestroyed() || !w.isEnabled()) return;
+  w.setEnabled(false);
+  w.setEnabled(true);
+}
 function setHidden(on) {
   if (hidden === !!on) return;
   hidden = !!on;
+  if (hidden) for (const w of wins.values()) letGoOfMouse(w);
   // Sound goes off here at once, whatever the page is doing; the page pauses its videos and covers itself.
   for (const w of wins.values()) if (!w.isDestroyed()) w.webContents.setAudioMuted(hidden);
   tellHide();
   if (hidden && hideCfg.cover === 'away') { hiddenAway = true; for (const w of wins.values()) if (!w.isDestroyed()) w.hide(); }
   if (!hidden && hiddenAway) { hiddenAway = false; for (const w of wins.values()) if (!w.isDestroyed()) w.show(); }
 }
-// One press, one change, even if both Windows ('key') and the focused page ('page') report the same press.
+// One press, one change, even if two report the same press: Windows ('key') and the focused page ('page'), or the mouse
+// helper ('mouse') and the page when the helper was late with it (a second later, on a busy PC).
 function toggleHide(from) {
   const now = Date.now();
-  if (from !== hideFrom && now - hideAt < 300) return;
+  if (from !== hideFrom && now - hideAt < 1000) return;
   hideAt = now; hideFrom = from;
   setHidden(!hidden);
 }

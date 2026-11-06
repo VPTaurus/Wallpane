@@ -155,6 +155,23 @@
 
   /* ---------- layouts: frames only ([col, row, w, h] each), no media ---------- */
   function gridFrames(c, r) { var f = []; for (var y = 0; y < r; y++) for (var x = 0; x < c; x++) f.push([x, y, 1, 1]); return f; }
+  // n tiles that cover a W x H wall (a folder played on an empty wall): { cols, rows, frames: [{ col, row, w, h }] }.
+  // Row by row, the last tile wider when the last row is short, so no cell stays empty; the rows and columns (12 at
+  // most) whose tiles, that wider one too, come closest on average to a screen's shape (16:10, between 16:9 and 4:3).
+  function coverWall(n, W, H) {
+    n = Math.max(1, Math.min(144, Math.floor(n) || 1));
+    var a = W > 0 && H > 0 ? W / H : 16 / 9, best = null, off = function (s) { return Math.abs(Math.log(s / 1.6)); };
+    for (var r = 1; r <= Math.min(n, 12); r++) {
+      var c = Math.ceil(n / r);
+      if (c > 12 || c * (r - 1) >= n) continue;   // too wide, or a row would be left empty
+      var s = a * r / c, span = c * r - n + 1, score = ((n - 1) * off(s) + off(s * span)) / n;
+      if (!best || score < best.score - 1e-9) best = { cols: c, rows: r, score: score };
+    }
+    var frames = [];
+    for (var i = 0; i < n; i++) frames.push({ col: i % best.cols, row: Math.floor(i / best.cols), w: 1, h: 1 });
+    frames[n - 1].w = best.cols - frames[n - 1].col;
+    return { cols: best.cols, rows: best.rows, frames: frames };
+  }
   function validFrames(L) {
     if (!L || !(Number.isInteger(L.cols) && Number.isInteger(L.rows) && L.cols >= 1 && L.cols <= 12 && L.rows >= 1 && L.rows <= 12) || !Array.isArray(L.f) || !L.f.length) return false;
     if (!L.f.every(function (f) { return Array.isArray(f) && f.length === 4 && f.every(Number.isInteger); })) return false;
@@ -206,6 +223,6 @@
     linesLayout: linesLayout, lcm: lcm,
     overlap: overlap, emptyGrid: emptyGrid, mark: mark, occupancy: occupancy, freeSpot: freeSpot, validLayout: validLayout,
     arrange: arrange, itemAt: itemAt, geoMap: geoMap, applyGeo: applyGeo, nearestSpot: nearestSpot, resolve: resolve, resolveYield: resolveYield, shrinkTo: shrinkTo,
-    gridFrames: gridFrames, validFrames: validFrames, layoutSlots: layoutSlots
+    gridFrames: gridFrames, validFrames: validFrames, layoutSlots: layoutSlots, coverWall: coverWall
   };
 });

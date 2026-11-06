@@ -1,6 +1,7 @@
 // Recording the wall live: the bar's Record button starts it and stops it (in wall mode, the right-click menu stops it).
 // Each frame the tiles' videos and pictures are drawn into a canvas as each tile shows them, in its place: only the
-// media, no selection, controls or pointer, and a tile leaving in a crossfade at its opacity. The sound is what you hear
+// media, no selection, controls or pointer, and a tile leaving in a crossfade at its opacity; GIFs are decoded here, so
+// they move (a canvas would draw a GIF's first frame only). The sound is what you hear
 // from the wall: each video as loud as it plays now (its volume and even loudness; silent when muted or paused; fading
 // in a crossfade), and the music. The browser's recorder makes an MP4 (H.264 and AAC) of it, sent a second at a time
 // to the main process, which writes it as it comes and tidies it when it stops (lib/recfile.js). Then it is saved in the
@@ -25,6 +26,43 @@
     return (h ? h + ':' + ('0' + m).slice(-2) : m) + ':' + ('0' + (s % 60)).slice(-2);
   }
 
+  // A GIF: a canvas draws only a picture's first frame, so while recording each GIF on the wall is decoded here (the
+  // browser's ImageDecoder, the file's bytes from the main process) and goes from frame to frame with each frame's own
+  // delay, round and round, as the wall plays it. Null until it is ready, or for a GIF of one frame (the picture then).
+  function gifFrame(r, file) {
+    var g = r.gifs.get(file);
+    if (g === undefined) {
+      r.gifs.set(file, null);
+      if (window.ImageDecoder) {
+        api.gifData(file).then(function (bytes) {
+          if (!bytes || rec !== r) return null;
+          var d = new ImageDecoder({ data: bytes, type: 'image/gif' });
+          return d.tracks.ready.then(function () { return d.completed; }).then(function () {
+            var t = d.tracks.selectedTrack, n = t ? t.frameCount : 0;
+            if (rec !== r || n < 2) { d.close(); return; }
+            r.gifs.set(file, { d: d, n: n, i: -1, frame: null, next: 0, busy: false });
+          });
+        }).catch(function () { /* drawn as the picture */ });
+      }
+      return null;
+    }
+    if (!g) return null;
+    var now = performance.now();
+    if (!g.busy && now >= g.next) {
+      var i = (g.i + 1) % g.n;
+      g.busy = true;
+      g.d.decode({ frameIndex: i }).then(function (res) {
+        g.busy = false;
+        if (r.gifs.get(file) !== g) { res.image.close(); return; }
+        if (g.frame) g.frame.close();
+        g.frame = res.image; g.i = i;
+        var ms = (res.image.duration || 0) / 1000;   // microseconds; 10 ms or less plays as 100, as in browsers
+        g.next = performance.now() + (ms > 10 ? ms : 100);
+      }, function () { g.busy = false; });
+    }
+    return g.frame;
+  }
+
   // One frame: the wall's colour, then each tile's media as the tile shows it, in the wall's order. The wall keeps its
   // shape in the video: if it changes while recording (a tile full screen, the window resized), it is fitted in.
   function draw(r) {
@@ -35,7 +73,8 @@
     Array.prototype.forEach.call(wall.querySelectorAll('.tile'), function (el) {
       var m = el._media, it = A.itemById(+el.dataset.id);
       if (!m || !it || (m.tagName !== 'VIDEO' && m.tagName !== 'IMG')) return;
-      var nw = m.videoWidth || m.naturalWidth, nh = m.videoHeight || m.naturalHeight, b = el.getBoundingClientRect();
+      if (m.tagName === 'IMG' && /\.gif$/i.test(it.path || '')) m = gifFrame(r, it.path) || m;
+      var nw = m.displayWidth || m.videoWidth || m.naturalWidth, nh = m.displayHeight || m.videoHeight || m.naturalHeight, b = el.getBoundingClientRect();
       if (!nw || !nh || !(b.width >= 1 && b.height >= 1)) return;
       var p = V.placed(b.width, b.height, nw / nh, it.fit, V.of(it)), cr = p.crop, d = p.dest;
       if (!(d.w > 0 && d.h > 0)) return;
@@ -91,7 +130,7 @@
       stream.addTrack(dest.stream.getAudioTracks()[0]);
     }
     var r = rec = {
-      w: size.w, h: size.h, ctx: ctx, audio: audio, bg: A.wallColour(), started: Date.now(), writing: Promise.resolve(), failed: null, timer: 0, ticker: 0,
+      w: size.w, h: size.h, ctx: ctx, audio: audio, bg: A.wallColour(), started: Date.now(), writing: Promise.resolve(), failed: null, timer: 0, ticker: 0, gifs: new Map(),
       mr: new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: WV.recBitrate(size.w, size.h, o.fps, o.quality), audioBitsPerSecond: 192000 })
     };
     show();
@@ -121,6 +160,8 @@
     clearInterval(r.timer); clearInterval(r.ticker);
     if (r.audio) r.audio.ctx.close().catch(function () {});
     r.audio = null;
+    r.gifs.forEach(function (g) { if (g) { if (g.frame) g.frame.close(); g.d.close(); } });
+    r.gifs.clear();
   }
   function stop() {
     var r = rec;
@@ -145,6 +186,7 @@
   A.toggleRecording = function () { if (rec) stop(); else { A.closePops(); start(); } };
   function show() {
     var on = !!rec, t = A.recordingTime();
+    document.body.classList.toggle('recording', on);   // wall mode's red dot (styles.css .recdot)
     btn.classList.toggle('rec', on);
     btn.setAttribute('aria-pressed', String(on));
     btn.setAttribute('aria-label', on ? 'Stop recording' : 'Record the wall');

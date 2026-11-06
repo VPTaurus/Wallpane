@@ -12,6 +12,10 @@
   var LENGTHS = [[10, '10 s'], [30, '30 s'], [60, '1 minute'], [120, '2 minutes'], [300, '5 minutes'], [600, '10 minutes']];
   var FPS = 30, LONG = 4096;   // LONG: the long side at most, as graphics card encoders take it
   var MAX_TILES = 150, MAX_TRACKS = 200;
+  // Save as a GIF: the wall the same way, made a GIF instead (no sound). Its width and frames a second as a video
+  // tile's GIF offers them (renderer/lib/gifmake.js); shorter lengths, as a GIF gets big fast.
+  var GIF_WIDTHS = [320, 480, 640, 800], GIF_RATES = [10, 15, 20, 25];
+  var GIF_LENGTHS = [[3, '3 s'], [5, '5 s'], [10, '10 s'], [15, '15 s'], [30, '30 s']];
 
   function num(v) { return typeof v === 'number' && Number.isFinite(v) ? v : NaN; }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -25,6 +29,13 @@
     if (a >= 1) { h = short; w = short * a; } else { w = short; h = short / a; }
     var k = Math.min(1, LONG / Math.max(w, h));
     return { w: even(w * k), h: even(h * k) };
+  }
+  // A GIF's size for a W x H wall: `width` wide (even, as the pieces it is made of are), the height as the wall's shape
+  // says, at most LONG.
+  function gifSize(W, H, width) {
+    var a = W / H;
+    if (!(a > 0) || !isFinite(a)) a = 16 / 9;
+    return { w: even(width), h: even(Math.min(LONG, width / a)) };
   }
 
   // One tile, checked: its box on the wall (CSS pixels), how the media sits in it, and how it plays now. vol 0: no
@@ -58,18 +69,24 @@
     });
     return out;
   }
-  // What the page asks for, checked: { size, secs, wall: { w, h, bg }, tiles, playlists, music, hints } or null.
-  // playlists are checked again where they are used (renderer/lib/playlist.js clean).
+  // What the page asks for, checked: { size, secs, gif, wall: { w, h, bg }, tiles, playlists, music, hints } or null.
+  // format 'gif': gif is { width, fps } and secs one of GIF_LENGTHS, with no sound (every tile at volume 0, no music);
+  // else gif is null. playlists are checked again where they are used (renderer/lib/playlist.js clean).
   function clean(r) {
     if (!r || typeof r !== 'object' || !r.wall || typeof r.wall !== 'object') return null;
     var W = num(r.wall.w), H = num(r.wall.h);
     if (!(W >= 10 && H >= 10)) return null;
     var tiles = (Array.isArray(r.tiles) ? r.tiles : []).slice(0, MAX_TILES).map(cleanTile).filter(Boolean);
     if (!tiles.length) return null;
-    var m = r.music, tracks = m && Array.isArray(m.tracks) ? m.tracks.filter(function (p) { return typeof p === 'string' && p; }).slice(0, MAX_TRACKS) : [];
+    // From the page: format 'gif' with width and fps; checked again in the job: gif as clean gave it.
+    var g = r.format === 'gif' ? r : r.gif && typeof r.gif === 'object' ? r.gif : null;
+    var gif = g ? { width: GIF_WIDTHS.indexOf(g.width) > -1 ? g.width : 480, fps: GIF_RATES.indexOf(g.fps) > -1 ? g.fps : 15 } : null;
+    if (gif) tiles.forEach(function (t) { t.vol = 0; });
+    var m = gif ? null : r.music, tracks = m && Array.isArray(m.tracks) ? m.tracks.filter(function (p) { return typeof p === 'string' && p; }).slice(0, MAX_TRACKS) : [];
     var h = r.hints || {};
     return {
-      size: has(SIZES, r.size) ? r.size : 1080, secs: has(LENGTHS, r.secs) ? r.secs : 30,
+      size: has(SIZES, r.size) ? r.size : 1080,
+      secs: gif ? (has(GIF_LENGTHS, r.secs) ? r.secs : 5) : has(LENGTHS, r.secs) ? r.secs : 30, gif: gif,
       wall: { w: W, h: H, bg: /^#[0-9a-f]{6}$/i.test(r.wall.bg) ? r.wall.bg.toLowerCase() : '#000000' },
       tiles: tiles, playlists: r.playlists && typeof r.playlists === 'object' ? r.playlists : {},
       music: tracks.length ? { tracks: tracks, at: Math.max(0, num(m.at) || 0), vol: clamp(num(m.vol), 0, 1) || 0 } : null,
@@ -104,5 +121,6 @@
     return Math.round(clamp(w * h * fps * q[2], 1e6, 8e7));
   }
 
-  return { SIZES: SIZES, LENGTHS: LENGTHS, FPS: FPS, LONG: LONG, outSize: outSize, clean: clean, QUALITIES: QUALITIES, RATES: RATES, cleanRec: cleanRec, recSize: recSize, recBitrate: recBitrate };
+  return { SIZES: SIZES, LENGTHS: LENGTHS, FPS: FPS, LONG: LONG, outSize: outSize, clean: clean,
+    GIF_WIDTHS: GIF_WIDTHS, GIF_RATES: GIF_RATES, GIF_LENGTHS: GIF_LENGTHS, gifSize: gifSize, QUALITIES: QUALITIES, RATES: RATES, cleanRec: cleanRec, recSize: recSize, recBitrate: recBitrate };
 });

@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('wall', {
   pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch { return ''; } },
   expand: (paths) => ipcRenderer.invoke('fs:expand', paths),
   gifDuration: (p) => ipcRenderer.invoke('fs:gifDuration', p),
+  gifData: (p) => ipcRenderer.invoke('fs:gifData', String(p)),
   exists: (paths) => ipcRenderer.invoke('fs:exists', paths),
   resolveNames: (dir, names) => ipcRenderer.invoke('fs:resolveNames', dir, names),
   revealFile: (p) => ipcRenderer.invoke('shell:reveal', p),
@@ -96,6 +97,11 @@ contextBridge.exposeInMainWorld('wall', {
   onLibraryWindow: (cb) => { ipcRenderer.on('library:window', (_e, shown) => cb(!!shown)); },
   libraryToWall: (paths) => ipcRenderer.invoke('library:toWall', Array.isArray(paths) ? paths.map(String) : []),
   onLibraryPut: (cb) => { ipcRenderer.on('library:put', (_e, paths) => cb(Array.isArray(paths) ? paths : [])); },
+  libraryPlayOnWall: (what) => ipcRenderer.invoke('library:playOnWall', what && typeof what === 'object' ? {
+    dir: what.dir, coll: what.coll, name: what.name, kinds: Array.isArray(what.kinds) ? what.kinds.map(String) : null,
+    files: Array.isArray(what.files) ? what.files.filter((f) => f && typeof f.path === 'string').map((f) => ({ path: f.path, name: String(f.name || ''), kind: String(f.kind) })) : null
+  } : null),
+  onLibraryPlay: (cb) => { ipcRenderer.on('library:play', (_e, what) => cb(what && typeof what === 'object' ? what : null)); },
   startFileDrag: (paths) => ipcRenderer.send('library:drag', Array.isArray(paths) ? paths.map(String) : []),
 
   // window
@@ -127,5 +133,7 @@ contextBridge.exposeInMainWorld('wall', {
   gpuInfo: () => ipcRenderer.invoke('app:gpu'),
   pace: (p) => ipcRenderer.invoke('app:pace', typeof p === 'string' ? p : null),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
-  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url))
+  openLink: (url) => ipcRenderer.invoke('app:openLink', String(url)),
+  // Check for updates (Settings › General): the one question Wallpane asks online, and only when clicked
+  checkUpdates: () => ipcRenderer.invoke('app:checkUpdates')
 });

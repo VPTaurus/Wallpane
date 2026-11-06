@@ -586,6 +586,10 @@ body.clean .lib { display: none !important; }
 .lsearch input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; padding: 0; }
 .lchips { display: flex; align-items: center; gap: 6px; }
 .lkinds { display: flex; gap: 4px; flex-wrap: wrap; }
+/* The tag chips under them: every tag in use, on or off; a few rows at most, then they scroll. */
+.ltagchips { display: flex; gap: 4px; flex-wrap: wrap; flex: none; max-height: 92px; overflow-y: auto; }
+.ltagchips .chip { height: 26px; padding: 0 9px; font-size: 12px; }
+.ltagchips .chip::before { content: "#"; opacity: 0.55; margin-right: -2px; }
 .chip { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; background: transparent; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .chip:hover { background: var(--panel-2); }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
@@ -597,8 +601,10 @@ body.clean .lib { display: none !important; }
 .lfilt .check { font-size: 13px; }
 .lfilt .btn { height: 30px; justify-content: center; font-size: 13px; }
 /* The folders: one row saying which (all, or one), opening the list of them over the thumbnails. */
-.lfolderpick { position: relative; flex: none; }
-.lfolderbtn { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: transparent; text-align: left; font-size: 13px; }
+/* Beside it while one folder shows, #libPlay plays that folder on the wall as a playlist. */
+.lfolderpick { position: relative; flex: none; display: flex; gap: 6px; }
+.lfolderpick > .btn.ib { flex: none; width: 32px; height: 32px; }
+.lfolderbtn { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: transparent; text-align: left; font-size: 13px; }
 .lfolderbtn:hover, .lfolderbtn[aria-expanded="true"] { background: var(--panel-2); }
 .lfolderbtn.one { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
 .lfolderbtn > .ic { color: var(--muted); }
@@ -776,7 +782,7 @@ body.clean.idle .cover, body.clean.idle .cover * { cursor: default !important; }
 body.shot .tile, body.shot .tile.sel, body.shot .slot { outline-color: transparent; box-shadow: none; transition: none; }
 body.shot .slot { border-color: transparent; background: transparent; }
 body.shot .slot > *, body.shot .tile.is-empty, body.shot .hud, body.shot .vbar, body.shot .rz, body.shot .pinmark, body.shot .ghost,
-body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel) { visibility: hidden !important; }
+body.shot .pop, body.shot .ctx, body.shot .tipbox, body.shot .toast, body.shot .lastwall, body.shot .lib:not(.panel), body.shot .exit, body.shot .recdot { visibility: hidden !important; }
 
 body.clean { padding: 0; }
 body.clean .bar, body.clean .props { display: none; }
@@ -784,12 +790,30 @@ body.clean .app { height: 100%; gap: 0; }
 body.clean .wall, body.clean .tile, body.clean .slot { border-radius: 0; }
 body.clean .tile, body.clean .tile.sel { outline-color: transparent; box-shadow: none; }
 body.clean .rz.c::after, body.clean .pinmark { display: none !important; }
+/* Exit wall mode waits out of the way, as full screen does in a browser: it slides down from above the screen to the
+   top centre while the pointer touches the screen's top edge or is on it, and slides back up once the pointer moves
+   off (ui/controls.js, .atop). */
 body.clean .exit {
   display: inline-flex; position: fixed; z-index: 20;
-  top: 10px; right: 12px;
-  opacity: 0.35; transition: opacity 0.2s;
+  top: 20px; left: 50%; transform: translate(-50%, calc(-100% - 24px));
+  opacity: 0; visibility: hidden;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s, visibility 0s 0.22s;
 }
-body.clean .exit:hover, body.clean .exit:focus-visible { opacity: 1; }
+body.clean.atop .exit, body.clean .exit:focus-visible {
+  transform: translate(-50%, 0); opacity: 1; visibility: visible;
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s;
+}
+@media (prefers-reduced-motion: reduce) { body.clean .exit, body.clean.atop .exit { transition: opacity 0.15s, visibility 0s; } }
+/* While Record records in wall mode (the bar, and its red Record button, hidden): a small red dot in the top-left corner,
+   clear of the tile buttons, taking no clicks. It is not in the recording, which draws only the media; the emergency
+   hide's cover lies over it. */
+.recdot { display: none; }
+body.clean.recording .recdot {
+  display: block; position: fixed; z-index: 19; top: 6px; left: 6px; width: 9px; height: 9px; border-radius: 50%;
+  background: #e5484d; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); pointer-events: none;
+  animation: recblink 1.2s steps(2, jump-none) infinite;
+}
+@media (prefers-reduced-motion: reduce) { body.clean.recording .recdot { animation: none; } }
 /* After a few idle seconds the cursor, tile buttons and exit button disappear. */
 body.clean.idle, body.clean.idle * { cursor: none !important; }
 body.clean.idle .hud, body.clean.idle .rz, body.clean.idle .exit, body.clean.idle .vbar { opacity: 0 !important; }

@@ -120,7 +120,8 @@
       setTimeout(go, 1500);
     }
   }
-  A.setPinned = function (it, v) {
+  // quiet: many at once (Pin all), drawn once after.
+  A.setPinned = function (it, v, quiet) {
     it.pinned = !!v;
     if (v) it.loop = true;
     else {
@@ -128,7 +129,18 @@
       var el = A.tileEls.get(it.id), vid = el && el.querySelector('video');
       if (vid) it._t0 = vid.currentTime;
     }
+    if (!quiet) { A.render(); A.refreshInspector(); }
+  };
+  // The bar's Pin all: every tile that plays a playlist stays on the file it shows, looping it; when all of them do
+  // already, they all carry on with their playlists.
+  A.togglePinAll = function () {
+    var pl = S.items.filter(function (i) { return i.pl && S.playlists[i.pl]; });
+    if (!pl.length) return;
+    var all = pl.every(function (i) { return i.pinned; });
+    pl.forEach(function (i) { if (!!i.pinned === all) A.setPinned(i, !all, true); });
     A.render(); A.refreshInspector();
+    A.toast(all ? 'The ' + pl.length + (pl.length === 1 ? ' playlist tile carries on with its playlist.' : ' playlist tiles carry on with their playlists.')
+      : (pl.length === 1 ? 'The playlist tile stays' : 'The ' + pl.length + ' playlist tiles stay') + ' on the file' + (pl.length === 1 ? ' it shows' : 's they show') + ', looping. Pin all again lets them move on.');
   };
   A.failAdvance = function (it) {
     var p = it.pl && S.playlists[it.pl];
@@ -289,38 +301,64 @@
     var n = PL.playable(p), all = p.files.length, t = PL.typesLabel(p);
     return (n === all ? n : n + ' of ' + all) + (all === 1 ? ' file' : ' files') + (t ? ' (' + t + ')' : '');
   };
-  function nothingPlays(p) {
-    A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. Tick more kinds of file under Plays.');
+  function nothingPlays(p, fromLib) {
+    A.toast('"' + p.name + '" has no ' + (PL.typesLabel(p).replace(' only', '') || 'media') + '. ' +
+      (fromLib ? 'Pick other kinds in the library (Videos, GIFs, Pictures), or none for all of them.' : 'Tick more kinds of file under Plays.'));
   }
   function newId() { return 'p' + Date.now().toString(36) + S.nid; }
-  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows.
+  // Files from the library rather than one folder: res.title names the playlist, res.coll is the collection it follows,
+  // res.types the kinds of file it plays (the library's Videos / GIFs / Pictures as picked when it was played), also of
+  // the files that join it later.
   function fromRes(p, res) {
     if (res.title) p.name = String(res.title).slice(0, 60);
     if (res.coll) p.coll = res.coll;
+    if (res.types) p.types = PL.cleanTypes(res.types);
     return p;
   }
   // A folder that fills the empty tiles and empty cells of the wall. Rows or columns added later fill up with it too.
-  A.fillWithFolder = function (res, opts) {
+  // lib (the library's Play on the wall as a playlist): an empty wall first gets tiles for it (coverWall), and then
+  // Fill the wall arranges every tile by its media's shape, edge to edge (in Free layout), in the same undo step.
+  A.fillWithFolder = function (res, opts, lib) {
     var files = res.entries || [];
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
-    if (S.mode === 'free' && !S.items.some(function (i) { return i.kind === 'empty'; })) {
+    var bare = !!lib && !S.items.some(function (i) { return !i.sample; });
+    if (!bare && S.mode === 'free' && !S.items.some(function (i) { return i.kind === 'empty'; })) {
       A.toast('In Free (pixels), a playlist plays in empty tiles. Right-click the wall and choose New empty tile, or use Arrange > Rows and columns.');
       return;
     }
     var id = newId(), p = fromRes(PL.make(files, opts, PL.rootFor(res, files)), res);
-    if (!PL.playable(p)) { nothingPlays(p); return; }
+    if (!PL.playable(p)) { nothingPlays(p, !!res.types); return; }
     A.pushHistory();
     S.items = S.items.filter(function (i) { return !i.sample; });
     if (S.sel && !A.itemById(S.sel)) S.sel = null;
+    if (bare) coverWall(Math.min(PL.playable(p), S.cols * S.rows));
     p.truncated = !!res.truncated;
     S.playlists[id] = p;
     S.fillPl = id;
-    var n = A.autoFill(false);
+    var n = A.autoFill(false), more = !lib && S.mode !== 'free' && PL.playable(p) > n;   // files left for new cells
+    // From the library with every file on a tile of its own: each tile stays on its file (pinned), so a short one that
+    // ends does not move on to a file another tile already shows. Pin all in the bar lets them move on.
+    var own = lib && n && n >= PL.playable(p);
+    if (own) S.items.forEach(function (it) { if (it.pl === id) A.setPinned(it, true, true); });
+    var msg = [n
+      ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + (more ? ' Add rows or columns and they fill too.' : '') +
+        (own ? (n === 1 ? ' It is the only one, so the tile stays on it.' : ' Each file has a tile of its own, so each tile stays on its file (Pin all in the bar lets them move on).') : '')
+      : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' ');
+    if (lib && n) { A.fillWallAfterAdding(msg); return; }
     A.render(); A.refreshInspector();
-    A.toast([n
-      ? 'Playing "' + p.name + '" (' + A.plCount(p) + ') on ' + n + (n === 1 ? ' tile.' : ' tiles.') + ' Add rows or columns and they fill too.'
-      : 'The wall is full. Add rows or columns and the folder "' + p.name + '" will fill them.'].concat(A.scanNotes(res)).join(' '));
+    A.toast(msg);
   };
+  // An empty wall gets n empty tiles for a playlist to fill: one per file, at most as many as the grid has cells (Arrange
+  // › Rows and columns), placed as G.coverWall lays them out; Fill the wall then gives each its media's shape. With
+  // that many files on the grid, its empty cells take the playlist as they are.
+  function coverWall(n) {
+    var d = A.wallPx(), full = n >= S.cols * S.rows;
+    if (S.mode !== 'free' && full) return;
+    var L = full ? { cols: S.cols, rows: S.rows, frames: G.gridFrames(S.cols, S.rows).map(function (f) { return { col: f[0], row: f[1], w: 1, h: 1 }; }) } : G.coverWall(n, d.W, d.H);
+    var tiles = L.frames.map(function (f) { return A.makeEmptyItem(f); });
+    MW.free.toFree(tiles, L.cols, L.rows, S.gap, d);   // where they go in Free layout
+    S.items = S.items.concat(tiles);
+  }
   // Puts the fill folder into each empty tile, then (on the grid) into each empty cell, never more tiles than files.
   // With onlyNew (the grid grew), only cells outside the old oldCols by oldRows grid are filled.
   A.autoFill = function (onlyNew, oldCols, oldRows) {
@@ -370,7 +408,7 @@
     if (!files.length) { A.toast(A.noMediaMessage(res)); return; }
     var base = (it.pl && S.playlists[it.pl]) || A.readPlOpts();
     var id = newId(), p = fromRes(PL.make(files, base, PL.rootFor(res, files)), res);
-    if (!PL.playable(p)) { nothingPlays(p); return; }
+    if (!PL.playable(p)) { nothingPlays(p, !!res.types); return; }
     p.truncated = !!res.truncated;
     A.pushHistory();
     S.playlists[id] = p;
