@@ -50,5 +50,10 @@ const windowAt = async (x, y) => Number(await run('[WallpaneTestMouse]::At(' + M
 // Whether Windows takes the side button as held down. A press whose release a hook swallowed leaves it so, and then
 // clicks go wrong all over Windows until a release gets through: a test that does that must send one at the end.
 const sideHeld = async (button) => (await run('[WallpaneTestMouse]::Held(' + (side(button) === 1 ? 5 : 6) + ')')) === 'True';
+// The same for the middle button (the wheel's click), and a left click where the pointer is.
+const middleDown = async () => count(await run('[WallpaneTestMouse]::Send(0, 0x20)'));
+const middleUp = async () => count(await run('[WallpaneTestMouse]::Send(0, 0x40)'));
+const middleHeld = async () => (await run('[WallpaneTestMouse]::Held(4)')) === 'True';
+const leftClick = async () => count(await run('[WallpaneTestMouse]::Send(0, 0x02, 0x04)'));
 
-module.exports = { pressSide, sideDown, sideUp, sideHeld, pointTo, holdsMouse, windowAt };
+module.exports = { pressSide, sideDown, sideUp, sideHeld, middleDown, middleUp, middleHeld, leftClick, pointTo, holdsMouse, windowAt };
