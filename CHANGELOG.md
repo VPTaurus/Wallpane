@@ -1,5 +1,10 @@
 # Changelog
 
+## Not released yet
+
+Fixed:
+- **Clicks keep working after hiding with a mouse button, also on a busy PC:** when the wall was busy, the mouse helper could be late for the button's press, so Windows got the press but not its release, and took the button as held: clicks then went wrong in every program, and pressing the button again did not end it. The helper now lets such a release through, so Windows lets go of the button. Seen with the middle button; the side buttons had it too.
+
 ## 1.7.1: The library on the wall, tag chips, and a GIF of the wall
 
 Download **Wallpane.Setup.1.7.1.exe** (installer) or **Wallpane.Portable.1.7.1.exe** (portable). Not code-signed yet: if Windows SmartScreen warns, click **More info**, then **Run anyway**. From this release on, each release has just these two files; the website's buttons find them by themselves.

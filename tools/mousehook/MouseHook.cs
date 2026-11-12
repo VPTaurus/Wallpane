@@ -1,8 +1,11 @@
 // The emergency hide's mouse button, from any program. Wallpane runs it as "wallpane-mouse.exe back|forward|middle"
 // (lib/mousehook.js). It holds a system-wide low-level mouse hook for that one button, writes "ready" on standard output
 // once the hook is in place, then "press" for each press. Other programs no longer get that button while it runs: its
-// presses and releases go no further. Every other button and all movement pass straight on. It ends when Wallpane
-// closes its standard input (or ends), so it never outlives Wallpane.
+// presses and releases go no further. Every other button and all movement pass straight on. One release does go on:
+// that of a press Windows had after all (the hook was late for it, or the helper started while the button was down).
+// Kept back, Windows would take the button as held from then on, and clicks would go wrong in every program until a
+// release got through, which with the helper running none would. It ends when Wallpane closes its standard input (or
+// ends), so it never outlives Wallpane.
 //
 // Windows waits only a moment for a low-level hook, and one that takes too long it passes by, and since Windows 7 may
 // take out without a word. So the hook does next to nothing: it reads the button from the event and wakes a thread that
@@ -33,12 +36,14 @@ static class MouseHook
     [DllImport("user32.dll")] static extern UIntPtr SetTimer(IntPtr hwnd, UIntPtr id, uint ms, IntPtr fn);
     [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
     [DllImport("kernel32.dll")] static extern IntPtr GetModuleHandle(string name);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
 
     const int WH_MOUSE_LL = 14;
     const uint WM_QUIT = 0x0012, WM_TIMER = 0x0113, WM_MBUTTONDOWN = 0x0207, WM_MBUTTONUP = 0x0208, WM_XBUTTONDOWN = 0x020B, WM_XBUTTONUP = 0x020C;
     const int MOUSE_DATA = 8;     // MSLLHOOKSTRUCT: pt (two ints), then mouseData, whose high word names the side button
 
     static uint down, up, side;   // the button's messages; for a side button which one (1 back, 2 forward), else 0
+    static int vk;                // the button's virtual key, to ask Windows whether it takes it as down
     static HookProc keep;         // the hook's delegate, kept alive while the hook is in place
     static int presses;           // presses the writer has still to tell
     static readonly AutoResetEvent pressed = new AutoResetEvent(false);
@@ -51,7 +56,10 @@ static class MouseHook
             uint msg = (uint)wParam.ToInt64();
             if ((msg == down || msg == up) && (side == 0 || ((uint)Marshal.ReadInt32(lParam, MOUSE_DATA) >> 16) == side))
             {
-                if (msg == down) { Interlocked.Increment(ref presses); pressed.Set(); }
+                if (msg == down) { Interlocked.Increment(ref presses); pressed.Set(); return (IntPtr)1; }
+                // The release. Windows updates a button's state only after the hooks, so here it still says whether it
+                // had the press: if so, the release goes on and Windows lets go of the button.
+                if (GetAsyncKeyState(vk) < 0) return CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
                 return (IntPtr)1;
             }
         }
@@ -72,8 +80,8 @@ static class MouseHook
     static int Main(string[] args)
     {
         string b = args.Length > 0 ? args[0] : "";
-        if (b == "middle") { down = WM_MBUTTONDOWN; up = WM_MBUTTONUP; side = 0; }
-        else if (b == "back" || b == "forward") { down = WM_XBUTTONDOWN; up = WM_XBUTTONUP; side = b == "back" ? 1u : 2u; }
+        if (b == "middle") { down = WM_MBUTTONDOWN; up = WM_MBUTTONUP; side = 0; vk = 0x04; }
+        else if (b == "back" || b == "forward") { down = WM_XBUTTONDOWN; up = WM_XBUTTONUP; side = b == "back" ? 1u : 2u; vk = b == "back" ? 0x05 : 0x06; }
         else { Console.Out.Write("error unknown button\n"); Console.Out.Flush(); return 2; }
 
         try { Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal; } catch { }
@@ -83,6 +91,7 @@ static class MouseHook
         RuntimeHelpers.PrepareMethod(typeof(MouseHook).GetMethod("Hook", BindingFlags.NonPublic | BindingFlags.Static).MethodHandle);
         IntPtr sample = Marshal.AllocHGlobal(32);
         try { Marshal.WriteInt32(sample, MOUSE_DATA, 0); Marshal.ReadInt32(sample, MOUSE_DATA); Hook(0, (IntPtr)0x0200, sample); } finally { Marshal.FreeHGlobal(sample); }
+        GetAsyncKeyState(vk);   // and the call the release makes, so its first use costs nothing either
 
         Thread writer = new Thread(Writer);
         writer.IsBackground = true;
