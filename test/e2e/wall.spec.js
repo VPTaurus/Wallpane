@@ -615,8 +615,10 @@ for (const c of [
       await page.evaluate(() => window.wall.toggleHide());
       await expect.poll(() => state().then((s) => s.on)).toBe(false);
       // A press in time, as usual: the helper keeps both halves from Windows and tells Wallpane, which hides and comes
-      // back; the button is never held in Windows.
+      // back; the button is never held in Windows. A second after the page's toggle first: within a second, a press from
+      // the helper counts as the same press (main.js toggleHide), and on a fast PC the injected one comes sooner.
       await pointTo(w.x, w.y);
+      await page.waitForTimeout(1100);
       expect(await c.down()).toBe(1);
       expect(await c.up()).toBe(1);
       await expect.poll(() => state().then((s) => s.on)).toBe(true);
